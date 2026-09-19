@@ -24,11 +24,11 @@ router.patch("/me", validateRequest(updateUserSchema), UserController.updateMe);
 
 // Global user management (Platform Admin)
 
-router.get("/", requireGlobalPermission("users.read"), UserController.findAll);
-router.post("/", requireGlobalPermission("users.manage"), validateRequest(createUserSchema), UserController.create);
-router.get("/:id", requireGlobalPermission("users.read"), UserController.findById);
-router.patch("/:id", requireGlobalPermission("users.manage"), validateRequest(updateUserSchema), UserController.update);
-router.patch("/:id/status", requireAnyGlobalPermission(["users.manage", "users.update_student_coordinator", "users.update_participant"]), validateRequest(updateUserStatusSchema), UserController.updateStatus);
-router.delete("/:id", requireGlobalPermission("users.manage"), UserController.delete);
+router.get("/", requireAnyGlobalPermission(["users.read", "users.manage", "platform.manage", "organization.manage"]), UserController.findAll);
+router.post("/", requireAnyGlobalPermission(["users.manage", "users.create", "platform.manage", "organization.manage"]), validateRequest(createUserSchema), UserController.create);
+router.get("/:id", requireAnyGlobalPermission(["users.read", "users.manage", "platform.manage", "organization.manage"]), UserController.findById);
+router.patch("/:id", requireAnyGlobalPermission(["users.manage", "platform.manage", "organization.manage"]), validateRequest(updateUserSchema), UserController.update);
+router.patch("/:id/status", requireAnyGlobalPermission(["users.manage", "platform.manage", "organization.manage", "users.update_student_coordinator", "users.update_participant"]), validateRequest(updateUserStatusSchema), UserController.updateStatus);
+router.delete("/:id", requireAnyGlobalPermission(["users.manage", "platform.manage", "organization.manage"]), UserController.delete);
 
 export { router as userRoutes };

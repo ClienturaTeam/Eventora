@@ -5,7 +5,7 @@ import {
   HeartHandshake, LayoutDashboard,
   Sparkles, Trophy, Users, UsersRound,
   ClipboardList, Compass, Wallet, Award, Medal,
-  FilePlus2
+  FilePlus2, Shield
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
@@ -25,6 +25,7 @@ const orgAdminSections = [
       { title: "Approved Proposals", url: "/platform-admin/approved-proposals", icon: Sparkles },
       { title: "Events", url: "/events", icon: CalendarDays },
       { title: "Users", url: "/users", icon: Users },
+      { title: "Role Management", url: "/roles", icon: Shield },
       { title: "Reports", url: "/reports", icon: FileBarChart },
       { title: "Notifications", url: "/notifications", icon: Bell },
     ],
@@ -40,6 +41,8 @@ const managerSections = [
       { title: "Proposal Reviews", url: "/manager/proposals", icon: Sparkles },
       { title: "Approved Proposals", url: "/manager/approved-proposals", icon: Sparkles },
       { title: "Events", url: "/manager/events", icon: CalendarDays },
+      { title: "Users", url: "/users", icon: Users },
+      { title: "Role Management", url: "/roles", icon: Shield },
       { title: "Faculty Coordinators", url: "/manager/coordinators", icon: UsersRound },
       { title: "FC Requests", url: "/manager/requests", icon: ClipboardCheck },
       { title: "Registrations", url: "/manager/registrations", icon: ClipboardCheck },
@@ -133,7 +136,7 @@ export function AppSidebar() {
       }
     ];
     basePath = "/coordinator";
-  } else if (roleName === "Platform Admin") {
+  } else if (roleName === "Sudo Admin" || roleName === "Platform Admin") {
     sections = orgAdminSections;
     basePath = "/platform-admin";
   }
@@ -144,8 +147,8 @@ export function AppSidebar() {
     items: [...section.items]
   }));
 
-  if (permissions.includes("users.create_manager") || permissions.includes("users.create_faculty_coordinator")) {
-    if (roleName === "Organization Admin" || roleName === "Platform Admin") {
+  if (permissions.includes("users.create_manager") || permissions.includes("users.create_faculty_coordinator") || permissions.includes("platform.manage")) {
+    if (roleName === "Admin" || roleName === "Organization Admin" || roleName === "Sudo Admin" || roleName === "Platform Admin") {
       const platformSection = sections.find(s => s.label === "Platform");
       if (platformSection && !platformSection.items.some(i => i.title === "Privileged Accounts")) {
         platformSection.items.push({ title: "Privileged Accounts", url: "/platform-admin/privileged-accounts", icon: Users });
@@ -158,6 +161,32 @@ export function AppSidebar() {
     }
   }
 
+  // Filter sections by granular permissions
+  sections = sections.map(section => ({
+    ...section,
+    items: section.items.filter(item => {
+      if (item.url === "/events" || item.url === "/manager/events") {
+        return permissions.includes("events.read") || permissions.includes("events.manage") || permissions.includes("events.create") || permissions.includes("platform.manage") || permissions.includes("organization.manage") || roleName === "Sudo Admin" || roleName === "Platform Admin" || roleName === "Admin" || roleName === "Organization Admin" || roleName === "Manager";
+      }
+      if (item.url === "/users") {
+        return permissions.includes("users.read") || permissions.includes("users.manage") || permissions.includes("platform.manage") || permissions.includes("organization.manage") || roleName === "Sudo Admin" || roleName === "Platform Admin" || roleName === "Admin" || roleName === "Organization Admin";
+      }
+      if (item.url === "/roles") {
+        return permissions.includes("platform.manage") || permissions.includes("organization.manage") || permissions.includes("users.manage") || roleName === "Sudo Admin" || roleName === "Platform Admin" || roleName === "Admin" || roleName === "Organization Admin";
+      }
+      if (item.url === "/reports" || item.url === "/manager/reports") {
+        return permissions.includes("reports.read") || permissions.includes("organization.manage") || permissions.includes("platform.manage") || roleName === "Sudo Admin" || roleName === "Platform Admin" || roleName === "Admin" || roleName === "Organization Admin" || roleName === "Manager";
+      }
+      if (item.url === "/manager/submissions") {
+        return permissions.includes("submissions.read") || permissions.includes("submissions.manage") || roleName === "Sudo Admin" || roleName === "Platform Admin" || roleName === "Admin" || roleName === "Organization Admin" || roleName === "Manager";
+      }
+      if (item.url === "/manager/evaluations") {
+        return permissions.includes("evaluations.read") || permissions.includes("evaluations.manage") || roleName === "Sudo Admin" || roleName === "Platform Admin" || roleName === "Admin" || roleName === "Organization Admin" || roleName === "Manager";
+      }
+      return true;
+    })
+  })).filter(section => section.items.length > 0);
+
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="border-b border-sidebar-border px-3 py-3.5">
@@ -168,7 +197,7 @@ export function AppSidebar() {
           {!collapsed ? (
             <span className="min-w-0">
               <span className="text-display block truncate text-sm font-semibold leading-tight">
-                Ascent Platform
+                Eventora Platform
               </span>
               <span className="block truncate text-[11px] text-muted-foreground">
                 {roleName || "Events · Competitions"}

@@ -4,12 +4,12 @@ import { RegistrationsListPage } from "@/modules/registrations/pages/registratio
 export const Route = createFileRoute("/registrations")({
   head: () => ({
     meta: [
-      { title: "Registrations · Ascent Platform" },
+      { title: "Registrations · Eventora Platform" },
       {
         name: "description",
         content: "Approve, review and reconcile participant registrations and payments.",
       },
-      { property: "og:title", content: "Registrations · Ascent Platform" },
+      { property: "og:title", content: "Registrations · Eventora Platform" },
       {
         property: "og:description",
         content: "Approve, review and reconcile participant registrations and payments.",

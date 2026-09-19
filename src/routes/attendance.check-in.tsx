@@ -3,7 +3,7 @@ import { AttendeeCheckInPage } from "@/modules/attendance/pages/check-in";
 
 export const Route = createFileRoute("/attendance/check-in")({
   head: () => ({
-    meta: [{ title: "Session Check-in · Ascent Platform" }],
+    meta: [{ title: "Session Check-in · Eventora Platform" }],
   }),
   component: AttendeeCheckInPage,
 });

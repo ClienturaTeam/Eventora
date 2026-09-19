@@ -169,14 +169,37 @@ export class HackathonProposalService {
 
     // Using transaction to ensure both event creation and status update succeed
     const { event, updatedProposal } = await prisma.$transaction(async (tx) => {
+      const { facultyCoordinatorId, studentCoordinatorId, ...cleanEventData } = eventData;
       const teamMembersToCreate = [];
+
+      // 1. Add Event Manager
       if (proposal.managerId && proposal.managerId !== proposal.submittedById) {
         teamMembersToCreate.push({ userId: proposal.managerId, responsibility: "Event Manager" });
       }
 
+      // 2. Add Primary Student Coordinator (chosen or proposal submitter)
+      const scUserId = studentCoordinatorId || proposal.submittedById;
+      if (scUserId) {
+        teamMembersToCreate.push({ userId: scUserId, responsibility: "Primary Student Coordinator" });
+      }
+
+      // 3. Add Faculty Coordinator (chosen or default in organization)
+      let fcUserId = facultyCoordinatorId;
+      if (!fcUserId) {
+        const defaultFc = await tx.organizationMember.findFirst({
+          where: { organizationId: tenantId, role: { name: "Faculty Coordinator" }, status: "ACTIVE" }
+        });
+        if (defaultFc) {
+          fcUserId = defaultFc.userId;
+        }
+      }
+      if (fcUserId) {
+        teamMembersToCreate.push({ userId: fcUserId, responsibility: "Faculty Coordinator" });
+      }
+
       const createdEvent = await tx.event.create({
         data: {
-          ...eventData,
+          ...cleanEventData,
           organizationId: tenantId,
           proposalId: proposal.id,
           teamMembers: {

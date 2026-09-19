@@ -3,7 +3,7 @@ import { CampaignCreatePage } from "@/modules/communication/pages/campaign-creat
 
 export const Route = createFileRoute("/communication/campaigns/new")({
   head: () => ({
-    meta: [{ title: "New Campaign · Ascent Platform" }],
+    meta: [{ title: "New Campaign · Eventora Platform" }],
   }),
   component: CampaignCreatePage,
 });

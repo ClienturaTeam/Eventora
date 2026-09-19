@@ -12,7 +12,7 @@ import { useReportsDashboard, useEventReports, useCompetitionReports, usePartici
 export const Route = createFileRoute("/reports")({
   head: () => ({
     meta: [
-      { title: "Reports · Ascent Platform" },
+      { title: "Reports · Eventora Platform" },
       {
         name: "description",
         content: "Scheduled and on-demand operational reports across every module.",

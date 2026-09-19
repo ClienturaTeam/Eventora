@@ -10,8 +10,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useUpdateUser, useCreateUser } from "../services/users.api";
+import { useRoles } from "@/modules/platform-admin/services/roles.api";
 import { AuthUser } from "@/lib/auth";
+import { toast } from "sonner";
 
 interface UserDialogProps {
   open: boolean;
@@ -23,8 +32,10 @@ export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [roleId, setRoleId] = useState("");
   const [password, setPassword] = useState("");
 
+  const { data: roles = [], isLoading: isRolesLoading } = useRoles();
   const updateMutation = useUpdateUser();
   const createMutation = useCreateUser();
 
@@ -33,26 +44,37 @@ export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
       setFirstName(user.firstName || "");
       setLastName(user.lastName || "");
       setEmail(user.email || "");
+      setRoleId(user.memberships?.[0]?.role?.id || "");
       setPassword("");
     } else {
       setFirstName("");
       setLastName("");
       setEmail("");
+      setRoleId("");
       setPassword("");
     }
   }, [user, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!user && !roleId) {
+      toast.error("Please select a role for the new user");
+      return;
+    }
+
     try {
       if (user) {
         await updateMutation.mutateAsync({ id: user.id, firstName, lastName });
+        toast.success("User profile updated successfully");
       } else {
-        await createMutation.mutateAsync({ firstName, lastName, email, password });
+        await createMutation.mutateAsync({ firstName, lastName, email, roleId, password });
+        toast.success("User account created successfully");
       }
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      toast.error(error?.message || "Failed to save user details");
     }
   };
 
@@ -65,7 +87,7 @@ export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
           <DialogHeader>
             <DialogTitle>{user ? "Edit User" : "Create User"}</DialogTitle>
             <DialogDescription>
-              {user ? "Update user profile details." : "Create a new user account."}
+              {user ? "Update user profile details." : "Create a new user account and assign a role."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -75,6 +97,7 @@ export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
                 id="firstName"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
+                placeholder="John"
                 required
               />
             </div>
@@ -84,6 +107,7 @@ export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
                 id="lastName"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
+                placeholder="Doe"
                 required
               />
             </div>
@@ -96,8 +120,29 @@ export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    placeholder="john.doe@example.com"
                     required
                   />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="role">Role</Label>
+                  <Select value={roleId} onValueChange={setRoleId} required>
+                    <SelectTrigger id="role" className="w-full">
+                      <SelectValue placeholder={isRolesLoading ? "Loading roles..." : "Select a role"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roles.map((r: any) => (
+                        <SelectItem key={r.id} value={r.id}>
+                          <div className="flex flex-col text-left">
+                            <span className="font-medium">{r.name}</span>
+                            {r.description && (
+                              <span className="text-[11px] text-muted-foreground">{r.description}</span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="password">Password</Label>
@@ -106,6 +151,7 @@ export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
                     required
                     minLength={8}
                   />

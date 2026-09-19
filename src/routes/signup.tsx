@@ -92,7 +92,7 @@ function SignupPage() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <Trophy className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="text-xl font-bold tracking-tight text-foreground">Ascent</span>
+          <span className="text-xl font-bold tracking-tight text-foreground">Eventora</span>
         </Link>
       </div>
 

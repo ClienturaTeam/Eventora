@@ -1,9 +1,9 @@
 import { PageHeader, SectionCard } from "@/components/ds/page-header";
 import { StatCard } from "@/components/ds/stat-card";
-import { GroupedBarChart } from "@/components/ds/charts";
+import { GroupedBarChart, TrendAreaChart } from "@/components/ds/charts";
 import { Timeline } from "@/components/ds/timeline";
 import { Button } from "@/components/ui/button";
-import { Settings } from "lucide-react";
+import { Settings, Shield } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { usePlatformAdminSummary, usePlatformTimeline } from "../hooks/platform-admin.hooks";
 
@@ -31,15 +31,23 @@ export function PlatformAdminDashboard() {
     <>
       <PageHeader
         title="Platform Administration"
-        description="Global metrics and system health for the Ascent Platform."
+        description="Global metrics and system health for the Eventora Platform."
         crumbs={[{ label: "Platform" }, { label: "Dashboard" }]}
         actions={
-          <Button variant="outline" asChild>
-            <Link to="/platform-admin/configuration">
-              <Settings className="w-4 h-4" />
-              System settings
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="default" asChild>
+              <Link to="/roles">
+                <Shield className="w-4 h-4 mr-2" />
+                Role Management
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/platform-admin/configuration">
+                <Settings className="w-4 h-4 mr-2" />
+                System settings
+              </Link>
+            </Button>
+          </div>
         }
       />
 
@@ -59,16 +67,30 @@ export function PlatformAdminDashboard() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <SectionCard title="Revenue Trend" description="Monthly recurring revenue by plan">
-          <div className="p-8 text-center text-muted-foreground text-sm border-2 border-dashed rounded-lg bg-muted/20">
-            Revenue trend chart requires historical data aggregation.
-          </div>
+        <SectionCard title="Revenue Trend" description="Monthly recurring revenue by subscription tier ($)">
+          <TrendAreaChart
+            data={(stats as any).revenueTrend || []}
+            xKey="month"
+            series={[
+              { key: "Enterprise", label: "Enterprise Tier" },
+              { key: "Pro", label: "Pro Tier" },
+              { key: "Starter", label: "Starter Tier" },
+            ]}
+            height={260}
+          />
         </SectionCard>
 
-        <SectionCard title="Organization Growth" description="New organizations onboarded">
-          <div className="p-8 text-center text-muted-foreground text-sm border-2 border-dashed rounded-lg bg-muted/20">
-            Organization growth chart requires historical data aggregation.
-          </div>
+        <SectionCard title="Organization Growth" description="New organizations onboarded by sector">
+          <GroupedBarChart
+            data={(stats as any).orgGrowth || []}
+            xKey="month"
+            series={[
+              { key: "Universities", label: "Universities & Colleges" },
+              { key: "Enterprises", label: "Corporate Enterprises" },
+              { key: "NonProfits", label: "Non-Profits & Labs" },
+            ]}
+            height={260}
+          />
         </SectionCard>
       </div>
 

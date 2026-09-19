@@ -28,7 +28,7 @@ function VerifyCertificatePage() {
         <ShieldCheck className="w-16 h-16 text-primary mx-auto mb-6" />
         <h1 className="text-3xl font-bold text-foreground">Certificate Verification</h1>
         <p className="text-muted-foreground mt-2">
-          Verify the authenticity of digital certificates issued by Ascent Platform.
+          Verify the authenticity of digital certificates issued by Eventora Platform.
         </p>
       </div>
 
@@ -64,7 +64,7 @@ function VerifyCertificatePage() {
               <CheckCircle2 className="w-16 h-16 text-emerald-500 mb-4" />
               <h2 className="text-2xl font-bold text-emerald-700 dark:text-emerald-400 mb-2">Valid Certificate</h2>
               <p className="text-emerald-600 dark:text-emerald-500 max-w-md">
-                This is a valid, authentic certificate securely issued via the Ascent Platform.
+                This is a valid, authentic certificate securely issued via the Eventora Platform.
               </p>
             </div>
             
@@ -92,7 +92,7 @@ function VerifyCertificatePage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground font-medium mb-1">Issued By</p>
-                  <p className="text-foreground">{cert.organization?.name || 'Ascent Platform'}</p>
+                  <p className="text-foreground">{cert.organization?.name || 'Eventora Platform'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground font-medium mb-1">Serial Number</p>

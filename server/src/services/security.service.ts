@@ -91,7 +91,7 @@ export class SecurityService {
       throw { status: 400, code: "MFA_ALREADY_ENABLED", message: "MFA is already enabled" };
     }
 
-    const secret = speakeasy.generateSecret({ name: 'AscentPlatform' });
+    const secret = speakeasy.generateSecret({ name: 'EventoraPlatform' });
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw { status: 404, code: "USER_NOT_FOUND", message: "User not found" };
     

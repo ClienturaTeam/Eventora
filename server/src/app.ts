@@ -128,7 +128,7 @@ app.use("/api/v1/hackathon-proposals", hackathonProposalRoutes);
 
 // Health check endpoint
 app.get("/api/v1/health", (req: Request, res: Response) => {
-  res.json({ success: true, message: "Ascent API is healthy" });
+  res.json({ success: true, message: "Eventora API is healthy" });
 });
 
 // 404 handler

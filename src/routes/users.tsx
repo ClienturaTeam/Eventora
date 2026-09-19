@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ListPageTemplate } from "@/components/templates/list-page";
 import { StatusChip } from "@/components/ds/status-chip";
 import type { Column } from "@/components/ds/data-table";
-import { AuthUser } from "@/lib/auth";
+import { AuthUser, useAuth } from "@/lib/auth";
 import { useUsers, useUpdateUserStatus, useDeleteUser } from "@/modules/users/services/users.api";
 import { UserDialog } from "@/modules/users/components/user-dialog";
 import { useState, useMemo } from "react";
@@ -41,12 +41,12 @@ const columns: Column<Row>[] = [
 export const Route = createFileRoute("/users")({
   head: () => ({
     meta: [
-      { title: "Users · Ascent Platform" },
+      { title: "Users · Eventora Platform" },
       {
         name: "description",
         content: "Directory of every platform user with roles, organizations and security posture.",
       },
-      { property: "og:title", content: "Users · Ascent Platform" },
+      { property: "og:title", content: "Users · Eventora Platform" },
       {
         property: "og:description",
         content: "Directory of every platform user with roles, organizations and security posture.",
@@ -57,6 +57,56 @@ export const Route = createFileRoute("/users")({
 });
 
 function UsersPage() {
+  const { user: authUser, hasPermission } = useAuth();
+  const roleName = authUser?.memberships?.[0]?.role?.name;
+
+  const canViewPage =
+    hasPermission("users.read") ||
+    hasPermission("users.manage") ||
+    hasPermission("platform.manage") ||
+    hasPermission("organization.manage") ||
+    roleName === "Sudo Admin" ||
+    roleName === "Platform Admin" ||
+    roleName === "Admin" ||
+    roleName === "Organization Admin";
+
+  const canCreate =
+    hasPermission("users.manage") ||
+    hasPermission("users.create") ||
+    hasPermission("platform.manage") ||
+    hasPermission("organization.manage") ||
+    roleName === "Sudo Admin" ||
+    roleName === "Platform Admin" ||
+    roleName === "Admin" ||
+    roleName === "Organization Admin";
+
+  const canEdit =
+    hasPermission("users.manage") ||
+    hasPermission("platform.manage") ||
+    hasPermission("organization.manage") ||
+    roleName === "Sudo Admin" ||
+    roleName === "Platform Admin" ||
+    roleName === "Admin" ||
+    roleName === "Organization Admin";
+
+  const canManageStatus =
+    hasPermission("users.manage") ||
+    hasPermission("users.update_student_coordinator") ||
+    hasPermission("users.update_participant") ||
+    hasPermission("platform.manage") ||
+    hasPermission("organization.manage") ||
+    roleName === "Sudo Admin" ||
+    roleName === "Platform Admin" ||
+    roleName === "Admin" ||
+    roleName === "Organization Admin";
+
+  const canDelete =
+    hasPermission("users.manage") ||
+    hasPermission("platform.manage") ||
+    roleName === "Sudo Admin" ||
+    roleName === "Platform Admin" ||
+    roleName === "Admin";
+
   const { data = [], isLoading, isError } = useUsers();
   const updateStatusMutation = useUpdateUserStatus();
   const deleteMutation = useDeleteUser();
@@ -90,8 +140,8 @@ function UsersPage() {
       try {
         await deleteMutation.mutateAsync(user.id);
         toast.success("User deleted successfully");
-      } catch (e) {
-        toast.error("Failed to delete user");
+      } catch (e: any) {
+        toast.error(e?.message || "Failed to delete user");
       }
     }
   };
@@ -100,40 +150,62 @@ function UsersPage() {
     try {
       await updateStatusMutation.mutateAsync({ id: user.id, status });
       toast.success(`User status updated to ${status}`);
-    } catch (e) {
-      toast.error("Failed to update status");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to update status");
     }
   };
 
+  const rowActions = useMemo(() => {
+    const actions: { label: string; onSelect: (user: Row) => void }[] = [];
+    if (canEdit) actions.push({ label: "Edit profile", onSelect: handleEdit });
+    if (canManageStatus) {
+      actions.push({ label: "Activate", onSelect: (user) => handleStatusChange(user, "ACTIVE") });
+      actions.push({ label: "Suspend", onSelect: (user) => handleStatusChange(user, "SUSPENDED") });
+    }
+    if (canDelete) actions.push({ label: "Delete", onSelect: handleDelete });
+    return actions;
+  }, [canEdit, canManageStatus, canDelete]);
+
+  if (!canViewPage) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
+        <h1 className="mb-2 text-3xl font-bold tracking-tight">Access Denied</h1>
+        <p className="max-w-md text-muted-foreground">
+          You do not have permission to access the user management directory.
+        </p>
+      </div>
+    );
+  }
+
+  const listPageProps: any = {
+    title: "Users",
+    description: "Directory of every platform user with roles, organizations and security posture.",
+    crumbs: [{ label: "Administration" }, { label: "Users" }],
+    columns,
+    rows,
+    loading: isLoading,
+    error: isError,
+    searchKeys: ["firstName", "lastName", "email"],
+    facet: {
+      label: "Role",
+      key: "roleName",
+      options: roleOptions,
+    },
+    stats: [
+      { label: "Total users", value: String(rows.length) },
+      { label: "Active users", value: String(rows.filter((u) => u.status === "ACTIVE").length) },
+    ],
+    rowActions,
+  };
+
+  if (canCreate) {
+    listPageProps.createLabel = "Create User";
+    listPageProps.onCreate = handleCreate;
+  }
+
   return (
     <>
-      <ListPageTemplate<Row>
-        title="Users"
-        description="Directory of every platform user with roles, organizations and security posture."
-        crumbs={[{ label: "Administration" }, { label: "Users" }]}
-        columns={columns}
-        rows={rows}
-        loading={isLoading}
-        error={isError}
-        searchKeys={["firstName", "lastName", "email"]}
-        createLabel="Create User"
-        onCreate={handleCreate}
-        facet={{
-          label: "Role",
-          key: "roleName",
-          options: roleOptions,
-        }}
-        stats={[
-          { label: "Total users", value: String(rows.length) },
-          { label: "Active users", value: String(rows.filter((u) => u.status === "ACTIVE").length) },
-        ]}
-        rowActions={[
-          { label: "Edit profile", onSelect: handleEdit },
-          { label: "Activate", onSelect: (user) => handleStatusChange(user, "ACTIVE") },
-          { label: "Suspend", onSelect: (user) => handleStatusChange(user, "SUSPENDED") },
-          { label: "Delete", onSelect: handleDelete },
-        ]}
-      />
+      <ListPageTemplate<Row> {...listPageProps} />
       <UserDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}

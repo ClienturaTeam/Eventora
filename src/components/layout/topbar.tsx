@@ -63,8 +63,8 @@ export function Topbar() {
   const getDashboardUrl = (user: any) => {
     if (!user || !user.memberships || user.memberships.length === 0) return "/events";
     const roleName = user.memberships[0]?.role?.name;
-    if (roleName === "Platform Admin") return "/platform-admin";
-    if (roleName === "Organization Admin" || roleName === "Manager") return "/manager";
+    if (roleName === "Sudo Admin" || roleName === "Platform Admin") return "/platform-admin";
+    if (roleName === "Admin" || roleName === "Organization Admin" || roleName === "Manager") return "/manager";
     if (roleName === "Student Coordinator") return "/coordinator";
     if (roleName === "Participant") return "/participant";
     if (roleName === "Judge") return "/evaluations";
@@ -75,6 +75,7 @@ export function Topbar() {
 
   const quickLinks = [
     { label: "Dashboard", to: getDashboardUrl(user) },
+    { label: "Role Management", to: "/roles" },
     { label: "Events", to: "/events" },
     { label: "Create event", to: "/events/new" },
     { label: "Competitions", to: "/competitions" },
@@ -94,7 +95,7 @@ export function Topbar() {
   const currentMembership = user?.memberships?.find(
     (m) => m.organization.id === activeOrganization
   );
-  const orgName = currentMembership?.organization.name || "Ascent Platform";
+  const orgName = currentMembership?.organization.name || "Eventora Platform";
 
   const switchDevUser = async (email: string) => {
     try {
@@ -110,9 +111,9 @@ export function Topbar() {
         let target = "/events";
         if (usr && usr.memberships && usr.memberships.length > 0) {
           const roleName = usr.memberships[0]?.role?.name;
-          if (roleName === "Platform Admin") {
+          if (roleName === "Sudo Admin" || roleName === "Platform Admin") {
             target = "/platform-admin";
-          } else if (roleName === "Organization Admin" || roleName === "Manager") {
+          } else if (roleName === "Admin" || roleName === "Organization Admin" || roleName === "Manager") {
             target = "/manager";
           } else if (roleName === "Student Coordinator") {
             target = "/coordinator";

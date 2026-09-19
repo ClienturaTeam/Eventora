@@ -132,7 +132,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasPermission = (action: string) => {
     if (!user) return false;
-    const permissions = user.memberships?.[0]?.role?.permissions?.map(p => p.permission.action) || [];
+    const currentMembership = user.memberships?.find(m => m.organization.id === activeOrganization) || user.memberships?.[0];
+    const permissions = currentMembership?.role?.permissions?.map(p => p.permission.action) || [];
     return permissions.includes(action);
   };
 

@@ -41,12 +41,12 @@ const columns: Column<Row>[] = [
 export const Route = createFileRoute("/sponsors")({
   head: () => ({
     meta: [
-      { title: "Sponsors · Ascent Platform" },
+      { title: "Sponsors · Eventora Platform" },
       {
         name: "description",
         content: "Sponsorship tiers, committed value and deliverable tracking.",
       },
-      { property: "og:title", content: "Sponsors · Ascent Platform" },
+      { property: "og:title", content: "Sponsors · Eventora Platform" },
       {
         property: "og:description",
         content: "Sponsorship tiers, committed value and deliverable tracking.",

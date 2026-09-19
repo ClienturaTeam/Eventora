@@ -13,6 +13,8 @@ export const createEventSchema = z.object({
   registrationStart: z.string().datetime().optional().nullable(),
   registrationEnd: z.string().datetime().optional().nullable(),
   registrationConfig: z.record(z.any()).optional().nullable(),
+  facultyCoordinatorId: z.string().uuid().optional().nullable(),
+  studentCoordinatorId: z.string().uuid().optional().nullable(),
 });
 
 export const updateEventSchema = createEventSchema.omit({ status: true }).partial();

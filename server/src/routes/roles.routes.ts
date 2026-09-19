@@ -47,6 +47,7 @@ const multiTenantRoleReadGuard = async (req: AuthRequest, res: Response, next: N
 };
 
 router.get("/", multiTenantRoleReadGuard, RoleController.findAll);
+router.get("/permissions", multiTenantRoleReadGuard, RoleController.getPermissions);
 router.get("/:id", multiTenantRoleReadGuard, RoleController.findById);
 router.post("/", multiTenantRoleGuard, validateRequest(createRoleSchema), RoleController.create);
 router.patch("/:id", multiTenantRoleGuard, validateRequest(updateRoleSchema), RoleController.update);

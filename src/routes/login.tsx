@@ -38,11 +38,12 @@ function LoginPage() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "admin@ascent.dev",
+      email: "participant@gmail.com",
       password: "password123",
     },
   });
@@ -68,9 +69,9 @@ function LoginPage() {
       return;
     }
 
-    if (roleName === "Platform Admin") {
+    if (roleName === "Sudo Admin" || roleName === "Platform Admin") {
       router.navigate({ to: "/platform-admin" });
-    } else if (roleName === "Organization Admin" || roleName === "Manager") {
+    } else if (roleName === "Admin" || roleName === "Organization Admin" || roleName === "Manager") {
       router.navigate({ to: "/manager" });
     } else if (roleName === "Student Coordinator") {
       router.navigate({ to: "/coordinator" });
@@ -90,9 +91,13 @@ function LoginPage() {
   const onSubmit = async (data: LoginFormValues) => {
     try {
       setIsLoading(true);
+      const cleanData = {
+        ...data,
+        email: data.email.trim().toLowerCase(),
+      };
       const res = await fetchApi("/auth/login", {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify(cleanData),
       });
 
       if (res.success && res.data?.mfaRequired) {
@@ -154,7 +159,7 @@ function LoginPage() {
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
           <Trophy className="h-4 w-4 text-primary-foreground" />
         </div>
-        <span className="text-xl font-bold tracking-tight">Ascent</span>
+        <span className="text-xl font-bold tracking-tight">Eventora</span>
       </div>
 
       <Card className="w-full max-w-sm">
@@ -198,6 +203,60 @@ function LoginPage() {
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Signing in..." : "Sign in"}
               </Button>
+
+              <div className="pt-2">
+                <p className="text-xs text-muted-foreground mb-2 text-center">Quick Demo Login:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => {
+                      setValue("email", "participant@gmail.com");
+                      setValue("password", "password123");
+                    }}
+                  >
+                    Participant
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => {
+                      setValue("email", "admin@ascent.dev");
+                      setValue("password", "password123");
+                    }}
+                  >
+                    Admin
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => {
+                      setValue("email", "manager@contoso.com");
+                      setValue("password", "password123");
+                    }}
+                  >
+                    Manager
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => {
+                      setValue("email", "elena@ascent.dev");
+                      setValue("password", "password123");
+                    }}
+                  >
+                    Judge
+                  </Button>
+                </div>
+              </div>
             </form>
           ) : (
             <form onSubmit={handleMfaSubmit(onMfaSubmit)} className="space-y-4">

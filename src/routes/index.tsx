@@ -26,8 +26,8 @@ function getDashboardUrl(user: any) {
   if (!user || !user.memberships || user.memberships.length === 0) return "/events";
   if (user.memberships[0]?.status === "PENDING") return "/pending-approval";
   const roleName = user.memberships[0]?.role?.name;
-  if (roleName === "Platform Admin") return "/platform-admin";
-  if (roleName === "Organization Admin" || roleName === "Manager") return "/manager";
+  if (roleName === "Sudo Admin" || roleName === "Platform Admin") return "/platform-admin";
+  if (roleName === "Admin" || roleName === "Organization Admin" || roleName === "Manager") return "/manager";
   if (roleName === "Student Coordinator") return "/coordinator";
   if (roleName === "Participant") return "/participant";
   if (roleName === "Judge") return "/evaluations";
@@ -259,7 +259,7 @@ function LandingPage() {
               Built for Every Role
             </h2>
             <p className="mt-4 text-lg text-slate-400">
-              Ascent respects the organizational hierarchy and provides tailored workflows for everyone involved.
+              Eventora respects the organizational hierarchy and provides tailored workflows for everyone involved.
             </p>
           </div>
 
@@ -327,12 +327,12 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* Why Ascent Section */}
+      {/* Why Eventora Section */}
       <section className="py-24 bg-[#0a1128] border-t border-slate-800/50 relative overflow-hidden">
         <div className="absolute inset-0 bg-blue-900/5 pointer-events-none"></div>
         <div className="container relative mx-auto px-6 md:px-12 text-center max-w-5xl">
           <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl mb-12">
-            Why Choose Ascent?
+            Why Choose Eventora?
           </h2>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 text-left">
             {[
@@ -391,7 +391,7 @@ function LandingPage() {
                   <Trophy className="h-4 w-4 text-white" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xl font-bold leading-none text-white tracking-tight">ASCENT</span>
+                  <span className="text-xl font-bold leading-none text-white tracking-tight">EVENTORA</span>
                   <span className="text-[10px] font-semibold uppercase tracking-widest text-blue-400">Event Management</span>
                 </div>
               </div>
@@ -421,7 +421,7 @@ function LandingPage() {
           
           <div className="mt-12 pt-8 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-slate-500">
-              © 2026 Ascent Event Management
+              © 2026 Eventora Event Management
             </p>
           </div>
         </div>

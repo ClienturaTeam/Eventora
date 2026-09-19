@@ -16,14 +16,30 @@ export class EventService {
   }
 
   static async createEvent(tenantId: string, data: any) {
-    const { facultyCoordinatorId, ...eventData } = data;
+    const { facultyCoordinatorId, studentCoordinatorId, ...eventData } = data;
     const event = await EventRepository.create(tenantId, eventData);
-    if (facultyCoordinatorId) {
+    let fcId = facultyCoordinatorId;
+    if (!fcId) {
+      const defaultFc = await prisma.organizationMember.findFirst({
+        where: { organizationId: tenantId, role: { name: "Faculty Coordinator" }, status: "ACTIVE" }
+      });
+      if (defaultFc) fcId = defaultFc.userId;
+    }
+    if (fcId) {
       await prisma.eventTeamMember.create({
         data: {
           eventId: event.id,
-          userId: facultyCoordinatorId,
+          userId: fcId,
           responsibility: "Faculty Coordinator"
+        }
+      });
+    }
+    if (studentCoordinatorId) {
+      await prisma.eventTeamMember.create({
+        data: {
+          eventId: event.id,
+          userId: studentCoordinatorId,
+          responsibility: "Primary Student Coordinator"
         }
       });
     }

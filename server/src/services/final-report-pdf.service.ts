@@ -23,7 +23,7 @@ export class FinalReportPDFService {
         doc
           .fillColor('#2563eb')
           .fontSize(24)
-          .text('Ascent Event Management System', { align: 'center' })
+          .text('Eventora Event Management System', { align: 'center' })
           .moveDown(0.5);
 
         doc

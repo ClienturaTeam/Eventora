@@ -3,7 +3,7 @@ import { PermissionsPage } from "@/modules/platform-admin/pages/permissions";
 
 export const Route = createFileRoute("/roles")({
   head: () => ({
-    meta: [{ title: "Roles & Permissions · Ascent Platform" }],
+    meta: [{ title: "Roles & Permissions · Eventora Platform" }],
   }),
   component: PermissionsPage,
 });

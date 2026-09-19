@@ -22,7 +22,7 @@ export class EventRepository {
             user: {
               memberships: {
                 none: {
-                  role: { name: { in: ["Platform Admin", "Organization Admin"] } }
+                  role: { name: { in: ["Sudo Admin", "Platform Admin", "Admin", "Organization Admin"] } }
                 }
               }
             }

@@ -70,9 +70,12 @@ export class AuthService {
   }
 
   static async login(data: any) {
-    console.log("AuthService.login: Start");
-    const user = await prisma.user.findUnique({ 
-      where: { email: data.email },
+    const cleanEmail = data.email ? data.email.trim().toLowerCase() : "";
+    console.log("AuthService.login: Start for", cleanEmail);
+    const user = await prisma.user.findFirst({ 
+      where: { 
+        email: { equals: cleanEmail, mode: "insensitive" }
+      },
       include: { 
         mfa: true,
         memberships: { include: { role: true } }

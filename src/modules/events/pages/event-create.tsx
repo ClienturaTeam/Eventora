@@ -18,10 +18,30 @@ import { fetchApi } from "@/lib/api-client";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
 
 export function CreateEventPage() {
   const { proposalId } = useSearch({ from: '/events/new' });
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const orgId = user?.memberships?.[0]?.organization?.id;
+
+  const { data: membersRes } = useQuery({
+    queryKey: ["organization", orgId, "members"],
+    queryFn: async () => {
+      if (!orgId) return [];
+      const res = await fetchApi(`/organizations/${orgId}/members`);
+      return res.data as any[];
+    },
+    enabled: !!orgId,
+  });
+
+  const members = membersRes || [];
+  const facultyCoordinators = members.filter((m: any) => m.role.name === "Faculty Coordinator");
+  const studentCoordinators = members.filter((m: any) => m.role.name === "Student Coordinator");
+
+  const [facultyCoordinatorId, setFacultyCoordinatorId] = useState<string>("");
+  const [studentCoordinatorId, setStudentCoordinatorId] = useState<string>("");
   
   const { data: proposalRes, isLoading: isLoadingProposal } = useQuery({
     queryKey: ['hackathon-proposal', proposalId],
@@ -60,8 +80,18 @@ export function CreateEventPage() {
       if (proposal.requirements) setRules(proposal.requirements);
       if (proposal.startDate) setStart(new Date(proposal.startDate));
       if (proposal.endDate) setEnd(new Date(proposal.endDate));
+      if (proposal.submittedById) setStudentCoordinatorId(proposal.submittedById);
     }
   }, [proposal]);
+
+  useEffect(() => {
+    if (!facultyCoordinatorId && facultyCoordinators.length > 0) {
+      setFacultyCoordinatorId(facultyCoordinators[0].user.id);
+    }
+    if (!studentCoordinatorId && studentCoordinators.length > 0 && !proposal?.submittedById) {
+      setStudentCoordinatorId(studentCoordinators[0].user.id);
+    }
+  }, [facultyCoordinators, studentCoordinators, facultyCoordinatorId, studentCoordinatorId, proposal]);
 
   const handleGenerateAI = async () => {
     try {
@@ -139,6 +169,8 @@ export function CreateEventPage() {
         registrationEnd: regEnd ? regEnd.toISOString() : null,
         price: 0,
         currency: "USD",
+        facultyCoordinatorId: facultyCoordinatorId || null,
+        studentCoordinatorId: studentCoordinatorId || null,
       };
 
       if (proposalId) {
@@ -372,16 +404,81 @@ export function CreateEventPage() {
           ),
         },
         {
+          title: "Coordinators",
+          description: "Assign faculty and student coordinators for event execution",
+          content: (
+            <div className="grid gap-5 lg:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="facultyCoordinator">Faculty Coordinator</Label>
+                <Select value={facultyCoordinatorId} onValueChange={setFacultyCoordinatorId}>
+                  <SelectTrigger id="facultyCoordinator">
+                    <SelectValue placeholder="Select Faculty Coordinator" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {facultyCoordinators.map((m: any) => (
+                      <SelectItem key={m.user.id} value={m.user.id}>
+                        {m.user.firstName} {m.user.lastName} ({m.user.email})
+                      </SelectItem>
+                    ))}
+                    {facultyCoordinators.length === 0 && (
+                      <SelectItem value="none" disabled>
+                        No Faculty Coordinators found in organization
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Responsible for faculty approvals and event oversight.</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="studentCoordinator">Student Coordinator</Label>
+                <Select value={studentCoordinatorId} onValueChange={setStudentCoordinatorId}>
+                  <SelectTrigger id="studentCoordinator">
+                    <SelectValue placeholder="Select Student Coordinator" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {studentCoordinators.map((m: any) => (
+                      <SelectItem key={m.user.id} value={m.user.id}>
+                        {m.user.firstName} {m.user.lastName} ({m.user.email})
+                      </SelectItem>
+                    ))}
+                    {studentCoordinators.length === 0 && (
+                      <SelectItem value="none" disabled>
+                        No Student Coordinators found in organization
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {proposal ? "Pre-assigned from hackathon proposal submitter." : "Lead student coordinator for day-to-day operations."}
+                </p>
+              </div>
+            </div>
+          ),
+        },
+        {
           title: "Review",
           description: "Confirm configuration before publishing",
           content: (
             <div className="space-y-3">
               <dl className="divide-y divide-border rounded-lg border border-border">
                 {[
-                  { k: "Event", v: "Global AI Innovation Summit 2026" },
-                  { k: "Category", v: "Hackathon · Hybrid" },
-                  { k: "Schedule", v: "14–17 Sep 2026 · UTC" },
-                  { k: "Capacity", v: "2,000 participants" },
+                  { k: "Event", v: eventName || "Untitled Event" },
+                  { k: "Category", v: `${category} · Hybrid` },
+                  { k: "Schedule", v: start && end ? `${start.toLocaleDateString()} – ${end.toLocaleDateString()}` : "Not configured" },
+                  { k: "Registration Type", v: registrationType },
+                  {
+                    k: "Faculty Coordinator",
+                    v: facultyCoordinators.find((m: any) => m.user.id === facultyCoordinatorId)
+                      ? `${facultyCoordinators.find((m: any) => m.user.id === facultyCoordinatorId)?.user.firstName} ${facultyCoordinators.find((m: any) => m.user.id === facultyCoordinatorId)?.user.lastName}`
+                      : "Not assigned"
+                  },
+                  {
+                    k: "Student Coordinator",
+                    v: studentCoordinators.find((m: any) => m.user.id === studentCoordinatorId)
+                      ? `${studentCoordinators.find((m: any) => m.user.id === studentCoordinatorId)?.user.firstName} ${studentCoordinators.find((m: any) => m.user.id === studentCoordinatorId)?.user.lastName}`
+                      : "Not assigned"
+                  },
                   { k: "Visibility", v: "Public listing enabled" },
                 ].map((row) => (
                   <div key={row.k} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3">
