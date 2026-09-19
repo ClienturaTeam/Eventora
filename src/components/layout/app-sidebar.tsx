@@ -91,10 +91,24 @@ export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const isActive = (url: string) => {
-    if (url === "/" || url === "/manager" || url === "/participant" || url === "/coordinator") {
+    if (url === pathname) return true;
+    const rootDashboards = [
+      "/",
+      "/platform-admin",
+      "/manager",
+      "/participant",
+      "/coordinator",
+      "/faculty-coordinator",
+      "/events",
+      "/users",
+      "/roles",
+      "/reports",
+      "/notifications"
+    ];
+    if (rootDashboards.includes(url)) {
       return pathname === url;
     }
-    return pathname.startsWith(url);
+    return pathname.startsWith(url + "/");
   };
 
   const roleName = user?.memberships?.[0]?.role?.name;
