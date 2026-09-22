@@ -51,6 +51,7 @@ import { useNotifications, useMarkNotificationAsRead, useMarkAllNotificationsAsR
 import { CheckCheck, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { UserProfileDialog } from "./user-profile-dialog";
+import { WorkspaceSettingsDialog } from "./workspace-settings-dialog";
 
 
 
@@ -58,6 +59,7 @@ export function Topbar() {
   const { user, login, logout, activeOrganization, setActiveOrganization } = useAuth();
   const [open, setOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const navigate = useNavigate();
 
   const getDashboardUrl = (user: any) => {
@@ -95,14 +97,20 @@ export function Topbar() {
   const currentMembership = user?.memberships?.find(
     (m) => m.organization.id === activeOrganization
   );
-  const orgName = currentMembership?.organization.name || "Eventora Platform";
+  const orgName = currentMembership?.organization.name || "Eventora powered by Clientura";
 
   const switchDevUser = async (email: string) => {
     try {
-      const res = await fetchApi("/auth/login", {
+      let res = await fetchApi("/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password: "password123" }),
+        body: JSON.stringify({ email, password: "Password123!" }),
       });
+      if (!res.success) {
+        res = await fetchApi("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email, password: "password123" }),
+        });
+      }
       if (res.success && res.data?.token) {
         login(res.data.token);
         toast.success(`Switched to ${email}`);
@@ -152,70 +160,21 @@ export function Topbar() {
       <SidebarTrigger className="min-h-9 min-w-9" />
       <Separator orientation="vertical" className="mx-1 hidden h-6 sm:block" />
 
-      <div className="hidden max-w-56 gap-2 px-2 md:inline-flex items-center h-9">
-        <span className="grid h-6 w-6 shrink-0 place-items-center rounded bg-primary-muted text-[11px] font-semibold text-accent-foreground">
-          CO
-        </span>
-        <span className="min-w-0 truncate text-sm font-medium">{orgName}</span>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg border border-input text-muted-foreground transition-colors hover:text-foreground md:ml-2 md:w-full md:max-w-md md:justify-start md:gap-2 md:px-3"
-        aria-label="Open global search"
-      >
-        <Search className="h-4 w-4 shrink-0" />
-        <span className="hidden truncate text-sm md:inline">
-          Search events, teams, submissions…
-        </span>
-        <kbd className="ml-auto hidden items-center gap-0.5 rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground md:inline-flex">
-          <CommandIcon className="h-2.5 w-2.5" />K
-        </kbd>
-      </button>
-
-      <div className="ml-auto flex items-center gap-0.5 md:ml-0">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hidden min-h-9 min-w-9 text-muted-foreground sm:inline-flex"
-          aria-label="Help and support"
+      <div className="ml-auto flex items-center gap-2 sm:gap-3">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-input text-muted-foreground transition-colors hover:text-foreground md:w-64 lg:w-80 md:justify-start md:gap-2 md:px-3"
+          aria-label="Open global search"
         >
-          <CircleHelp className="h-[1.1rem] w-[1.1rem]" />
-        </Button>
-        
-        {/* Dev Role Switcher */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="hidden h-9 border-dashed text-muted-foreground sm:inline-flex"
-            >
-              <BugPlay className="mr-2 h-4 w-4" />
-              Dev Role
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Switch Test User</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => switchDevUser("admin@ascent.dev")}>
-              Platform Admin
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => switchDevUser("manager@contoso.com")}>
-              Org Admin / Manager
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => switchDevUser("participant1@contoso.com")}>
-              Participant
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => switchDevUser("faculty1@contoso.com")}>
-              Faculty Coordinator
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => switchDevUser("student1@contoso.com")}>
-              Student Coordinator (Sub-manager)
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          <Search className="h-4 w-4 shrink-0" />
+          <span className="hidden truncate text-sm md:inline">
+            Search events, teams, submissions…
+          </span>
+          <kbd className="ml-auto hidden items-center gap-0.5 rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground md:inline-flex">
+            <CommandIcon className="h-2.5 w-2.5" />K
+          </kbd>
+        </button>
 
         <ThemeToggle />
 
@@ -302,7 +261,11 @@ export function Topbar() {
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setIsProfileOpen(true)}>
               <UserRound className="h-4 w-4 mr-2" />
-              Profile
+              Profile & Security
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setIsSettingsOpen(true)}>
+              <Settings className="h-4 w-4 mr-2" />
+              Workspace Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive" onClick={() => logout()}>
@@ -314,6 +277,7 @@ export function Topbar() {
       </div>
 
       <UserProfileDialog open={isProfileOpen} onOpenChange={setIsProfileOpen} />
+      <WorkspaceSettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput placeholder="Jump to a module, event or record…" />

@@ -35,6 +35,20 @@ export class SubmissionController {
     } catch (error) { next(error); }
   }
 
+  static async uploadFile(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const file = await SubmissionService.addSubmissionFile(req.user!.id, req.params.id, req.body);
+      res.status(201).json({ success: true, data: file });
+    } catch (error) { next(error); }
+  }
+
+  static async finalSubmit(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const sub = await SubmissionService.finalSubmit(req.user!.id, req.params.id);
+      res.json({ success: true, data: sub });
+    } catch (error) { next(error); }
+  }
+
   static async delete(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const tenantId = req.tenantId as string;

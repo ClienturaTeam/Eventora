@@ -285,4 +285,25 @@ export class ManagerController {
       next(error);
     }
   }
+
+  // Results & Prizes Workflow
+  static async publishResult(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { ResultsService } = await import("../services/results.service");
+      const result = await ResultsService.publishResult(req.tenantId!, req.user!.userId, req.body);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updatePrizeStatus(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { ResultsService } = await import("../services/results.service");
+      const prize = await ResultsService.updatePrizeStatus(req.tenantId!, req.params.id, req.body.status);
+      res.json({ success: true, data: prize });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

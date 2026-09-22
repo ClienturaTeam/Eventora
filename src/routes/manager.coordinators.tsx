@@ -63,8 +63,6 @@ function ManagerCoordinatorsPage() {
     createMutation.mutate(formData);
   };
 
-  if (isLoading) return <div className="p-6">Loading...</div>;
-
   // Filter existing users to only show Faculty Coordinators
   const users = (response || []).filter((m: any) => {
     return m.role?.name === 'Faculty Coordinator';
@@ -141,7 +139,7 @@ function ManagerCoordinatorsPage() {
                     Cancel
                   </Button>
                   <Button type="submit" disabled={createMutation.isPending}>
-                    {createMutation.isPending ? 'Creating...' : 'Create Account'}
+                    {createMutation.isPending ? 'Adding...' : 'Add Coordinator Account'}
                   </Button>
                 </div>
               </form>

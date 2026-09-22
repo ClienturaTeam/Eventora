@@ -7,6 +7,10 @@ import { validateRequest } from "../middleware/validate.middleware";
 import { createRegistrationSchema, updateRegistrationSchema } from "../validators/registrations.validator";
 
 const router = Router();
+
+// Public Student / Team Registration
+router.post("/team", RegistrationController.registerTeam);
+
 router.use(requireAuth);
 router.use(requireTenant);
 

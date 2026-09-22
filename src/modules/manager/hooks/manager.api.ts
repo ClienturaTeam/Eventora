@@ -384,3 +384,21 @@ export const useUpdateManagerCertificate = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: managerKeys.certificates() }),
   });
 };
+
+export const usePublishManagerResult = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { competitionId: string; teamId: string; resultType: string; prizeAmount?: number; currency?: string }) => {
+      const response = await fetchApi('/manager/results/publish', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: managerKeys.evaluations() });
+      queryClient.invalidateQueries({ queryKey: managerKeys.certificates() });
+      queryClient.invalidateQueries({ queryKey: managerKeys.teams() });
+    },
+  });
+};

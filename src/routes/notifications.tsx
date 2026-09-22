@@ -25,7 +25,7 @@ export const Route = createFileRoute("/notifications")({
   component: NotificationsPage,
 });
 
-function NotificationsPage() {
+export function NotificationsPage() {
   const { data, isLoading } = useNotifications();
   const markAllAsRead = useMarkAllNotificationsAsRead();
 

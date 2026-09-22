@@ -1,28 +1,34 @@
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
-async function main() {
-  const orgAdmin = await prisma.role.findFirst({ where: { name: 'Organization Admin' } });
-  if (!orgAdmin) return;
+import { prisma } from "./server/src/utils/prisma";
 
-  const paymentPerms = await prisma.permission.findMany({
-    where: { action: { startsWith: 'payments' } }
+async function main() {
+  const allPermissions = await prisma.permission.findMany();
+  const adminRoles = await prisma.role.findMany({
+    where: {
+      name: { in: ["Sudo Admin", "Platform Admin", "Admin", "Organization Admin", "Manager"] },
+    },
   });
 
-  for (const perm of paymentPerms) {
-    await prisma.rolePermission.upsert({
-      where: {
-        roleId_permissionId: {
-          roleId: orgAdmin.id,
-          permissionId: perm.id
-        }
-      },
-      update: {},
-      create: {
-        roleId: orgAdmin.id,
-        permissionId: perm.id
-      }
-    });
+  console.log(`Found ${allPermissions.length} total permissions and ${adminRoles.length} admin roles.`);
+
+  for (const role of adminRoles) {
+    for (const perm of allPermissions) {
+      await prisma.rolePermission.upsert({
+        where: {
+          roleId_permissionId: {
+            roleId: role.id,
+            permissionId: perm.id,
+          },
+        },
+        update: {},
+        create: {
+          roleId: role.id,
+          permissionId: perm.id,
+        },
+      });
+    }
   }
-  console.log("Added payment permissions to Organization Admin");
+
+  console.log("Successfully granted all permissions to admin roles!");
 }
-main();
+
+main().catch(console.error).finally(() => prisma.$disconnect());

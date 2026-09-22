@@ -177,7 +177,7 @@ function FCStudentCoordinatorsPage() {
                     Cancel
                   </Button>
                   <Button type="submit" disabled={createMutation.isPending}>
-                    {createMutation.isPending ? 'Creating...' : 'Create Account'}
+                    {createMutation.isPending ? 'Adding...' : 'Add Coordinator Account'}
                   </Button>
                 </div>
               </form>

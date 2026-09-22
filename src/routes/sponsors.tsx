@@ -70,10 +70,6 @@ function SponsorsPage() {
     status: s.status || "ACTIVE",
   }));
 
-  if (isSponsorsLoading || isStatsLoading) {
-    return <div className="p-8">Loading sponsors...</div>;
-  }
-
   return (
     <ListPageTemplate<Row>
       title="Sponsors"
@@ -81,6 +77,7 @@ function SponsorsPage() {
       crumbs={[{ label: "People" }, { label: "Sponsors" }]}
       columns={columns}
       rows={rows}
+      loading={isSponsorsLoading || isStatsLoading}
       searchKeys={["name", "tier", "contact"]}
       stats={[
         { label: "Sponsors", value: stats?.sponsors?.toString() || "0" },

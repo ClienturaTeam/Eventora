@@ -52,9 +52,11 @@ async function main() {
   await prisma.judge.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.evaluation.deleteMany();
+  await prisma.submissionFile.deleteMany();
   await prisma.submission.deleteMany();
   await prisma.teamMember.deleteMany();
   await prisma.team.deleteMany();
+  await prisma.problemStatement.deleteMany();
   await prisma.registration.deleteMany();
   await prisma.competition.deleteMany();
   await prisma.event.deleteMany();
@@ -107,7 +109,15 @@ async function main() {
   }
 
   // 3. Users
-  const passwordHash = await bcrypt.hash('password123', 10);
+  const passwordHash = await bcrypt.hash('Password123!', 10);
+
+  const sudoAdmin = await prisma.user.create({
+    data: { email: 'sudo@ascent.com', firstName: 'Sudo', lastName: 'Admin', passwordHash, status: UserStatus.ACTIVE },
+  });
+
+  const adminUser = await prisma.user.create({
+    data: { email: 'admin@ascent.com', firstName: 'Organization', lastName: 'Admin', passwordHash, status: UserStatus.ACTIVE },
+  });
 
   const platformAdmin = await prisma.user.create({
     data: { email: 'admin@ascent.dev', firstName: 'Admin', lastName: 'User', passwordHash, status: UserStatus.ACTIVE },
@@ -171,11 +181,40 @@ async function main() {
     data: { name: 'Admin', organizationId: org1.id, description: 'Organization Administrator' },
   });
 
+  const managerRole = await prisma.role.create({
+    data: { name: 'Manager', organizationId: org1.id, description: 'Event & Competition Manager' },
+  });
+
+  const facultyRole = await prisma.role.create({
+    data: { name: 'Faculty Coordinator', organizationId: org1.id, description: 'Faculty Coordinator' },
+  });
+
+  const studentCoordinatorRole = await prisma.role.create({
+    data: { name: 'Student Coordinator', organizationId: org1.id, description: 'Student Coordinator' },
+  });
+
+  const judgeRole = await prisma.role.create({
+    data: { name: 'Judge', organizationId: org1.id, description: 'Competition Judge' },
+  });
+
+  const mentorRole = await prisma.role.create({
+    data: { name: 'Mentor', organizationId: org1.id, description: 'Team Mentor' },
+  });
+
+  const volunteerRole = await prisma.role.create({
+    data: { name: 'Volunteer', organizationId: org1.id, description: 'Event Volunteer' },
+  });
+
+  const participantRole = await prisma.role.create({
+    data: { name: 'Participant', organizationId: org1.id, description: 'Event & Hackathon Participant' },
+  });
+
   // Assign permissions
   for (const p of permissionsData) {
     await prisma.rolePermission.create({ data: { roleId: globalAdminRole.id, permissionId: permissions[p].id } });
   }
   const orgAdminPerms = [
+    'organization.read', 'organization.manage',
     'events.read', 'events.create', 'events.update', 'events.delete', 'events.complete',
     'competitions.read', 'competitions.manage',
     'registrations.read', 'registrations.manage',
@@ -187,27 +226,50 @@ async function main() {
     'notifications.read', 'notifications.manage',
     'winners.read', 'winners.manage', 'winners.finalize',
     'badges.read', 'badges.manage', 'badges.award',
+    'learning.read', 'learning.manage',
+    'community.read', 'community.manage',
+    'feedback.read', 'feedback.manage',
+    'recruitment.read', 'recruitment.manage',
+    'sponsors.read', 'sponsors.manage',
+    
+    // Payments
+    'payments.read', 'payments.manage', 'payments.refund', 'payments.export',
+    'security.read', 'security.manage',
     'hackathon_proposals.create', 'hackathon_proposals.read', 'hackathon_proposals.update',
+    'hackathon_proposals.read_own', 'hackathon_proposals.update_own',
     'hackathon_proposals.submit', 'hackathon_proposals.review', 'hackathon_proposals.principal_review', 'hackathon_proposals.create_event',
     'users.read', 'users.manage',
   ];
   for (const p of orgAdminPerms) {
     await prisma.rolePermission.create({ data: { roleId: orgAdminRole.id, permissionId: permissions[p].id } });
+    await prisma.rolePermission.create({ data: { roleId: managerRole.id, permissionId: permissions[p].id } });
+  }
+
+  const participantPerms = [
+    'events.read', 'competitions.read', 'registrations.read', 'teams.read',
+    'submissions.read', 'submissions.manage', 'certificates.read', 'notifications.read', 'badges.read'
+  ];
+  for (const p of participantPerms) {
+    if (permissions[p]) {
+      await prisma.rolePermission.create({ data: { roleId: participantRole.id, permissionId: permissions[p].id } });
+    }
   }
 
   // 6. Organization Memberships
   const allUsersForOrg = [
+    { userId: sudoAdmin.id, roleId: globalAdminRole.id },
+    { userId: adminUser.id, roleId: orgAdminRole.id },
     { userId: platformAdmin.id, roleId: globalAdminRole.id },
-    { userId: orgManager.id, roleId: orgAdminRole.id },
-    { userId: participant1.id, roleId: orgAdminRole.id },
-    { userId: judgeUser1.id, roleId: orgAdminRole.id },
-    { userId: judgeUser2.id, roleId: orgAdminRole.id },
-    { userId: mentorUser1.id, roleId: orgAdminRole.id },
-    { userId: mentorUser2.id, roleId: orgAdminRole.id },
-    { userId: volunteerUser1.id, roleId: orgAdminRole.id },
-    { userId: volunteerUser2.id, roleId: orgAdminRole.id },
-    { userId: participant2.id, roleId: orgAdminRole.id },
-    { userId: studentCoordinatorUser.id, roleId: orgAdminRole.id },
+    { userId: orgManager.id, roleId: managerRole.id },
+    { userId: participant1.id, roleId: participantRole.id },
+    { userId: judgeUser1.id, roleId: judgeRole.id },
+    { userId: judgeUser2.id, roleId: judgeRole.id },
+    { userId: mentorUser1.id, roleId: mentorRole.id },
+    { userId: mentorUser2.id, roleId: mentorRole.id },
+    { userId: volunteerUser1.id, roleId: volunteerRole.id },
+    { userId: volunteerUser2.id, roleId: volunteerRole.id },
+    { userId: participant2.id, roleId: participantRole.id },
+    { userId: studentCoordinatorUser.id, roleId: studentCoordinatorRole.id },
   ];
 
   for (const m of allUsersForOrg) {
@@ -256,6 +318,40 @@ async function main() {
     },
   });
 
+  // Problem Statements
+  const ps1 = await prisma.problemStatement.create({
+    data: {
+      organizationId: org1.id,
+      code: "PS-001",
+      title: "AI-Powered Smart City Grid Optimization",
+      description: "Design an intelligent algorithm to optimize renewable energy distribution and reduce peak grid load across urban neighborhoods.",
+      category: "Artificial Intelligence & Sustainability",
+      isReleased: true,
+    }
+  });
+
+  const ps2 = await prisma.problemStatement.create({
+    data: {
+      organizationId: org1.id,
+      code: "PS-002",
+      title: "Decentralized Event Verification Protocol",
+      description: "Build a zero-knowledge credential verification system for hackathon certificates and academic badges.",
+      category: "Blockchain & Security",
+      isReleased: true,
+    }
+  });
+
+  const ps3 = await prisma.problemStatement.create({
+    data: {
+      organizationId: org1.id,
+      code: "PS-003",
+      title: "Real-Time Collaborative Code Playground",
+      description: "Develop a low-latency web workspace enabling real-time multi-user code editing and instant preview execution.",
+      category: "Developer Tools",
+      isReleased: false,
+    }
+  });
+
   // 9. Registrations
   await prisma.registration.create({ data: { eventId: event1.id, userId: participant1.id, status: 'APPROVED' } });
   await prisma.registration.create({ data: { eventId: event1.id, userId: participant2.id, status: 'APPROVED' } });
@@ -267,8 +363,19 @@ async function main() {
   const team1 = await prisma.team.create({
     data: {
       name: 'Team Quantum',
+      size: 4,
       competitionId: comp1.id,
-      members: { create: [{ userId: participant1.id, isLead: true }] },
+      problemStatementId: ps1.id,
+      problemStatementLocked: true,
+      problemStatementSelectedAt: new Date(),
+      members: {
+        create: [
+          { userId: participant1.id, name: 'Bob Participant', email: 'participant@gmail.com', isLead: true },
+          { name: 'Rahul Sharma', email: 'rahul@example.com', contactNumber: '9876543211', college: 'NIT Warangal', department: 'CSE', isLead: false },
+          { name: 'Kiran Kumar', email: 'kiran@example.com', contactNumber: '9876543212', college: 'NIT Warangal', department: 'ECE', isLead: false },
+          { name: 'Sai Teja', email: 'sai@example.com', contactNumber: '9876543213', college: 'NIT Warangal', department: 'EEE', isLead: false }
+        ]
+      },
     },
   });
 

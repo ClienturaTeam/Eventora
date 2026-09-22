@@ -15,6 +15,7 @@ export class UserRepository {
           select: {
             role: {
               select: {
+                id: true,
                 name: true
               }
             }
@@ -38,6 +39,7 @@ export class UserRepository {
           select: {
             role: {
               select: {
+                id: true,
                 name: true
               }
             }

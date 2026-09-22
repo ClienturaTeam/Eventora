@@ -3,7 +3,7 @@ import { fetchApi } from "@/lib/api-client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type EvaluationStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED";
+export type EvaluationStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CORRECTION_REQUESTED";
 
 export interface ApiEvaluation {
   id: string;
@@ -12,6 +12,11 @@ export interface ApiEvaluation {
   score: number | null;
   feedback: string | null;
   status: EvaluationStatus;
+  recommendation?: string | null;
+  criteriaScores?: Record<string, number> | null;
+  isLocked?: boolean;
+  lockedAt?: string | null;
+  correctionReason?: string | null;
   createdAt: string;
   updatedAt: string;
   submission?: {
@@ -38,6 +43,7 @@ export interface UpdateEvaluationInput {
   scores?: Record<string, number>;
   feedback?: string;
   status?: EvaluationStatus;
+  recommendation?: "QUALIFY" | "REJECT" | string;
 }
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
@@ -100,6 +106,23 @@ export function useUpdateEvaluation() {
       const res = await fetchApi(`/evaluations/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),
+      });
+      return res.data as ApiEvaluation;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["evaluations"] });
+      queryClient.invalidateQueries({ queryKey: ["evaluations", variables.id] });
+    },
+  });
+}
+
+export function useRequestCorrection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const res = await fetchApi(`/evaluations/${id}/request-correction`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
       });
       return res.data as ApiEvaluation;
     },

@@ -7,36 +7,11 @@ import { useUsers, useUpdateUserStatus, useDeleteUser } from "@/modules/users/se
 import { UserDialog } from "@/modules/users/components/user-dialog";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
+import { maskEmail } from "@/lib/utils";
 
 type Row = AuthUser & { roleName: string };
 
-const columns: Column<Row>[] = [
-  {
-    key: "name",
-    header: "User",
-    sortable: true,
-    render: (row) => <span className="font-medium">{row.firstName} {row.lastName}</span>,
-  },
-  { key: "email", header: "Email", sortable: true },
-  {
-    key: "roleName",
-    header: "Role",
-    sortable: true,
-    render: (row) => <Badge variant="outline">{row.roleName}</Badge>,
-  },
-  {
-    key: "status",
-    header: "Status",
-    sortable: true,
-    render: (row) => <StatusChip status={row.status} />,
-  },
-  { 
-    key: "createdAt", 
-    header: "Joined",
-    render: (row) => <span>{new Date(row.createdAt).toLocaleDateString()}</span>
-  },
-];
+
 
 export const Route = createFileRoute("/users")({
   head: () => ({
@@ -107,19 +82,59 @@ function UsersPage() {
     roleName === "Platform Admin" ||
     roleName === "Admin";
 
-  const { data = [], isLoading, isError } = useUsers();
-  const updateStatusMutation = useUpdateUserStatus();
+  const { data: users = [], isLoading, isError } = useUsers();
   const deleteMutation = useDeleteUser();
+  const updateStatusMutation = useUpdateUserStatus();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AuthUser | null>(null);
 
   const rows: Row[] = useMemo(() => {
-    return data.map((user) => ({
-      ...user,
-      roleName: user.memberships?.[0]?.role?.name || "User",
+    return users.map((u: any) => ({
+      ...u,
+      roleName: u.memberships?.[0]?.role?.name || "Member",
     }));
-  }, [data]);
+  }, [users]);
+
+  const columns: Column<Row>[] = useMemo(() => [
+    {
+      key: "name",
+      header: "User",
+      sortable: true,
+      render: (row) => <span className="font-medium">{row.firstName} {row.lastName}</span>,
+    },
+    {
+      key: "email",
+      header: "Email Address",
+      sortable: true,
+      render: (row) => (
+        <span className="font-mono text-xs">
+          {canEdit ? row.email : maskEmail(row.email)}
+        </span>
+      ),
+    },
+    {
+      key: "roleName",
+      header: "Role",
+      sortable: true,
+      render: (row) => (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border border-border bg-muted/30">
+          {row.roleName}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      sortable: true,
+      render: (row) => <StatusChip status={row.status} />,
+    },
+    { 
+      key: "createdAt", 
+      header: "Joined",
+      render: (row) => <span>{new Date(row.createdAt).toLocaleDateString()}</span>
+    },
+  ], [canEdit]);
 
   const roleOptions = useMemo(() => {
     return Array.from(new Set(rows.map((r) => r.roleName))).sort();

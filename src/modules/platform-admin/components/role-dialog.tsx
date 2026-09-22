@@ -149,6 +149,103 @@ function formatPermissionLabel(action: string): string {
   return `${formattedVerb} ${formattedEntity}`;
 }
 
+interface RoleTemplate {
+  id: string;
+  name: string;
+  badge: string;
+  description: string;
+  icon: any;
+  permissionActions: string[];
+}
+
+const ROLE_TEMPLATES: RoleTemplate[] = [
+  {
+    id: "event-manager",
+    name: "Event Manager",
+    badge: "Operations",
+    description: "Full management of platform events, schedule updates, registration tracking, and event completion.",
+    icon: Calendar,
+    permissionActions: [
+      "events.read", "events.create", "events.update", "events.delete", "events.complete",
+      "competitions.read", "competitions.manage", "registrations.read", "registrations.manage",
+      "teams.read", "teams.manage"
+    ]
+  },
+  {
+    id: "evaluator-judge",
+    name: "Evaluator & Judge",
+    badge: "Scoring",
+    description: "Review competition submissions, record evaluation scores, and finalize winners.",
+    icon: FileCheck,
+    permissionActions: [
+      "events.read", "submissions.read", "evaluations.read", "evaluations.manage",
+      "winners.read", "winners.manage"
+    ]
+  },
+  {
+    id: "communications-specialist",
+    name: "Communications Specialist",
+    badge: "Outreach",
+    description: "Create and publish announcements, push notifications, and community discussions.",
+    icon: Bell,
+    permissionActions: [
+      "events.read", "communications.read", "communications.create", "communications.update",
+      "communications.publish", "communications.delete", "notifications.read", "notifications.manage", "community.read"
+    ]
+  },
+  {
+    id: "credential-specialist",
+    name: "Credential Specialist",
+    badge: "Certificates",
+    description: "Design, issue, revoke, and manage digital certificates and accomplishment badges.",
+    icon: Award,
+    permissionActions: [
+      "events.read", "certificates.read", "certificates.create", "certificates.update",
+      "certificates.issue", "certificates.revoke", "badges.read", "badges.manage", "badges.award"
+    ]
+  },
+  {
+    id: "financial-auditor",
+    name: "Financial Auditor",
+    badge: "Audit & Finance",
+    description: "Read-only access to payment ledgers, report exports, and security posture.",
+    icon: DollarSign,
+    permissionActions: [
+      "events.read", "payments.read", "payments.export", "security.read", "settings.read", "users.read"
+    ]
+  },
+  {
+    id: "participant",
+    name: "Participant",
+    badge: "Student & Hacker",
+    description: "Register for events, submit project entries, view leaderboards, and access digital certificates.",
+    icon: Users,
+    permissionActions: [
+      "events.read", "competitions.read", "submissions.read", "teams.read", "certificates.read"
+    ]
+  },
+  {
+    id: "student-coordinator",
+    name: "Student Coordinator",
+    badge: "Coordination",
+    description: "Assist event operations, perform participant QR check-in, record attendance, and issue event alerts.",
+    icon: Calendar,
+    permissionActions: [
+      "events.read", "events.update", "registrations.read", "attendance.read", "attendance.manage", "communications.read"
+    ]
+  },
+  {
+    id: "user-ops-admin",
+    name: "User Operations Admin",
+    badge: "Administration",
+    description: "Manage organization user accounts, staff roles, and recruitment candidates.",
+    icon: Users,
+    permissionActions: [
+      "users.read", "users.manage", "organization.read", "organization.manage", "recruitment.read", "recruitment.manage"
+    ]
+  }
+];
+
 export function RoleDialog({ open, onOpenChange, role }: RoleDialogProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -175,6 +272,18 @@ export function RoleDialog({ open, onOpenChange, role }: RoleDialogProps) {
     }
     setSearchQuery("");
   }, [role, open]);
+
+  const applyTemplate = (tpl: RoleTemplate) => {
+    setName(tpl.name);
+    setDescription(tpl.description);
+
+    const matchedPermIds = availablePermissions
+      .filter((p: any) => tpl.permissionActions.includes(p.action))
+      .map((p: any) => p.id);
+
+    setSelectedPermissions(matchedPermIds);
+    toast.success(`Applied "${tpl.name}" suggestion template (${matchedPermIds.length} permissions configured)`);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -281,6 +390,43 @@ export function RoleDialog({ open, onOpenChange, role }: RoleDialogProps) {
 
           {/* Form Content */}
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+            {/* Quick Role Suggestions Bar */}
+            {!isEditing && (
+              <div className="space-y-2.5 p-3.5 rounded-xl border border-primary/20 bg-primary/5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+                    <span className="text-xs font-bold text-foreground">Role Template Suggestions</span>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground hidden sm:inline">Tap any suggestion to auto-fill details & permissions</span>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-0.5">
+                  {ROLE_TEMPLATES.map((tpl) => {
+                    const TplIcon = tpl.icon;
+                    const isSelected = name === tpl.name;
+                    return (
+                      <button
+                        key={tpl.id}
+                        type="button"
+                        onClick={() => applyTemplate(tpl)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all select-none cursor-pointer ${
+                          isSelected
+                            ? "bg-primary text-primary-foreground border-primary shadow-sm ring-2 ring-primary/20"
+                            : "bg-background text-foreground border-border/80 hover:border-primary/50 hover:bg-muted/50"
+                        }`}
+                      >
+                        <TplIcon className="h-3.5 w-3.5 shrink-0" />
+                        <span>{tpl.name}</span>
+                        <Badge variant={isSelected ? "secondary" : "outline"} className="text-[9px] px-1.5 py-0 h-4 ml-0.5">
+                          {tpl.badge}
+                        </Badge>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Basic Info Inputs */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">

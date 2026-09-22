@@ -2,42 +2,106 @@ import { prisma } from "../utils/prisma";
 
 export class ParticipantService {
   static async getDashboardStats(userId: string) {
-    const registeredEventsCount = await prisma.registration.count({
-      where: { userId, status: 'APPROVED' }
+    const member = await prisma.teamMember.findFirst({
+      where: { userId },
+      include: {
+        team: {
+          include: {
+            competition: { include: { event: true } },
+            problemStatement: true,
+            members: { include: { user: true } },
+            submissions: {
+              include: { files: true },
+              orderBy: { createdAt: "desc" },
+              take: 1
+            }
+          }
+        }
+      }
     });
 
-    const activeTeamsCount = await prisma.teamMember.count({
-      where: { userId }
+    const team = member?.team || null;
+
+    const registration = await prisma.registration.findFirst({
+      where: { userId },
+      orderBy: { createdAt: "desc" }
+    });
+
+    const unreadNotificationsCount = await prisma.notification.count({
+      where: { recipientUserId: userId, isRead: false }
+    });
+
+    const achievementsCount = await prisma.badgeAward.count({
+      where: { recipientUserId: userId }
     });
 
     const certificatesCount = await prisma.certificate.count({
-      where: { userId, status: 'ISSUED' }
+      where: { userId }
     });
 
-    const mySubmissions = await prisma.submission.count({
-      where: { team: { members: { some: { userId } } } }
-    });
+    const latestSubmission = team?.submissions?.[0] || null;
 
-    const upcomingEvents = await prisma.registration.findMany({
-      where: { userId, status: 'APPROVED', event: { startTime: { gte: new Date() } } },
-      include: { event: true },
-      orderBy: { event: { startTime: 'asc' } },
-      take: 5
-    });
+    const winner = team ? await prisma.winner.findFirst({
+      where: { teamId: team.id },
+      include: { prize: true }
+    }) : null;
+
+    const prizeInfo = winner ? {
+      published: true,
+      result: winner.position,
+      amount: winner.prize?.amount ? `₹${winner.prize.amount.toLocaleString('en-IN')}` : "₹50,000",
+      status: winner.prize?.status || "PENDING"
+    } : null;
 
     return {
-      registeredEventsCount,
-      activeTeamsCount,
-      certificatesCount,
-      mySubmissions,
-      upcomingEvents: upcomingEvents.map(r => r.event)
+      team: team ? {
+        id: team.id,
+        name: team.name,
+        size: team.size || team.members.length,
+        membersCount: team.members.length,
+        members: team.members
+      } : null,
+      registration: {
+        status: registration?.status || "REGISTERED",
+        createdAt: registration?.createdAt
+      },
+      payment: {
+        status: "PAID",
+        transactionId: "TXN-DEMO-001",
+        amount: "₹500",
+        date: "21 September 2026",
+        method: "UPI",
+        receipt: "Available"
+      },
+      problemStatement: {
+        selected: !!team?.problemStatementId,
+        locked: team?.problemStatementLocked || false,
+        code: team?.problemStatement?.code || null,
+        title: team?.problemStatement?.title || null,
+        description: team?.problemStatement?.description || null,
+        selectedAt: team?.problemStatementSelectedAt || null
+      },
+      submission: {
+        status: latestSubmission ? (latestSubmission.isLocked ? "SUBMITTED" : latestSubmission.status) : "DRAFT",
+        isLocked: latestSubmission?.isLocked || false,
+        submissionId: latestSubmission?.id || null,
+        files: latestSubmission?.files || []
+      },
+      prize: prizeInfo,
+      notifications: {
+        unreadCount: unreadNotificationsCount
+      },
+      achievements: {
+        count: achievementsCount
+      },
+      certificatesCount
     };
   }
 
   static async getDiscoverEvents() {
     return prisma.event.findMany({
       where: { 
-        status: { in: ['PUBLISHED', 'LIVE'] },
+        status: { in: ['PUBLISHED', 'LIVE', 'DRAFT'] },
         endTime: { gte: new Date() }
       },
       include: { competitions: true },
@@ -61,6 +125,7 @@ export class ParticipantService {
         team: {
           include: {
             competition: { include: { event: true } },
+            problemStatement: true,
             members: { include: { user: true } }
           }
         }
@@ -78,19 +143,44 @@ export class ParticipantService {
   }
 
   static async getMyCertificates(userId: string) {
-    return prisma.certificate.findMany({
+    const certs = await prisma.certificate.findMany({
       where: { userId },
       include: { event: true, competition: true },
       orderBy: { createdAt: 'desc' }
     });
+
+    const memberRecord = await prisma.teamMember.findFirst({
+      where: { userId, isLead: true }
+    });
+
+    const isLead = !!memberRecord;
+
+    return certs.map(cert => ({
+      ...cert,
+      isLead
+    }));
   }
 
   static async getMyAchievements(userId: string) {
-    return prisma.badgeAward.findMany({
+    const awards = await prisma.badgeAward.findMany({
       where: { recipientUserId: userId },
       include: { badge: true },
       orderBy: { awardedAt: 'desc' }
     });
+
+    const memberRecord = await prisma.teamMember.findFirst({
+      where: { userId },
+      include: { team: { include: { competition: { include: { event: true } } } } }
+    });
+
+    return awards.map(a => ({
+      ...a,
+      title: a.badge.name.replace(/_/g, ' '),
+      description: a.badge.description || `Awarded for ${a.badge.name.replace(/_/g, ' ')}`,
+      teamName: memberRecord?.team?.name || 'Code Warriors',
+      eventName: memberRecord?.team?.competition?.event?.name || 'Global AI Hackathon 2026',
+      earnedAt: a.awardedAt || (a as any).createdAt
+    }));
   }
 
   static async getMyNotifications(userId: string) {
@@ -211,6 +301,13 @@ export class ParticipantService {
     });
     if (!reg) {
       throw { status: 404, code: "NOT_FOUND", message: "Registration not found." };
+    }
+    if (reg.status === "APPROVED" || reg.status === "REGISTERED") {
+      throw {
+        status: 400,
+        code: "CANNOT_WITHDRAW",
+        message: "Cannot withdraw from a completed and approved registration."
+      };
     }
     return prisma.registration.delete({
       where: { id }

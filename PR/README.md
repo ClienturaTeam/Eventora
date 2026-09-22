@@ -17,6 +17,7 @@
 ```
 PR/
 ├── README.md                          # This Pull Request Summary & Deployment Guide
+├── ENHANCEMENTS.md                    # Complete Feature & Technical Enhancement Roadmap
 ├── 01-FUTURE-ARCHITECTURE.md          # Enterprise Future System Architecture Specification
 ├── 02-REQUIREMENTS-SPECIFICATION.md   # Functional & Non-Functional Requirements Breakdown
 └── 03-IMPLEMENTATION-PLAN.md          # Step-by-Step Implementation Roadmap & Code Patterns

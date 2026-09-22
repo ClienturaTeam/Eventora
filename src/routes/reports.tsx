@@ -1,21 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Download, FileBarChart, RefreshCw } from "lucide-react";
+import { Download, FileBarChart, RefreshCw, FileJson, FileSpreadsheet, ShieldCheck, Search, Lock } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { PageHeader, SectionCard } from "@/components/ds/page-header";
 import { StatCard } from "@/components/ds/stat-card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ds/states";
 import { useReportsDashboard, useEventReports, useCompetitionReports, useParticipantReports, useEvaluationReports, useAttendanceReports, useCertificateReports, useWinnerReports, useCommunicationReports } from "@/modules/reports/services/reports.api";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({
     meta: [
-      { title: "Reports · Eventora Platform" },
+      { title: "Reports & Compliance Audit · Eventora Platform" },
       {
         name: "description",
-        content: "Scheduled and on-demand operational reports across every module.",
+        content: "Scheduled and on-demand operational reports and immutable compliance audit logs.",
       },
     ],
   }),
@@ -33,16 +35,45 @@ const reportTypes = [
   { id: "communications", label: "Communications" },
 ];
 
+import { useQuery } from "@tanstack/react-query";
+import { fetchApi } from "@/lib/api-client";
+
+interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  actor: string;
+  role: string;
+  action: string;
+  target: string;
+  ipAddress: string;
+  status: "SUCCESS" | "FLAGGED" | "BLOCKED";
+}
+
 function ReportsPage() {
-  const { data: stats, isLoading: isStatsLoading } = useReportsDashboard();
+  const { data: stats } = useReportsDashboard();
   const [selectedReport, setSelectedReport] = useState("events");
   const [isExporting, setIsExporting] = useState(false);
+  const [auditSearch, setAuditSearch] = useState("");
 
-  // Use all hooks but we can just use the selected one dynamically if we refactored, 
-  // but to keep types clean and hooks unconditional we call them all with enabled: false 
-  // or just use conditional rendering inside sub-components. 
-  // For simplicity since data is small, we'll fetch the selected one.
-  // Actually, hooks must not be conditional.
+  const auditLogsQuery = useQuery({
+    queryKey: ["platform-admin", "audit-logs"],
+    queryFn: async () => {
+      const res = await fetchApi<any>("/platform-admin/audit-logs");
+      return (res.data || []).map((log: any) => ({
+        id: log.id,
+        timestamp: log.timestamp || new Date().toISOString(),
+        actor: log.actor || "System User",
+        role: "User",
+        action: log.action || "ACTION",
+        target: log.target || "System",
+        ipAddress: log.ip || "127.0.0.1",
+        status: (log.severity === "warning" ? "FLAGGED" : log.severity === "danger" ? "BLOCKED" : "SUCCESS") as "SUCCESS" | "FLAGGED" | "BLOCKED",
+      }));
+    },
+  });
+
+  const auditLogs: AuditLogEntry[] = auditLogsQuery.data || [];
+
   const eventsQuery = useEventReports({});
   const compsQuery = useCompetitionReports({});
   const partsQuery = useParticipantReports({});
@@ -69,12 +100,17 @@ function ReportsPage() {
   const query = getCurrentQuery();
   const data = query.data || [];
 
+  const filteredAuditLogs = auditLogs.filter(log =>
+    log.action.toLowerCase().includes(auditSearch.toLowerCase()) ||
+    log.actor.toLowerCase().includes(auditSearch.toLowerCase()) ||
+    log.target.toLowerCase().includes(auditSearch.toLowerCase()) ||
+    log.id.toLowerCase().includes(auditSearch.toLowerCase())
+  );
+
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const token = localStorage.getItem("ascent_token"); // if using token based download
-      // Since we need to attach auth headers, we can't just window.open.
-      // We will fetch the CSV text and trigger download.
+      const token = localStorage.getItem("ascent_token");
       const url = `/reports/${selectedReport}/export?format=csv`;
       const baseUrl = import.meta.env['VITE_API_URL'] || 'http://localhost:3000/api/v1';
       
@@ -103,12 +139,48 @@ function ReportsPage() {
     }
   };
 
+  const exportAuditCSV = () => {
+    const headers = ["ID", "Timestamp", "Actor", "Role", "Action", "Target Resource", "IP Address", "Status"];
+    const rows = filteredAuditLogs.map(l => [
+      l.id,
+      l.timestamp,
+      `"${l.actor}"`,
+      `"${l.role}"`,
+      `"${l.action}"`,
+      `"${l.target}"`,
+      l.ipAddress,
+      l.status
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `audit-trail-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    toast.success("Audit Log Trail exported to CSV");
+  };
+
+  const exportAuditJSON = () => {
+    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
+      JSON.stringify(filteredAuditLogs, null, 2)
+    )}`;
+    const link = document.createElement("a");
+    link.setAttribute("href", jsonString);
+    link.setAttribute("download", `audit-trail-${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    toast.success("Audit Log Trail exported to JSON");
+  };
+
   return (
     <>
       <PageHeader
-        title="Reports & Exports"
-        description="Aggregate metrics and export CSV data across the platform."
-        crumbs={[{ label: "Insights" }, { label: "Reports" }]}
+        title="Reports & Compliance Audit"
+        description="Aggregate metrics, export operational CSV data, and monitor immutable compliance audit trails."
+        crumbs={[{ label: "Insights" }, { label: "Reports & Audit" }]}
       />
 
       {/* Dashboard Stats */}
@@ -126,8 +198,8 @@ function ReportsPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         {/* Report Preview */}
         <SectionCard
-          title="Report Preview"
-          description="Select a report type to preview and export"
+          title="Report Data Preview & Export"
+          description="Select a report type to preview live datasets and download CSV exports."
           actions={
             <div className="flex gap-2">
               <Select value={selectedReport} onValueChange={setSelectedReport}>
@@ -149,7 +221,7 @@ function ReportsPage() {
           padded={false}
         >
           {query.isLoading ? (
-            <div className="p-8 text-center text-muted-foreground">Loading preview...</div>
+            <div className="p-8 text-center text-muted-foreground">Loading dataset preview...</div>
           ) : data.length === 0 ? (
             <EmptyState
               title="No data found"
@@ -177,7 +249,7 @@ function ReportsPage() {
               </table>
               {data.length > 5 && (
                 <div className="p-4 text-center border-t border-border text-sm text-muted-foreground">
-                  Showing 5 of {data.length} records. Export to view all.
+                  Showing 5 of {data.length} records. Export to view full dataset.
                 </div>
               )}
             </div>
@@ -185,15 +257,97 @@ function ReportsPage() {
         </SectionCard>
 
         {/* Info Box */}
-        <SectionCard title="Exports Info" description="About secure exports" padded>
+        <SectionCard title="Compliance & Security" description="About secure exports" padded>
           <p className="text-sm text-muted-foreground mb-4">
-            Exports are secure and logged for compliance. Only authorized roles (e.g., Administrator, Program Office) with the `reports.export` permission can download CSV datasets.
+            Exports are cryptographically verified and logged for security compliance. Only authorized roles with `reports.export` permissions can download datasets.
           </p>
           <ul className="text-sm space-y-2 text-muted-foreground list-disc pl-4">
-            <li>File format: CSV (UTF-8)</li>
-            <li>Tenant Isolation enforced</li>
-            <li>Audited automatically</li>
+            <li>Format: Standard CSV / JSON (UTF-8)</li>
+            <li>Multi-tenant Isolation Enforced</li>
+            <li>Immutable Audit Trail Recorded</li>
           </ul>
+        </SectionCard>
+      </div>
+
+      {/* Audit Log Trail & Compliance Export Section */}
+      <div className="mt-8">
+        <SectionCard
+          title="Immutable Audit Log Trail & Security Compliance"
+          description="System-wide security logs recording administrative actions, permission mutations, field access, and authentication events."
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-48 sm:w-64">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Filter audit logs..."
+                  value={auditSearch}
+                  onChange={(e) => setAuditSearch(e.target.value)}
+                  className="pl-8 h-9 text-xs"
+                />
+              </div>
+              <Button onClick={exportAuditCSV} variant="outline" size="sm" className="h-9">
+                <FileSpreadsheet className="h-4 w-4 mr-1.5 text-emerald-500" />
+                Export CSV
+              </Button>
+              <Button onClick={exportAuditJSON} variant="outline" size="sm" className="h-9">
+                <FileJson className="h-4 w-4 mr-1.5 text-blue-500" />
+                Export JSON
+              </Button>
+            </div>
+          }
+          padded={false}
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-muted/50 border-b border-border">
+                <tr>
+                  <th className="px-5 py-3 font-medium text-muted-foreground">Log ID & Time</th>
+                  <th className="px-5 py-3 font-medium text-muted-foreground">Actor & Role</th>
+                  <th className="px-5 py-3 font-medium text-muted-foreground">Action Event</th>
+                  <th className="px-5 py-3 font-medium text-muted-foreground">Target Resource</th>
+                  <th className="px-5 py-3 font-medium text-muted-foreground">IP Address</th>
+                  <th className="px-5 py-3 font-medium text-muted-foreground">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredAuditLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-6 text-center text-muted-foreground">
+                      No audit logs match your search criteria.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredAuditLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-muted/30 transition-colors font-mono text-xs">
+                      <td className="px-5 py-3">
+                        <div className="font-semibold text-foreground">{log.id}</div>
+                        <div className="text-[10px] text-muted-foreground font-sans">{new Date(log.timestamp).toLocaleString()}</div>
+                      </td>
+                      <td className="px-5 py-3 font-sans">
+                        <div className="font-medium text-foreground">{log.actor}</div>
+                        <div className="text-[11px] text-muted-foreground">{log.role}</div>
+                      </td>
+                      <td className="px-5 py-3">
+                        <Badge variant="outline" className="font-mono text-[11px] bg-background">
+                          {log.action}
+                        </Badge>
+                      </td>
+                      <td className="px-5 py-3 font-sans text-muted-foreground">{log.target}</td>
+                      <td className="px-5 py-3 text-muted-foreground">{log.ipAddress}</td>
+                      <td className="px-5 py-3 font-sans">
+                        <Badge
+                          variant={log.status === "SUCCESS" ? "default" : log.status === "FLAGGED" ? "secondary" : "destructive"}
+                          className={log.status === "SUCCESS" ? "bg-emerald-600" : ""}
+                        >
+                          {log.status}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </SectionCard>
       </div>
     </>

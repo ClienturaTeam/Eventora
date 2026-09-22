@@ -27,10 +27,31 @@ export class UserService {
   }
 
   static async update(id: string, data: any, actorId: string) {
-    const user = await this.getById(id);
-    const updated = await UserRepository.update(id, data);
+    const { roleId, ...userData } = data;
+    await this.getById(id);
+    const updated = await UserRepository.update(id, userData);
+
+    if (roleId) {
+      const membership = await prisma.organizationMember.findFirst({
+        where: { userId: id }
+      });
+      if (membership) {
+        await prisma.organizationMember.update({
+          where: { id: membership.id },
+          data: { roleId }
+        });
+      } else {
+        const defaultOrg = await prisma.organization.findFirst({ where: { status: "ACTIVE" } });
+        if (defaultOrg) {
+          await prisma.organizationMember.create({
+            data: { userId: id, organizationId: defaultOrg.id, roleId, status: "ACTIVE" }
+          });
+        }
+      }
+    }
+
     await AuditService.logAction({ organizationId: "PLATFORM", actorId, action: "user.updated", target: id, metadata: data });
-    return updated;
+    return this.getById(id);
   }
 
   static async updateStatus(id: string, status: UserStatus, actorId: string) {

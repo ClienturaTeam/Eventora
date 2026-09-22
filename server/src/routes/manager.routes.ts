@@ -68,4 +68,8 @@ router.patch("/certificates/:id", requirePermission("certificates.update"), Mana
 // Reports
 router.get("/reports", requirePermission("reports.read"), ManagerController.getReports);
 
+// Results & Prizes
+router.post("/results/publish", requirePermission("evaluations.manage"), ManagerController.publishResult);
+router.patch("/prizes/:id/status", requirePermission("evaluations.manage"), ManagerController.updatePrizeStatus);
+
 export default router;

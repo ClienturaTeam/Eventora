@@ -14,6 +14,7 @@ import { Route as CoordinatorRouteImport } from './routes/coordinator'
 import { Route as EvaluationsRouteImport } from './routes/evaluations'
 import { Route as FacultyCoordinatorRouteImport } from './routes/faculty-coordinator'
 import { Route as JudgesRouteImport } from './routes/judges'
+import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ManagerRouteImport } from './routes/manager'
 import { Route as MentorsRouteImport } from './routes/mentors'
@@ -80,6 +81,7 @@ import { Route as ManagerEvaluationsRouteImport } from './routes/manager.evaluat
 import { Route as ManagerEventsRouteImport } from './routes/manager.events'
 import { Route as ManagerJudgesRouteImport } from './routes/manager.judges'
 import { Route as ManagerMentorsRouteImport } from './routes/manager.mentors'
+import { Route as ManagerProblemStatementsRouteImport } from './routes/manager.problem-statements'
 import { Route as ManagerProposalsRouteImport } from './routes/manager.proposals'
 import { Route as ManagerRegistrationsRouteImport } from './routes/manager.registrations'
 import { Route as ManagerReportsRouteImport } from './routes/manager.reports'
@@ -151,6 +153,11 @@ const FacultyCoordinatorRoute = FacultyCoordinatorRouteImport.update({
 const JudgesRoute = JudgesRouteImport.update({
   id: '/judges',
   path: '/judges',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeaderboardRoute = LeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -487,6 +494,12 @@ const ManagerMentorsRoute = ManagerMentorsRouteImport.update({
   path: '/mentors',
   getParentRoute: () => ManagerRoute,
 } as any)
+const ManagerProblemStatementsRoute =
+  ManagerProblemStatementsRouteImport.update({
+    id: '/problem-statements',
+    path: '/problem-statements',
+    getParentRoute: () => ManagerRoute,
+  } as any)
 const ManagerProposalsRoute = ManagerProposalsRouteImport.update({
   id: '/proposals',
   path: '/proposals',
@@ -740,6 +753,7 @@ export interface FileRoutesByFullPath {
   '/evaluations': typeof EvaluationsRoute
   '/faculty-coordinator': typeof FacultyCoordinatorRouteWithChildren
   '/judges': typeof JudgesRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRouteWithChildren
   '/mentors': typeof MentorsRoute
@@ -793,6 +807,7 @@ export interface FileRoutesByFullPath {
   '/manager/events': typeof ManagerEventsRouteWithChildren
   '/manager/judges': typeof ManagerJudgesRoute
   '/manager/mentors': typeof ManagerMentorsRoute
+  '/manager/problem-statements': typeof ManagerProblemStatementsRoute
   '/manager/proposals': typeof ManagerProposalsRoute
   '/manager/registrations': typeof ManagerRegistrationsRoute
   '/manager/reports': typeof ManagerReportsRoute
@@ -858,6 +873,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/evaluations': typeof EvaluationsRoute
   '/judges': typeof JudgesRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/login': typeof LoginRoute
   '/mentors': typeof MentorsRoute
   '/notifications': typeof NotificationsRoute
@@ -909,6 +925,7 @@ export interface FileRoutesByTo {
   '/manager/events': typeof ManagerEventsRouteWithChildren
   '/manager/judges': typeof ManagerJudgesRoute
   '/manager/mentors': typeof ManagerMentorsRoute
+  '/manager/problem-statements': typeof ManagerProblemStatementsRoute
   '/manager/proposals': typeof ManagerProposalsRoute
   '/manager/registrations': typeof ManagerRegistrationsRoute
   '/manager/reports': typeof ManagerReportsRoute
@@ -977,6 +994,7 @@ export interface FileRoutesById {
   '/evaluations': typeof EvaluationsRoute
   '/faculty-coordinator': typeof FacultyCoordinatorRouteWithChildren
   '/judges': typeof JudgesRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRouteWithChildren
   '/mentors': typeof MentorsRoute
@@ -1030,6 +1048,7 @@ export interface FileRoutesById {
   '/manager/events': typeof ManagerEventsRouteWithChildren
   '/manager/judges': typeof ManagerJudgesRoute
   '/manager/mentors': typeof ManagerMentorsRoute
+  '/manager/problem-statements': typeof ManagerProblemStatementsRoute
   '/manager/proposals': typeof ManagerProposalsRoute
   '/manager/registrations': typeof ManagerRegistrationsRoute
   '/manager/reports': typeof ManagerReportsRoute
@@ -1099,6 +1118,7 @@ export interface FileRouteTypes {
     | '/evaluations'
     | '/faculty-coordinator'
     | '/judges'
+    | '/leaderboard'
     | '/login'
     | '/manager'
     | '/mentors'
@@ -1152,6 +1172,7 @@ export interface FileRouteTypes {
     | '/manager/events'
     | '/manager/judges'
     | '/manager/mentors'
+    | '/manager/problem-statements'
     | '/manager/proposals'
     | '/manager/registrations'
     | '/manager/reports'
@@ -1217,6 +1238,7 @@ export interface FileRouteTypes {
     | '/'
     | '/evaluations'
     | '/judges'
+    | '/leaderboard'
     | '/login'
     | '/mentors'
     | '/notifications'
@@ -1268,6 +1290,7 @@ export interface FileRouteTypes {
     | '/manager/events'
     | '/manager/judges'
     | '/manager/mentors'
+    | '/manager/problem-statements'
     | '/manager/proposals'
     | '/manager/registrations'
     | '/manager/reports'
@@ -1335,6 +1358,7 @@ export interface FileRouteTypes {
     | '/evaluations'
     | '/faculty-coordinator'
     | '/judges'
+    | '/leaderboard'
     | '/login'
     | '/manager'
     | '/mentors'
@@ -1388,6 +1412,7 @@ export interface FileRouteTypes {
     | '/manager/events'
     | '/manager/judges'
     | '/manager/mentors'
+    | '/manager/problem-statements'
     | '/manager/proposals'
     | '/manager/registrations'
     | '/manager/reports'
@@ -1456,6 +1481,7 @@ export interface RootRouteChildren {
   EvaluationsRoute: typeof EvaluationsRoute
   FacultyCoordinatorRoute: typeof FacultyCoordinatorRouteWithChildren
   JudgesRoute: typeof JudgesRoute
+  LeaderboardRoute: typeof LeaderboardRoute
   LoginRoute: typeof LoginRoute
   ManagerRoute: typeof ManagerRouteWithChildren
   MentorsRoute: typeof MentorsRoute
@@ -1571,6 +1597,13 @@ declare module '@tanstack/react-router' {
       path: '/judges'
       fullPath: '/judges'
       preLoaderRoute: typeof JudgesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leaderboard': {
+      id: '/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/leaderboard'
+      preLoaderRoute: typeof LeaderboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -2035,6 +2068,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ManagerMentorsRouteImport
       parentRoute: typeof ManagerRoute
     }
+    '/manager/problem-statements': {
+      id: '/manager/problem-statements'
+      path: '/problem-statements'
+      fullPath: '/manager/problem-statements'
+      preLoaderRoute: typeof ManagerProblemStatementsRouteImport
+      parentRoute: typeof ManagerRoute
+    }
     '/manager/proposals': {
       id: '/manager/proposals'
       path: '/proposals'
@@ -2421,6 +2461,7 @@ interface ManagerRouteChildren {
   ManagerEventsRoute: typeof ManagerEventsRouteWithChildren
   ManagerJudgesRoute: typeof ManagerJudgesRoute
   ManagerMentorsRoute: typeof ManagerMentorsRoute
+  ManagerProblemStatementsRoute: typeof ManagerProblemStatementsRoute
   ManagerProposalsRoute: typeof ManagerProposalsRoute
   ManagerRegistrationsRoute: typeof ManagerRegistrationsRoute
   ManagerReportsRoute: typeof ManagerReportsRoute
@@ -2443,6 +2484,7 @@ const ManagerRouteChildren: ManagerRouteChildren = {
   ManagerEventsRoute: ManagerEventsRouteWithChildren,
   ManagerJudgesRoute: ManagerJudgesRoute,
   ManagerMentorsRoute: ManagerMentorsRoute,
+  ManagerProblemStatementsRoute: ManagerProblemStatementsRoute,
   ManagerProposalsRoute: ManagerProposalsRoute,
   ManagerRegistrationsRoute: ManagerRegistrationsRoute,
   ManagerReportsRoute: ManagerReportsRoute,
@@ -2492,6 +2534,7 @@ const rootRouteChildren: RootRouteChildren = {
   EvaluationsRoute: EvaluationsRoute,
   FacultyCoordinatorRoute: FacultyCoordinatorRouteWithChildren,
   JudgesRoute: JudgesRoute,
+  LeaderboardRoute: LeaderboardRoute,
   LoginRoute: LoginRoute,
   ManagerRoute: ManagerRouteWithChildren,
   MentorsRoute: MentorsRoute,

@@ -18,10 +18,18 @@ export const Route = createFileRoute("/manager")({
 function ManagerLayout() {
   const { user } = useAuth();
   
-  const roleName = user?.memberships?.[0]?.role?.name || "Participant";
-  if (roleName !== "Manager" && roleName !== "Organization Admin") {
-    // If not a manager, redirect to unauthorized or participant
-    return <div>Unauthorized. You are not a manager.</div>;
+  const roleName = user?.memberships?.[0]?.role?.name || "User";
+  const allowedRoles = ["Admin", "Sudo Admin", "Platform Admin", "Organization Admin", "Manager"];
+  
+  if (!allowedRoles.includes(roleName)) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center text-center p-4">
+        <h1 className="mb-2 text-2xl font-bold tracking-tight">Access Denied</h1>
+        <p className="max-w-md text-sm text-muted-foreground">
+          You do not have administrative permissions to access the management portal.
+        </p>
+      </div>
+    );
   }
 
   return <Outlet />;

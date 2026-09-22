@@ -1,3 +1,5 @@
+import { appLogger } from "./app-logger";
+
 const API_BASE_URL = import.meta.env['VITE_API_URL'] || 'http://localhost:3000/api/v1';
 
 export class ApiError extends Error {
@@ -14,8 +16,12 @@ export class ApiError extends Error {
   }
 }
 
+export function getAuthToken(): string | null {
+  return typeof window !== "undefined" ? localStorage.getItem('ascent_token') : null;
+}
+
 export async function fetchApi<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem('ascent_token') : null;
+  const token = getAuthToken();
   
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
@@ -30,45 +36,59 @@ export async function fetchApi<T = any>(endpoint: string, options: RequestInit =
   }
 
   const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-  
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  const method = options.method || 'GET';
+  const startTime = performance.now();
 
-  if (!response.ok) {
-    let errorMessage = 'An unexpected error occurred';
-    let errorCode;
-    let errorDetails;
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
 
-    try {
-      const errorData = await response.json();
-      if (errorData.error) {
-        errorMessage = errorData.error.message || errorMessage;
-        errorCode = errorData.error.code;
-        errorDetails = errorData.error.details;
+    const duration = performance.now() - startTime;
+    appLogger.debug(`[HTTP ${method}] ${endpoint} ${response.status} (${duration.toFixed(1)}ms)`);
+
+    if (!response.ok) {
+      let errorMessage = 'An unexpected error occurred';
+      let errorCode;
+      let errorDetails;
+
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMessage = errorData.error.message || errorMessage;
+          errorCode = errorData.error.code;
+          errorDetails = errorData.error.details;
+        }
+      } catch (e) {
+        errorMessage = response.statusText;
       }
-    } catch (e) {
-      // If we can't parse JSON, fallback to status text
-      errorMessage = response.statusText;
+
+      appLogger.warn(`[API ERROR ${response.status}] ${method} ${endpoint}: ${errorMessage}`, {
+        code: errorCode,
+        status: response.status,
+      });
+
+      if (response.status === 401 && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/logout')) {
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+      }
+
+      if (errorCode === "MFA_REQUIRED_FOR_TENANT") {
+        window.dispatchEvent(new CustomEvent('auth:mfa_required'));
+      }
+
+      throw new ApiError(response.status, errorMessage, errorCode, errorDetails);
     }
 
-    if (response.status === 401 && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/logout')) {
-      // Trigger a custom event that our AuthContext can listen to for auto-logout
-      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+    if (response.status === 204) {
+      return null as T;
     }
 
-    if (errorCode === "MFA_REQUIRED_FOR_TENANT") {
-      window.dispatchEvent(new CustomEvent('auth:mfa_required'));
+    return response.json();
+  } catch (error) {
+    if (!(error instanceof ApiError)) {
+      appLogger.error(error, { mechanism: "manual", context: { endpoint, method } });
     }
-
-    throw new ApiError(response.status, errorMessage, errorCode, errorDetails);
+    throw error;
   }
-
-  // Handle 204 No Content
-  if (response.status === 204) {
-    return null as T;
-  }
-
-  return response.json();
 }

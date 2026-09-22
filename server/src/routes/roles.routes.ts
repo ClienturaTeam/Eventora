@@ -26,24 +26,51 @@ const requireGlobalPermission = (action: string) => async (req: AuthRequest, res
 
 const multiTenantRoleGuard = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const tenantId = req.headers["x-organization-id"] as string | undefined;
-  if (!tenantId) {
-    // Attempting platform-level operation
-    return requireGlobalPermission("platform.manage")(req, res, next);
-  } else {
-    // Attempting tenant-level operation
-    req.tenantId = tenantId; // set for requirePermission
-    return requirePermission("organization.manage")(req, res, next);
+  const permissionsToPass = ["platform.manage", "organization.manage", "users.manage"];
+  
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "User missing in request.", details: [] } });
   }
+
+  // Check if user has global or tenant permission
+  const membership = await prisma.organizationMember.findFirst({
+    where: {
+      userId: req.user.id,
+      ...(tenantId ? { organizationId: tenantId } : {}),
+      role: { permissions: { some: { permission: { action: { in: permissionsToPass } } } } }
+    }
+  });
+
+  if (!membership) {
+    return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Insufficient permissions to manage roles.", details: [] } });
+  }
+
+  req.tenantId = tenantId;
+  next();
 };
 
 const multiTenantRoleReadGuard = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const tenantId = req.headers["x-organization-id"] as string | undefined;
-  if (!tenantId) {
-    return requireGlobalPermission("platform.read")(req, res, next);
-  } else {
-    req.tenantId = tenantId;
-    return requirePermission("organization.read")(req, res, next);
+  const permissionsToPass = ["platform.read", "platform.manage", "organization.read", "organization.manage", "users.read", "users.manage"];
+
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "User missing in request.", details: [] } });
   }
+
+  const membership = await prisma.organizationMember.findFirst({
+    where: {
+      userId: req.user.id,
+      ...(tenantId ? { organizationId: tenantId } : {}),
+      role: { permissions: { some: { permission: { action: { in: permissionsToPass } } } } }
+    }
+  });
+
+  if (!membership) {
+    return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Insufficient permissions to read roles.", details: [] } });
+  }
+
+  req.tenantId = tenantId;
+  next();
 };
 
 router.get("/", multiTenantRoleReadGuard, RoleController.findAll);

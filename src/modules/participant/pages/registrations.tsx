@@ -39,18 +39,25 @@ export function ParticipantRegistrationsPage() {
     {
       key: "actions",
       header: "",
-      render: (row) => (
-        <div className="flex justify-end">
-          <Button 
-            variant="destructive"
-            size="sm" 
-            onClick={() => handleWithdraw(row.id)}
-            disabled={withdrawMutation.isPending}
-          >
-            Withdraw
-          </Button>
-        </div>
-      ),
+      render: (row) => {
+        const isPaidOrApproved = row.status === "APPROVED" || row.status === "REGISTERED" || row.status === "PAID";
+        if (isPaidOrApproved) {
+          return null;
+        }
+
+        return (
+          <div className="flex justify-end">
+            <Button 
+              variant="destructive"
+              size="sm" 
+              onClick={() => handleWithdraw(row.id)}
+              disabled={withdrawMutation.isPending}
+            >
+              Withdraw
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 

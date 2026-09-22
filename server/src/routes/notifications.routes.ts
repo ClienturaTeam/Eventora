@@ -7,11 +7,11 @@ import { requirePermission } from "../middleware/rbac.middleware";
 const router = Router();
 
 router.use(requireAuth);
-router.use(requireTenant);
 
-router.get("/", requirePermission("notifications.read"), NotificationController.findMy);
-router.post("/read-all", requirePermission("notifications.read"), NotificationController.markAllAsRead);
-router.patch("/:id/read", requirePermission("notifications.read"), NotificationController.markAsRead);
-router.delete("/:id", requirePermission("notifications.read"), NotificationController.delete);
+router.get("/", NotificationController.findMy);
+router.post("/read-all", NotificationController.markAllAsRead);
+router.patch("/read-all", NotificationController.markAllAsRead);
+router.patch("/:id/read", NotificationController.markAsRead);
+router.delete("/:id", NotificationController.delete);
 
 export default router;

@@ -79,6 +79,23 @@ export class EvaluationController {
     }
   }
 
+  static async requestCorrection(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.tenantId as string;
+      const adminUserId = req.user!.id;
+      const { reason } = req.body;
+      const data = await EvaluationService.requestCorrection(
+        tenantId,
+        req.params.id,
+        adminUserId,
+        reason
+      );
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async delete(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const tenantId = req.tenantId as string;

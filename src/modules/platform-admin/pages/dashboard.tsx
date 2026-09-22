@@ -7,9 +7,36 @@ import { Settings, Shield } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { usePlatformAdminSummary, usePlatformTimeline } from "../hooks/platform-admin.hooks";
 
+import { useAuth } from "@/lib/auth";
+import { useRouter } from "@tanstack/react-router";
+import { useEffect } from "react";
+
 export function PlatformAdminDashboard() {
+  const { user } = useAuth();
+  const router = useRouter();
   const { data: summary, isLoading: isLoadingSummary } = usePlatformAdminSummary();
   const { data: timelineData, isLoading: isLoadingTimeline } = usePlatformTimeline();
+
+  const roleName = user?.memberships?.[0]?.role?.name;
+
+  useEffect(() => {
+    if (!roleName) return;
+    if (roleName === "Judge") {
+      router.navigate({ to: "/evaluations" });
+    } else if (roleName === "Mentor") {
+      router.navigate({ to: "/teams" });
+    } else if (roleName === "Volunteer") {
+      router.navigate({ to: "/volunteers" });
+    } else if (roleName === "Student Coordinator") {
+      router.navigate({ to: "/coordinator" });
+    } else if (roleName === "Faculty Coordinator") {
+      router.navigate({ to: "/faculty-coordinator" });
+    } else if (roleName === "Participant") {
+      router.navigate({ to: "/participant" });
+    } else if (roleName === "Admin" || roleName === "Organization Admin" || roleName === "Manager") {
+      router.navigate({ to: "/manager" });
+    }
+  }, [roleName]);
 
   if (isLoadingSummary || isLoadingTimeline) {
     return <div className="p-8 text-center text-muted-foreground">Loading platform metrics...</div>;

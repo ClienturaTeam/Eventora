@@ -39,6 +39,13 @@ export class RegistrationController {
     } catch (error) { next(error); }
   }
 
+  static async registerTeam(req: any, res: Response, next: NextFunction) {
+    try {
+      const result = await RegistrationService.registerTeam(req.body);
+      res.status(201).json({ success: true, data: result });
+    } catch (error) { next(error); }
+  }
+
   static async delete(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const tenantId = req.tenantId as string;

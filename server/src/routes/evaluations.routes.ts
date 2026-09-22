@@ -34,6 +34,13 @@ router.patch(
   EvaluationController.update
 );
 
+// Admin requests evaluation correction from judge
+router.post(
+  "/:id/request-correction",
+  requirePermission("evaluations.manage"),
+  EvaluationController.requestCorrection
+);
+
 router.delete("/:id", requirePermission("evaluations.manage"), EvaluationController.delete);
 
 export { router as evaluationRoutes };

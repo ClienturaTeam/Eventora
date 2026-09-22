@@ -214,11 +214,72 @@ export const useUpdateParticipantSubmission = () => {
   });
 };
 
+export const useProblemStatements = () => {
+  return useQuery({
+    queryKey: ['problem-statements'],
+    queryFn: async () => {
+      const response = await fetchApi('/problem-statements?mode=student');
+      return response.data;
+    },
+  });
+};
+
+export const useSelectProblemStatement = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (problemStatementId: string) => {
+      const response = await fetchApi('/problem-statements/select', {
+        method: 'POST',
+        body: JSON.stringify({ problemStatementId }),
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['problem-statements'] });
+      queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
+      queryClient.invalidateQueries({ queryKey: participantKeys.teams() });
+    },
+  });
+};
+
+export const useUploadSubmissionFile = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ submissionId, fileData }: { submissionId: string; fileData: { fileName: string; fileSize: number; fileType: string; fileUrl?: string; description?: string | undefined } }) => {
+      const response = await fetchApi(`/submissions/${submissionId}/upload`, {
+        method: 'POST',
+        body: JSON.stringify(fileData),
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: participantKeys.submissions() });
+      queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
+    },
+  });
+};
+
+export const useFinalSubmitSubmission = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (submissionId: string) => {
+      const response = await fetchApi(`/submissions/${submissionId}/final-submit`, {
+        method: 'POST',
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: participantKeys.submissions() });
+      queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
+    },
+  });
+};
+
 export const useMarkNotificationRead = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetchApi(`/participant/notifications/${id}/read`, {
+      const response = await fetchApi(`/notifications/${id}/read`, {
         method: 'PATCH',
       });
       return response.data;

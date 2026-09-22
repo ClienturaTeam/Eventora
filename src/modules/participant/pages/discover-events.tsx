@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { TeamRegistrationWizard } from "../components/TeamRegistrationWizard";
+import { ProblemStatementSelector } from "../components/ProblemStatementSelector";
 
 const statusLabel: Record<string, string> = {
   DRAFT: "draft",
@@ -135,16 +136,20 @@ export function ParticipantDiscoverEventsPage() {
   ];
 
   return (
-    <>
-      <ListPageTemplate<ApiEvent>
-        title="Discover Events"
-        description="Available events you can register for."
-        crumbs={[{ label: "Participant" }, { label: "Discover Events" }]}
-        columns={columns}
-        rows={events}
-        loading={isLoading}
-        searchKeys={["name"]}
-      />
+    <div className="space-y-8">
+      <ProblemStatementSelector />
+
+      <div className="border-t pt-6">
+        <ListPageTemplate<ApiEvent>
+          title="Discover Events"
+          description="Available events you can register for."
+          crumbs={[{ label: "Participant" }, { label: "Discover Events" }]}
+          columns={columns}
+          rows={events}
+          loading={isLoading}
+          searchKeys={["name"]}
+        />
+      </div>
       
       {selectedTeamEvent && (
         <TeamRegistrationWizard 
@@ -154,6 +159,6 @@ export function ParticipantDiscoverEventsPage() {
           onSuccess={() => setSelectedTeamEvent(null)}
         />
       )}
-    </>
+    </div>
   );
 }
