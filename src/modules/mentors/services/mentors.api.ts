@@ -119,3 +119,82 @@ export function useAssignMentorTeam() {
     },
   });
 }
+
+// ─── Mentor Q&A Types & Hooks ──────────────────────────────────────────────────
+
+export interface ApiQuestionReply {
+  id: string;
+  questionId: string;
+  senderId?: string;
+  message?: string;
+  reply?: string;
+  createdAt: string;
+  sender?: { id: string; firstName: string | null; lastName: string | null; email: string };
+  user?: { firstName: string | null; lastName: string | null; email: string; role?: string };
+}
+
+export interface ApiMentorQuestion {
+  id: string;
+  organizationId?: string;
+  eventId: string;
+  roundId: string | null;
+  participantId?: string;
+  mentorId?: string;
+  subject?: string;
+  question: string;
+  status?: string;
+  createdAt: string;
+  updatedAt?: string;
+  participant?: { id: string; firstName: string | null; lastName: string | null; email: string };
+  mentor?: { id: string; firstName: string | null; lastName: string | null; email: string };
+  user?: { firstName: string | null; lastName: string | null; email: string };
+  event?: { id: string; title?: string; name?: string };
+  round?: { id: string; roundNumber?: number; name?: string };
+  replies?: ApiQuestionReply[];
+}
+
+export function useMentorQuestions(eventId?: string, roundId?: string) {
+  return useQuery({
+    queryKey: ["mentorQuestions", { eventId, roundId }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (eventId) params.append("eventId", eventId);
+      if (roundId) params.append("roundId", roundId);
+      const res = await fetchApi(`/mentors/questions?${params.toString()}`);
+      return res.data as ApiMentorQuestion[];
+    },
+  });
+}
+
+export function useAskMentorQuestion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { eventId: string; roundId?: string; question: string }) => {
+      const res = await fetchApi("/mentors/questions", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      return res.data as ApiMentorQuestion;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mentorQuestions"] });
+    },
+  });
+}
+
+export function useReplyMentorQuestion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ questionId, reply }: { questionId: string; reply: string }) => {
+      const res = await fetchApi(`/mentors/questions/${questionId}/replies`, {
+        method: "POST",
+        body: JSON.stringify({ reply }),
+      });
+      return res.data as ApiQuestionReply;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mentorQuestions"] });
+    },
+  });
+}
+

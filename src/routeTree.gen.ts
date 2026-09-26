@@ -96,6 +96,7 @@ import { Route as ParticipantAchievementsRouteImport } from './routes/participan
 import { Route as ParticipantCertificatesRouteImport } from './routes/participant.certificates'
 import { Route as ParticipantDiscoverEventsRouteImport } from './routes/participant.discover-events'
 import { Route as ParticipantNotificationsRouteImport } from './routes/participant.notifications'
+import { Route as ParticipantProblemStatementsRouteImport } from './routes/participant.problem-statements'
 import { Route as ParticipantRegistrationsRouteImport } from './routes/participant.registrations'
 import { Route as ParticipantSubmissionsRouteImport } from './routes/participant.submissions'
 import { Route as ParticipantTeamsRouteImport } from './routes/participant.teams'
@@ -572,6 +573,12 @@ const ParticipantNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => ParticipantRoute,
   } as any)
+const ParticipantProblemStatementsRoute =
+  ParticipantProblemStatementsRouteImport.update({
+    id: '/problem-statements',
+    path: '/problem-statements',
+    getParentRoute: () => ParticipantRoute,
+  } as any)
 const ParticipantRegistrationsRoute =
   ParticipantRegistrationsRouteImport.update({
     id: '/registrations',
@@ -821,6 +828,7 @@ export interface FileRoutesByFullPath {
   '/participant/certificates': typeof ParticipantCertificatesRoute
   '/participant/discover-events': typeof ParticipantDiscoverEventsRoute
   '/participant/notifications': typeof ParticipantNotificationsRoute
+  '/participant/problem-statements': typeof ParticipantProblemStatementsRoute
   '/participant/registrations': typeof ParticipantRegistrationsRoute
   '/participant/submissions': typeof ParticipantSubmissionsRoute
   '/participant/teams': typeof ParticipantTeamsRoute
@@ -939,6 +947,7 @@ export interface FileRoutesByTo {
   '/participant/certificates': typeof ParticipantCertificatesRoute
   '/participant/discover-events': typeof ParticipantDiscoverEventsRoute
   '/participant/notifications': typeof ParticipantNotificationsRoute
+  '/participant/problem-statements': typeof ParticipantProblemStatementsRoute
   '/participant/registrations': typeof ParticipantRegistrationsRoute
   '/participant/submissions': typeof ParticipantSubmissionsRoute
   '/participant/teams': typeof ParticipantTeamsRoute
@@ -1062,6 +1071,7 @@ export interface FileRoutesById {
   '/participant/certificates': typeof ParticipantCertificatesRoute
   '/participant/discover-events': typeof ParticipantDiscoverEventsRoute
   '/participant/notifications': typeof ParticipantNotificationsRoute
+  '/participant/problem-statements': typeof ParticipantProblemStatementsRoute
   '/participant/registrations': typeof ParticipantRegistrationsRoute
   '/participant/submissions': typeof ParticipantSubmissionsRoute
   '/participant/teams': typeof ParticipantTeamsRoute
@@ -1186,6 +1196,7 @@ export interface FileRouteTypes {
     | '/participant/certificates'
     | '/participant/discover-events'
     | '/participant/notifications'
+    | '/participant/problem-statements'
     | '/participant/registrations'
     | '/participant/submissions'
     | '/participant/teams'
@@ -1304,6 +1315,7 @@ export interface FileRouteTypes {
     | '/participant/certificates'
     | '/participant/discover-events'
     | '/participant/notifications'
+    | '/participant/problem-statements'
     | '/participant/registrations'
     | '/participant/submissions'
     | '/participant/teams'
@@ -1426,6 +1438,7 @@ export interface FileRouteTypes {
     | '/participant/certificates'
     | '/participant/discover-events'
     | '/participant/notifications'
+    | '/participant/problem-statements'
     | '/participant/registrations'
     | '/participant/submissions'
     | '/participant/teams'
@@ -2173,6 +2186,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ParticipantNotificationsRouteImport
       parentRoute: typeof ParticipantRoute
     }
+    '/participant/problem-statements': {
+      id: '/participant/problem-statements'
+      path: '/problem-statements'
+      fullPath: '/participant/problem-statements'
+      preLoaderRoute: typeof ParticipantProblemStatementsRouteImport
+      parentRoute: typeof ParticipantRoute
+    }
     '/participant/registrations': {
       id: '/participant/registrations'
       path: '/registrations'
@@ -2505,6 +2525,7 @@ interface ParticipantRouteChildren {
   ParticipantCertificatesRoute: typeof ParticipantCertificatesRoute
   ParticipantDiscoverEventsRoute: typeof ParticipantDiscoverEventsRoute
   ParticipantNotificationsRoute: typeof ParticipantNotificationsRoute
+  ParticipantProblemStatementsRoute: typeof ParticipantProblemStatementsRoute
   ParticipantRegistrationsRoute: typeof ParticipantRegistrationsRoute
   ParticipantSubmissionsRoute: typeof ParticipantSubmissionsRoute
   ParticipantTeamsRoute: typeof ParticipantTeamsRoute
@@ -2517,6 +2538,7 @@ const ParticipantRouteChildren: ParticipantRouteChildren = {
   ParticipantCertificatesRoute: ParticipantCertificatesRoute,
   ParticipantDiscoverEventsRoute: ParticipantDiscoverEventsRoute,
   ParticipantNotificationsRoute: ParticipantNotificationsRoute,
+  ParticipantProblemStatementsRoute: ParticipantProblemStatementsRoute,
   ParticipantRegistrationsRoute: ParticipantRegistrationsRoute,
   ParticipantSubmissionsRoute: ParticipantSubmissionsRoute,
   ParticipantTeamsRoute: ParticipantTeamsRoute,

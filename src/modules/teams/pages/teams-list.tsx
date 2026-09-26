@@ -3,33 +3,9 @@ import { ListPageTemplate } from "@/components/templates/list-page";
 import type { Column } from "@/components/ds/data-table";
 import { useTeams, useDeleteTeam, ApiTeam } from "../services/teams.api";
 import { TeamDialog } from "../components/team-dialog";
+import { EventDetailsDialog } from "@/components/events/EventDetailsDialog";
+import { ApiEvent } from "@/modules/events/services/events.api";
 import { toast } from "sonner";
-
-const columns: Column<ApiTeam>[] = [
-  {
-    key: "name",
-    header: "Team",
-    sortable: true,
-    render: (row) => <span className="font-medium">{row.name}</span>,
-  },
-  {
-    key: "competitionId",
-    header: "Competition",
-    sortable: true,
-    render: (row) => <span>{row.competition?.name ?? "—"}</span>,
-  },
-  {
-    key: "_count",
-    header: "Members",
-    render: (row) => <span className="tabular-nums">{row._count?.members ?? 0}</span>,
-  },
-  {
-    key: "createdAt",
-    header: "Created",
-    sortable: true,
-    render: (row) => <span>{new Date(row.createdAt).toLocaleDateString()}</span>,
-  },
-];
 
 export function TeamsListPage() {
   const { data: teams = [], isLoading } = useTeams();
@@ -37,6 +13,7 @@ export function TeamsListPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<ApiTeam | null>(null);
+  const [selectedDetailEventId, setSelectedDetailEventId] = useState<string | null>(null);
 
   const handleEdit = (row: ApiTeam) => {
     setEditingTeam(row);
@@ -53,6 +30,50 @@ export function TeamsListPage() {
     }
   };
 
+  const columns: Column<ApiTeam>[] = [
+    {
+      key: "name",
+      header: "Team",
+      sortable: true,
+      render: (row) => <span className="font-medium">{row.name}</span>,
+    },
+    {
+      key: "competitionId",
+      header: "Competition / Event",
+      sortable: true,
+      render: (row) => {
+        const evt = row.competition?.event as any;
+        const name = row.competition?.name ?? "—";
+        if (evt?.id) {
+          return (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedDetailEventId(evt.id);
+              }}
+              className="font-medium text-primary hover:underline text-left"
+            >
+              {name}
+            </button>
+          );
+        }
+        return <span>{name}</span>;
+      },
+    },
+    {
+      key: "_count",
+      header: "Members",
+      render: (row) => <span className="tabular-nums">{row._count?.members ?? 0}</span>,
+    },
+    {
+      key: "createdAt",
+      header: "Created",
+      sortable: true,
+      render: (row) => <span>{new Date(row.createdAt).toLocaleDateString()}</span>,
+    },
+  ];
+
   return (
     <>
       <ListPageTemplate<ApiTeam>
@@ -63,6 +84,7 @@ export function TeamsListPage() {
         rows={teams}
         loading={isLoading}
         searchKeys={["name"]}
+        selectable={false}
         stats={[
           { label: "Total teams", value: String(teams.length) },
           {
@@ -90,6 +112,12 @@ export function TeamsListPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         team={editingTeam}
+      />
+      <EventDetailsDialog
+        open={!!selectedDetailEventId}
+        onOpenChange={(open) => !open && setSelectedDetailEventId(null)}
+        eventId={selectedDetailEventId}
+        mode="admin"
       />
     </>
   );

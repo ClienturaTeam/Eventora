@@ -82,6 +82,23 @@ export class RegistrationService {
       if (!event) {
         throw { status: 500, code: "INTERNAL_ERROR", message: "No event found for registration." };
       }
+
+      if (event.status === "DRAFT") {
+        throw { status: 400, code: "REGISTRATION_UNAVAILABLE", message: "Registration is unavailable for draft events." };
+      }
+      if (event.status === "LIVE") {
+        throw { status: 400, code: "REGISTRATION_CLOSED", message: "Registration is closed for live events." };
+      }
+      if (event.status === "COMPLETED") {
+        throw { status: 400, code: "REGISTRATION_CLOSED", message: "Registration is closed for completed events." };
+      }
+      if (event.status === "CANCELLED") {
+        throw { status: 400, code: "REGISTRATION_UNAVAILABLE", message: "Registration is unavailable for cancelled events." };
+      }
+      if (event.status !== "PUBLISHED") {
+        throw { status: 400, code: "REGISTRATION_UNAVAILABLE", message: `Registration is unavailable for ${event.status.toLowerCase()} events.` };
+      }
+
       eventId = event.id;
 
       if (!competitionId) {

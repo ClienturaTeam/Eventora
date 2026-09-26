@@ -1,6 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api-client";
 
+export type ApiEventRound = {
+  id: string;
+  eventId: string;
+  roundNumber: number;
+  name: string;
+  description: string | null;
+  maxMarks: number;
+  submissionType: string;
+  startDate: string | null;
+  endDate: string | null;
+  isLocked: boolean;
+};
+
 export type ApiEvent = {
   id: string;
   name: string;
@@ -18,6 +31,8 @@ export type ApiEvent = {
   registrationStart?: string | null;
   registrationEnd?: string | null;
   competitions?: any[];
+  rounds?: ApiEventRound[];
+  problemStatements?: any[];
   revenue?: number;
   teamMembers?: any[];
   createdAt: string;
@@ -51,6 +66,17 @@ export function useEvent(id: string) {
       return res.data as ApiEvent;
     },
     enabled: !!id,
+  });
+}
+
+export function useEventRounds(eventId: string) {
+  return useQuery({
+    queryKey: ["events", eventId, "rounds"],
+    queryFn: async () => {
+      const res = await fetchApi(`/events/${eventId}/rounds`);
+      return res.data as ApiEventRound[];
+    },
+    enabled: !!eventId,
   });
 }
 

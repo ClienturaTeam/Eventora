@@ -70,6 +70,40 @@ export function CreateEventPage() {
   const [regStart, setRegStart] = useState<Date | undefined>(undefined);
   const [regEnd, setRegEnd] = useState<Date | undefined>(undefined);
 
+  // Rounds configuration state
+  const [rounds, setRounds] = useState<any[]>([
+    { roundNumber: 1, name: "Round 1 — Idea Submission", description: "Submit your project idea", maxMarks: 20, submissionType: "FILE", status: "ACTIVE" },
+    { roundNumber: 2, name: "Round 2 — Prototype Submission", description: "Submit working prototype", maxMarks: 30, submissionType: "FILE", status: "UPCOMING" },
+    { roundNumber: 3, name: "Round 3 — Final Presentation", description: "Final project presentation", maxMarks: 50, submissionType: "FILE", status: "UPCOMING" },
+  ]);
+
+  const addRound = () => {
+    const nextNum = rounds.length + 1;
+    setRounds([
+      ...rounds,
+      {
+        roundNumber: nextNum,
+        name: `Round ${nextNum} — Evaluation`,
+        description: "",
+        maxMarks: 50,
+        submissionType: "FILE",
+        status: "UPCOMING"
+      }
+    ]);
+  };
+
+  const removeRound = (index: number) => {
+    if (rounds.length <= 1) return;
+    const updated = rounds.filter((_, i) => i !== index).map((r, i) => ({ ...r, roundNumber: i + 1 }));
+    setRounds(updated);
+  };
+
+  const updateRoundField = (index: number, field: string, value: any) => {
+    const updated = [...rounds];
+    updated[index] = { ...updated[index], [field]: value };
+    setRounds(updated);
+  };
+
   const [isPublishing, setIsPublishing] = useState(false);
   const navigate = useNavigate();
 
@@ -168,9 +202,10 @@ export function CreateEventPage() {
         registrationStart: regStart ? regStart.toISOString() : null,
         registrationEnd: regEnd ? regEnd.toISOString() : null,
         price: 0,
-        currency: "USD",
+        currency: "INR",
         facultyCoordinatorId: facultyCoordinatorId || null,
         studentCoordinatorId: studentCoordinatorId || null,
+        rounds: rounds,
       };
 
       if (proposalId) {
@@ -393,6 +428,84 @@ export function CreateEventPage() {
                   </div>
                 </>
               )}
+            </div>
+          ),
+        },
+        {
+          title: "Event Rounds",
+          description: "Configure competition rounds, maximum marks, deadlines, and submission rules.",
+          content: (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium">Rounds Configuration ({rounds.length} rounds)</h4>
+                  <p className="text-xs text-muted-foreground">Define each round's parameters and evaluation weight.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={addRound}>
+                  + Add Round
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                {rounds.map((round, idx) => (
+                  <div key={idx} className="p-4 rounded-lg border border-border bg-card/60 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="h-6 w-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center">
+                          {round.roundNumber}
+                        </span>
+                        <Input
+                          value={round.name}
+                          onChange={(e) => updateRoundField(idx, "name", e.target.value)}
+                          placeholder="Round Name"
+                          className="h-8 font-medium max-w-xs text-sm"
+                        />
+                      </div>
+                      {rounds.length > 1 && (
+                        <Button type="button" variant="ghost" size="sm" className="h-8 text-xs text-red-500 hover:text-red-600 hover:bg-red-500/10" onClick={() => removeRound(idx)}>
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div>
+                        <Label className="text-xs">Description</Label>
+                        <Input
+                          value={round.description || ""}
+                          onChange={(e) => updateRoundField(idx, "description", e.target.value)}
+                          placeholder="e.g. Submit project deck"
+                          className="h-8 text-xs mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Maximum Marks</Label>
+                        <Input
+                          type="number"
+                          value={round.maxMarks}
+                          onChange={(e) => updateRoundField(idx, "maxMarks", Number(e.target.value))}
+                          className="h-8 text-xs mt-1"
+                          min={1}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Submission Type</Label>
+                        <Select value={round.submissionType || "FILE"} onValueChange={(val) => updateRoundField(idx, "submissionType", val)}>
+                          <SelectTrigger className="h-8 text-xs mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="FILE">File Upload</SelectItem>
+                            <SelectItem value="LINK">URL / Repository Link</SelectItem>
+                            <SelectItem value="TEXT">Text Summary</SelectItem>
+                            <SelectItem value="ALL">All (Files + Links + Text)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           ),
         },

@@ -14,7 +14,9 @@ export class EventRepository {
     const events = await prisma.event.findMany({
       where: whereClause,
       include: {
-        teamMembers: true,
+        teamMembers: { include: { user: true } },
+        rounds: { orderBy: { roundNumber: 'asc' } },
+        problemStatements: true,
         payments: {
           where: {
             status: 'SUCCEEDED',
@@ -35,9 +37,13 @@ export class EventRepository {
 
     return events.map(e => {
       const { payments, ...rest } = e;
+      const calculatedPayments = payments.reduce((sum, p) => sum + p.amount, 0);
+      const effectivePrice = typeof rest.price === "number" && rest.price > 0 ? rest.price : (rest.revenue || 0);
+      const effectiveRevenue = typeof rest.revenue === "number" && rest.revenue > 0 ? rest.revenue : (rest.price || calculatedPayments);
       return {
         ...rest,
-        revenue: payments.reduce((sum, p) => sum + p.amount, 0)
+        price: effectivePrice,
+        revenue: effectiveRevenue
       };
     });
   }
@@ -51,10 +57,24 @@ export class EventRepository {
       ];
     }
 
-    return prisma.event.findFirst({
+    const event = await prisma.event.findFirst({
       where: whereClause,
-      include: { teamMembers: true }
+      include: {
+        teamMembers: { include: { user: true } },
+        rounds: { orderBy: { roundNumber: 'asc' } },
+        problemStatements: true
+      }
     });
+
+    if (!event) return null;
+    const effectivePrice = typeof event.price === "number" && event.price > 0 ? event.price : (event.revenue || 0);
+    const effectiveRevenue = typeof event.revenue === "number" && event.revenue > 0 ? event.revenue : (event.price || 0);
+
+    return {
+      ...event,
+      price: effectivePrice,
+      revenue: effectiveRevenue
+    };
   }
 
   static async create(tenantId: string, data: Prisma.EventUncheckedCreateInput) {

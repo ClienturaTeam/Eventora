@@ -16,7 +16,12 @@ export class EventService {
   }
 
   static async createEvent(tenantId: string, data: any) {
-    const { facultyCoordinatorId, studentCoordinatorId, ...eventData } = data;
+    const { facultyCoordinatorId, studentCoordinatorId, rounds, ...eventData } = data;
+    if (typeof eventData.revenue === "number" && (eventData.price === undefined || eventData.price === 0)) {
+      eventData.price = eventData.revenue;
+    } else if (typeof eventData.price === "number" && (eventData.revenue === undefined || eventData.revenue === 0)) {
+      eventData.revenue = eventData.price;
+    }
     const event = await EventRepository.create(tenantId, eventData);
     let fcId = facultyCoordinatorId;
     if (!fcId) {
@@ -43,11 +48,36 @@ export class EventService {
         }
       });
     }
-    return event;
+
+    if (rounds && Array.isArray(rounds) && rounds.length > 0) {
+      for (const r of rounds) {
+        await prisma.eventRound.create({
+          data: {
+            eventId: event.id,
+            roundNumber: Number(r.roundNumber),
+            name: r.name,
+            description: r.description || null,
+            maxMarks: Number(r.maxMarks || 100),
+            submissionStart: r.submissionStart ? new Date(r.submissionStart) : null,
+            submissionDeadline: r.submissionDeadline ? new Date(r.submissionDeadline) : null,
+            status: r.status || "ACTIVE",
+            instructions: r.instructions || null,
+            submissionType: r.submissionType || "FILE"
+          }
+        });
+      }
+    }
+
+    return this.getEvent(tenantId, event.id);
   }
 
   static async updateEvent(tenantId: string, id: string, data: any) {
-    const { facultyCoordinatorId, ...eventData } = data;
+    const { facultyCoordinatorId, rounds, ...eventData } = data;
+    if (typeof eventData.revenue === "number" && (eventData.price === undefined || eventData.price === 0)) {
+      eventData.price = eventData.revenue;
+    } else if (typeof eventData.price === "number" && (eventData.revenue === undefined || eventData.revenue === 0)) {
+      eventData.revenue = eventData.price;
+    }
     const event = await EventRepository.update(tenantId, id, eventData);
     if (!event) {
       throw { status: 404, code: "NOT_FOUND", message: "Event not found." };
@@ -74,8 +104,102 @@ export class EventService {
         });
       }
     }
+
+    if (rounds && Array.isArray(rounds)) {
+      for (const r of rounds) {
+        if (r.id) {
+          await prisma.eventRound.update({
+            where: { id: r.id },
+            data: {
+              roundNumber: Number(r.roundNumber),
+              name: r.name,
+              description: r.description,
+              maxMarks: Number(r.maxMarks || 100),
+              submissionStart: r.submissionStart ? new Date(r.submissionStart) : null,
+              submissionDeadline: r.submissionDeadline ? new Date(r.submissionDeadline) : null,
+              status: r.status || "ACTIVE",
+              instructions: r.instructions,
+              submissionType: r.submissionType || "FILE"
+            }
+          });
+        } else {
+          await prisma.eventRound.create({
+            data: {
+              eventId: id,
+              roundNumber: Number(r.roundNumber),
+              name: r.name,
+              description: r.description || null,
+              maxMarks: Number(r.maxMarks || 100),
+              submissionStart: r.submissionStart ? new Date(r.submissionStart) : null,
+              submissionDeadline: r.submissionDeadline ? new Date(r.submissionDeadline) : null,
+              status: r.status || "ACTIVE",
+              instructions: r.instructions || null,
+              submissionType: r.submissionType || "FILE"
+            }
+          });
+        }
+      }
+    }
     
-    return event;
+    return this.getEvent(tenantId, id);
+  }
+
+  static async getRounds(tenantId: string, eventId: string) {
+    const event = await EventRepository.findById(tenantId, eventId);
+    if (!event) throw { status: 404, code: "NOT_FOUND", message: "Event not found." };
+
+    return prisma.eventRound.findMany({
+      where: { eventId },
+      orderBy: { roundNumber: 'asc' }
+    });
+  }
+
+  static async createRound(tenantId: string, eventId: string, data: any) {
+    const event = await EventRepository.findById(tenantId, eventId);
+    if (!event) throw { status: 404, code: "NOT_FOUND", message: "Event not found." };
+
+    return prisma.eventRound.create({
+      data: {
+        eventId,
+        roundNumber: Number(data.roundNumber),
+        name: data.name,
+        description: data.description || null,
+        maxMarks: Number(data.maxMarks || 100),
+        submissionStart: data.submissionStart ? new Date(data.submissionStart) : null,
+        submissionDeadline: data.submissionDeadline ? new Date(data.submissionDeadline) : null,
+        status: data.status || "ACTIVE",
+        instructions: data.instructions || null,
+        submissionType: data.submissionType || "FILE"
+      }
+    });
+  }
+
+  static async updateRound(tenantId: string, eventId: string, roundId: string, data: any) {
+    const event = await EventRepository.findById(tenantId, eventId);
+    if (!event) throw { status: 404, code: "NOT_FOUND", message: "Event not found." };
+
+    return prisma.eventRound.update({
+      where: { id: roundId },
+      data: {
+        roundNumber: data.roundNumber ? Number(data.roundNumber) : undefined,
+        name: data.name,
+        description: data.description,
+        maxMarks: data.maxMarks ? Number(data.maxMarks) : undefined,
+        submissionStart: data.submissionStart ? new Date(data.submissionStart) : undefined,
+        submissionDeadline: data.submissionDeadline ? new Date(data.submissionDeadline) : undefined,
+        status: data.status,
+        instructions: data.instructions,
+        submissionType: data.submissionType
+      }
+    });
+  }
+
+  static async deleteRound(tenantId: string, eventId: string, roundId: string) {
+    const event = await EventRepository.findById(tenantId, eventId);
+    if (!event) throw { status: 404, code: "NOT_FOUND", message: "Event not found." };
+
+    await prisma.eventRound.delete({ where: { id: roundId } });
+    return true;
   }
 
   static async deleteEvent(tenantId: string, id: string) {

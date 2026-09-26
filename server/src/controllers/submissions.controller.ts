@@ -6,15 +6,41 @@ export class SubmissionController {
   static async findAll(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const tenantId = req.tenantId as string;
-      const subs = await SubmissionService.getSubmissions(tenantId);
+      const filters = {
+        eventId: req.query.eventId as string,
+        roundId: req.query.roundId as string,
+        roundNumber: req.query.roundNumber ? Number(req.query.roundNumber) : undefined,
+        problemStatementId: req.query.problemStatementId as string,
+        status: req.query.status as string,
+        judgeId: req.query.judgeId as string,
+        userId: req.query.userId as string,
+      };
+      const subs = await SubmissionService.getSubmissions(tenantId, filters, req.user?.id);
       res.json({ success: true, data: subs });
+    } catch (error) { next(error); }
+  }
+
+  static async assignJudge(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.tenantId as string;
+      const { judgeId } = req.body;
+      const assignment = await SubmissionService.assignJudge(tenantId, req.params.id, judgeId, req.user?.id);
+      res.status(201).json({ success: true, data: assignment });
+    } catch (error) { next(error); }
+  }
+
+  static async unassignJudge(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.tenantId as string;
+      await SubmissionService.unassignJudge(tenantId, req.params.id, req.params.judgeId, req.user?.id);
+      res.json({ success: true, data: { unassigned: true } });
     } catch (error) { next(error); }
   }
 
   static async findById(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const tenantId = req.tenantId as string;
-      const sub = await SubmissionService.getSubmission(tenantId, req.params.id);
+      const sub = await SubmissionService.getSubmission(tenantId, req.params.id, req.user?.id);
       res.json({ success: true, data: sub });
     } catch (error) { next(error); }
   }

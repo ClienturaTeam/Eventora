@@ -7,6 +7,7 @@ router.use(requireAuth);
 
 router.get("/me", TeamController.findMy);
 router.get("/", TeamController.findAll);
+router.get("/:id/details", TeamController.getDetails);
 router.get("/:id", TeamController.findById);
 router.patch("/:id/problem-statement", TeamController.selectProblemStatement);
 router.post("/", TeamController.create);

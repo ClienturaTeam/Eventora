@@ -99,22 +99,53 @@ export class ParticipantService {
   }
 
   static async getDiscoverEvents() {
-    return prisma.event.findMany({
-      where: { 
-        status: { in: ['PUBLISHED', 'LIVE', 'DRAFT'] },
-        endTime: { gte: new Date() }
+    const events = await prisma.event.findMany({
+      include: {
+        competitions: true,
+        rounds: { orderBy: { roundNumber: 'asc' } },
+        problemStatements: true,
+        teamMembers: { include: { user: true } }
       },
-      include: { competitions: true },
-      orderBy: { startTime: 'asc' },
-      take: 20
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return events.map(e => {
+      const effectivePrice = (e.price && e.price > 0) ? e.price : (e.revenue || 0);
+      return {
+        ...e,
+        price: effectivePrice,
+        revenue: (e.revenue && e.revenue > 0) ? e.revenue : effectivePrice
+      };
     });
   }
 
   static async getMyRegistrations(userId: string) {
-    return prisma.registration.findMany({
+    const registrations = await prisma.registration.findMany({
       where: { userId },
-      include: { event: true },
+      include: {
+        event: {
+          include: {
+            competitions: true,
+            rounds: { orderBy: { roundNumber: 'asc' } },
+            problemStatements: true,
+            teamMembers: { include: { user: true } }
+          }
+        }
+      },
       orderBy: { createdAt: 'desc' }
+    });
+
+    return registrations.map(r => {
+      if (!r.event) return r;
+      const effectivePrice = (r.event.price && r.event.price > 0) ? r.event.price : (r.event.revenue || 0);
+      return {
+        ...r,
+        event: {
+          ...r.event,
+          price: effectivePrice,
+          revenue: (r.event.revenue && r.event.revenue > 0) ? r.event.revenue : effectivePrice
+        }
+      };
     });
   }
 
@@ -137,7 +168,14 @@ export class ParticipantService {
   static async getMySubmissions(userId: string) {
     return prisma.submission.findMany({
       where: { team: { members: { some: { userId } } } },
-      include: { team: true, competition: { include: { event: true } } },
+      include: {
+        team: true,
+        eventRound: true,
+        event: true,
+        competition: { include: { event: true } },
+        files: true,
+        evaluations: true
+      },
       orderBy: { createdAt: 'desc' }
     });
   }
@@ -194,6 +232,23 @@ export class ParticipantService {
   static async registerForEvent(userId: string, data: { eventId: string }) {
     const event = await prisma.event.findUnique({ where: { id: data.eventId } });
     if (!event) throw { status: 404, code: "NOT_FOUND", message: "Event not found." };
+
+    if (event.status === "DRAFT") {
+      throw { status: 400, code: "REGISTRATION_UNAVAILABLE", message: "Registration is unavailable for draft events." };
+    }
+    if (event.status === "LIVE") {
+      throw { status: 400, code: "REGISTRATION_CLOSED", message: "Registration is closed for live events." };
+    }
+    if (event.status === "COMPLETED") {
+      throw { status: 400, code: "REGISTRATION_CLOSED", message: "Registration is closed for completed events." };
+    }
+    if (event.status === "CANCELLED") {
+      throw { status: 400, code: "REGISTRATION_UNAVAILABLE", message: "Registration is unavailable for cancelled events." };
+    }
+    if (event.status !== "PUBLISHED") {
+      throw { status: 400, code: "REGISTRATION_UNAVAILABLE", message: `Registration is unavailable for ${event.status.toLowerCase()} events.` };
+    }
+
     if (event.registrationType === "TEAM") {
       throw { status: 400, code: "BAD_REQUEST", message: "This event requires team registration." };
     }
@@ -211,23 +266,37 @@ export class ParticipantService {
     if (existing) {
       throw { status: 400, code: "DUPLICATE", message: "Already registered for this event." };
     }
+    const effectivePrice = (event.price && event.price > 0) ? event.price : (event.revenue || 0);
     return prisma.registration.create({
       data: {
         userId,
         eventId: data.eventId,
-        status: "PENDING"
+        status: effectivePrice > 0 ? "PENDING" : "APPROVED"
       }
     });
   }
 
-  static async registerTeamForEvent(userId: string, data: { eventId: string, teamName: string, competitionId: string, members: string[] }) {
+  static async registerTeamForEvent(userId: string, data: { eventId: string, teamName: string, competitionId?: string, members?: any[] }) {
     const event = await prisma.event.findUnique({ 
       where: { id: data.eventId },
       include: { competitions: true }
     });
     if (!event) throw { status: 404, code: "NOT_FOUND", message: "Event not found." };
-    if (event.registrationType !== "TEAM") {
-      throw { status: 400, code: "BAD_REQUEST", message: "This event does not support team registration." };
+
+    if (event.status === "DRAFT") {
+      throw { status: 400, code: "REGISTRATION_UNAVAILABLE", message: "Registration is unavailable for draft events." };
+    }
+    if (event.status === "LIVE") {
+      throw { status: 400, code: "REGISTRATION_CLOSED", message: "Registration is closed for live events." };
+    }
+    if (event.status === "COMPLETED") {
+      throw { status: 400, code: "REGISTRATION_CLOSED", message: "Registration is closed for completed events." };
+    }
+    if (event.status === "CANCELLED") {
+      throw { status: 400, code: "REGISTRATION_UNAVAILABLE", message: "Registration is unavailable for cancelled events." };
+    }
+    if (event.status !== "PUBLISHED") {
+      throw { status: 400, code: "REGISTRATION_UNAVAILABLE", message: `Registration is unavailable for ${event.status.toLowerCase()} events.` };
     }
 
     const now = new Date();
@@ -238,56 +307,141 @@ export class ParticipantService {
       throw { status: 400, code: "BAD_REQUEST", message: "Registration is closed." };
     }
 
-    const teamSize = (data.members?.length || 0) + 1; // including the user
-    if (event.minTeamSize && teamSize < event.minTeamSize) {
-      throw { status: 400, code: "BAD_REQUEST", message: `Team size must be at least ${event.minTeamSize}.` };
+    const minSize = event.minTeamSize ?? (event.registrationType === "TEAM" ? 2 : 1);
+    const maxSize = event.maxTeamSize ?? (event.registrationType === "TEAM" ? 4 : 1);
+
+    const teamSize = (data.members?.length || 0) + 1; // including the logged-in team leader
+    if (teamSize < minSize) {
+      throw { status: 400, code: "BAD_REQUEST", message: `Team size must be at least ${minSize}.` };
     }
-    if (event.maxTeamSize && teamSize > event.maxTeamSize) {
-      throw { status: 400, code: "BAD_REQUEST", message: `Team size must be at most ${event.maxTeamSize}.` };
+    if (teamSize > maxSize) {
+      throw { status: 400, code: "BAD_REQUEST", message: `Team size must be at most ${maxSize}.` };
     }
 
-    const validCompetition = event.competitions.find(c => c.id === data.competitionId);
-    if (!validCompetition) {
-      throw { status: 400, code: "BAD_REQUEST", message: "Invalid competition for this event." };
+    let competitionId = data.competitionId;
+    if (!competitionId) {
+      if (event.competitions && event.competitions.length > 0) {
+        competitionId = event.competitions[0].id;
+      } else {
+        const defaultComp = await prisma.competition.create({
+          data: {
+            eventId: event.id,
+            name: `${event.name} Track`,
+            description: `Default competition track for ${event.name}`
+          }
+        });
+        competitionId = defaultComp.id;
+      }
+    } else {
+      const validCompetition = event.competitions.find(c => c.id === competitionId);
+      if (!validCompetition) {
+        throw { status: 400, code: "BAD_REQUEST", message: "Invalid competition for this event." };
+      }
     }
 
     const existing = await prisma.registration.findFirst({
       where: { userId, eventId: data.eventId }
     });
-    if (existing) {
+    if (existing && (existing.status === "PAID" || existing.status === "APPROVED" || existing.status === "COMPLETED")) {
       throw { status: 400, code: "DUPLICATE", message: "Already registered for this event." };
     }
 
+    const effectivePrice = (event.price && event.price > 0) ? event.price : (event.revenue || 0);
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const leaderName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email : "Team Leader";
+
     return prisma.$transaction(async (tx) => {
-      const reg = await tx.registration.create({
-        data: {
-          userId,
-          eventId: data.eventId,
-          status: "PENDING"
-        }
+      let reg = await tx.registration.findFirst({
+        where: { userId, eventId: data.eventId }
       });
 
-      const team = await tx.team.create({
-        data: {
-          name: data.teamName,
-          competitionId: data.competitionId,
-          members: {
-            create: {
-              userId,
-              isLead: true
+      if (!reg) {
+        reg = await tx.registration.create({
+          data: {
+            userId,
+            eventId: data.eventId,
+            status: effectivePrice > 0 ? "PENDING" : "APPROVED"
+          }
+        });
+      } else if (reg.status === "CANCELLED" || reg.status === "REJECTED") {
+        reg = await tx.registration.update({
+          where: { id: reg.id },
+          data: { status: effectivePrice > 0 ? "PENDING" : "APPROVED" }
+        });
+      }
+
+      // Check for existing team created by this user for this event
+      const existingMember = await tx.teamMember.findFirst({
+        where: { userId, isLead: true, team: { competitionId: competitionId! } },
+        include: { team: true }
+      });
+
+      let teamId = existingMember?.teamId;
+
+      if (teamId) {
+        await tx.team.update({
+          where: { id: teamId },
+          data: { name: data.teamName, size: teamSize, competitionId: competitionId! }
+        });
+        await tx.teamMember.deleteMany({
+          where: { teamId, isLead: false }
+        });
+        await tx.teamInvitation.deleteMany({
+          where: { teamId }
+        });
+      } else {
+        const newTeam = await tx.team.create({
+          data: {
+            name: data.teamName,
+            competitionId: competitionId!,
+            size: teamSize,
+            members: {
+              create: {
+                userId,
+                name: leaderName,
+                email: user?.email,
+                isLead: true
+              }
             }
           }
-        }
-      });
+        });
+        teamId = newTeam.id;
+      }
 
       if (data.members && data.members.length > 0) {
-        for (const email of data.members) {
-          await tx.teamInvitation.create({
+        for (const m of data.members) {
+          const email = typeof m === "string" ? m : m.email;
+          const name = typeof m === "string" ? null : (m.name || null);
+          const contactNumber = typeof m === "string" ? null : (m.contactNumber || null);
+          const college = typeof m === "string" ? null : (m.college || null);
+          const department = typeof m === "string" ? null : (m.department || null);
+          const year = typeof m === "string" ? null : (m.year || null);
+
+          if (!email) continue;
+
+          const existingUser = await tx.user.findUnique({ where: { email } });
+
+          await tx.teamMember.create({
             data: {
-              teamId: team.id,
-              email: email
+              teamId,
+              userId: existingUser?.id || null,
+              name: name || (existingUser ? `${existingUser.firstName || ''} ${existingUser.lastName || ''}`.trim() : null),
+              email: email,
+              contactNumber: contactNumber,
+              college: college,
+              department: department,
+              year: year,
+              isLead: false
             }
           });
+
+          await tx.teamInvitation.create({
+            data: {
+              teamId,
+              email: email
+            }
+          }).catch(() => {});
         }
       }
 
@@ -354,18 +508,64 @@ export class ParticipantService {
     return { success: true };
   }
 
-  static async createSubmission(userId: string, data: { teamId: string, content: string, competitionId: string }) {
-    // Verify membership
+  static async createSubmission(userId: string, data: { teamId: string; competitionId?: string; eventId?: string; roundId?: string; title?: string; content?: string }) {
     const member = await prisma.teamMember.findFirst({
-      where: { teamId: data.teamId, userId }
+      where: { teamId: data.teamId, userId },
+      include: { team: { include: { competition: true } } }
     });
-    if (!member) throw { status: 403, code: "FORBIDDEN", message: "Not a team member." };
+    if (!member) throw { status: 403, code: "FORBIDDEN", message: "Not a member of this team." };
+
+    const compId = data.competitionId || member.team.competitionId;
+    const comp = await prisma.competition.findUnique({ where: { id: compId }, include: { event: true } });
+    if (!comp) throw { status: 404, code: "NOT_FOUND", message: "Competition not found." };
+
+    const targetEventId = data.eventId || comp.eventId;
+
+    let targetRoundNumber = 1;
+    if (data.roundId) {
+      const round = await prisma.eventRound.findUnique({ where: { id: data.roundId } });
+      if (!round) throw { status: 404, code: "NOT_FOUND", message: "Event round not found." };
+      
+      // Prevent cross-event round submission manipulation
+      if (round.eventId !== targetEventId) {
+        throw { status: 400, code: "BAD_REQUEST", message: "Selected round does not belong to this event." };
+      }
+
+      // Submission timeline checks
+      const now = new Date();
+      if (round.submissionStart && now < round.submissionStart) {
+        throw { status: 400, code: "SUBMISSION_NOT_STARTED", message: "Submissions for this round have not started yet." };
+      }
+      if (round.submissionDeadline && now > round.submissionDeadline) {
+        throw { status: 400, code: "SUBMISSION_CLOSED", message: "Submission deadline for this round has passed." };
+      }
+
+      // Prevent duplicate submissions for the same team & round
+      const existingSub = await prisma.submission.findFirst({
+        where: { teamId: data.teamId, roundId: data.roundId }
+      });
+      if (existingSub) {
+        throw { status: 400, code: "DUPLICATE_SUBMISSION", message: "You have already submitted for this round." };
+      }
+
+      targetRoundNumber = round.roundNumber;
+    }
 
     return prisma.submission.create({
       data: {
+        eventId: targetEventId,
+        competitionId: compId,
         teamId: data.teamId,
-        competitionId: data.competitionId,
+        roundId: data.roundId || null,
+        roundNumber: targetRoundNumber,
+        submittedById: userId,
+        title: data.title || `${member.team.name} - Round ${targetRoundNumber} Submission`,
         status: "DRAFT"
+      },
+      include: {
+        eventRound: true,
+        team: true,
+        files: true
       }
     });
   }

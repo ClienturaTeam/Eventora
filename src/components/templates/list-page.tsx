@@ -36,6 +36,7 @@ export interface ListPageProps<T extends { id: string }> {
   aside?: ReactNode | undefined;
   loading?: boolean | undefined;
   error?: boolean | undefined;
+  selectable?: boolean | undefined;
 }
 
 const statusOptions = [
@@ -71,6 +72,7 @@ export function ListPageTemplate<T extends { id: string }>({
   aside,
   loading,
   error,
+  selectable = false,
 }: ListPageProps<T>) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
@@ -232,52 +234,13 @@ export function ListPageTemplate<T extends { id: string }>({
             </div>
           </div>
         ) : null}
-
-        {selected.length ? (
-          <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-accent/50 px-3 py-2.5">
-            <span className="text-sm font-medium">{selected.length} selected</span>
-            <div className="ml-auto flex flex-wrap items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => toast.success(`${selected.length} records approved`)}
-              >
-                Approve
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  const filename = title.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-selection-export';
-                  exportToCsv(filtered.filter(row => selected.includes(row.id)), filename);
-                  toast.success("Export downloaded successfully");
-                }}
-              >
-                <Download className="h-3.5 w-3.5" />
-                Export
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-destructive"
-                onClick={() => toast.error(`${selected.length} records archived`)}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Archive
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setSelected([])}>
-                <X className="h-3.5 w-3.5" />
-                Clear
-              </Button>
-            </div>
-          </div>
-        ) : null}
       </div>
 
       <div className={aside ? "grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]" : undefined}>
         <DataTable
           columns={columns}
           rows={filtered}
+          selectable={selectable}
           selected={selected}
           onSelectedChange={setSelected}
           rowActions={rowActions}

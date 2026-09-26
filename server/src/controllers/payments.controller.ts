@@ -213,6 +213,24 @@ export class PaymentsController {
     }
   }
 
+  static async verifyEventRegistrationPayment(req: AuthRequest, res: Response) {
+    try {
+      const tenantId = req.tenantId!;
+      const userId = req.user!.id;
+      const { eventId } = req.body;
+
+      if (!eventId) {
+        return res.status(400).json({ success: false, error: { message: "Missing eventId" } });
+      }
+
+      const result = await PaymentsService.verifyEventRegistrationPayment(tenantId, userId, eventId);
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      const status = error.status || 500;
+      res.status(status).json({ success: false, error: { message: error.message } });
+    }
+  }
+
   static async getMyTransactions(req: AuthRequest, res: Response) {
     try {
       const userId = req.user!.id;

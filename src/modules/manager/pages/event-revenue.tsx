@@ -26,10 +26,10 @@ export function ManagerEventRevenuePage() {
         { label: "Revenue" },
       ]}
       metrics={[
-        { label: "Total Revenue", value: `$${(revenue?.totalRevenue || 0).toLocaleString()}` },
-        { label: "Net Revenue", value: `$${(revenue?.netRevenue || 0).toLocaleString()}` },
+        { label: "Total Revenue", value: `₹${(revenue?.totalRevenue || 0).toLocaleString("en-IN")}` },
+        { label: "Net Revenue", value: `₹${(revenue?.netRevenue || 0).toLocaleString("en-IN")}` },
         { label: "Successful Payments", value: revenue?.successfulPayments || "0" },
-        { label: "Total Refunds", value: `$${(revenue?.totalRefunds || 0).toLocaleString()}` },
+        { label: "Total Refunds", value: `₹${(revenue?.totalRefunds || 0).toLocaleString("en-IN")}` },
       ]}
       overview={<></>}
     />

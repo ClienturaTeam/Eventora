@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 
 const tones: Record<string, string> = {
   active: "bg-success/12 text-success border-success/25",
+  live: "bg-success/12 text-success border-success/25",
   approved: "bg-success/12 text-success border-success/25",
   published: "bg-success/12 text-success border-success/25",
   pending: "bg-warning/15 text-warning border-warning/30",
@@ -9,8 +10,10 @@ const tones: Record<string, string> = {
   draft: "bg-muted text-muted-foreground border-border",
   archived: "bg-muted text-muted-foreground border-border",
   closed: "bg-secondary text-secondary-foreground border-border",
+  completed: "bg-secondary text-secondary-foreground border-border",
   rejected: "bg-destructive/12 text-destructive border-destructive/25",
   suspended: "bg-destructive/12 text-destructive border-destructive/25",
+  cancelled: "bg-destructive/12 text-destructive border-destructive/25",
 };
 
 const labels: Record<string, string> = {

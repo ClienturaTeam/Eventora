@@ -5,10 +5,14 @@ import type { Column } from "@/components/ds/data-table";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useState } from "react";
+import { EventDetailsDialog } from "@/components/events/EventDetailsDialog";
+import { ApiEvent } from "@/modules/events/services/events.api";
 
 export function ManagerRegistrationsPage() {
   const { data = [], isLoading } = useManagerRegistrations();
   const updateStatusMutation = useUpdateManagerRegistrationStatus();
+  const [selectedDetailEvent, setSelectedDetailEvent] = useState<ApiEvent | null>(null);
 
   const handleUpdateStatus = async (id: string, status: string) => {
     try {
@@ -23,12 +27,31 @@ export function ManagerRegistrationsPage() {
     {
       key: "user",
       header: "User",
-      render: (row) => <span className="font-medium">{row.user ? `${row.user.firstName || ''} ${row.user.lastName || ''}`.trim() : row.userId}</span>,
+      render: (row) => (
+        <span className="font-medium">
+          {row.user
+            ? `${row.user.firstName || ""} ${row.user.lastName || ""}`.trim() || row.user.email
+            : row.userId}
+        </span>
+      ),
     },
     {
       key: "event",
       header: "Event",
-      render: (row) => <span>{row.event?.name}</span>,
+      render: (row) => (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (row.event) {
+              setSelectedDetailEvent(row.event);
+            }
+          }}
+          className="font-medium text-primary hover:underline text-left"
+        >
+          {row.event?.name || "View Event"}
+        </button>
+      ),
     },
     {
       key: "status",
@@ -61,19 +84,29 @@ export function ManagerRegistrationsPage() {
   ];
 
   return (
-    <ListPageTemplate<any>
-      title="Managed Registrations"
-      description="View and approve registrations you manage."
-      crumbs={[{ label: "Manager" }, { label: "Registrations" }]}
-      columns={columns}
-      rows={data}
-      loading={isLoading}
-      searchKeys={["id"]}
-      facet={{
-        label: "Status",
-        key: "status",
-        options: ["PENDING", "APPROVED", "REJECTED", "WITHDRAWN"],
-      }}
-    />
+    <div className="space-y-6">
+      <ListPageTemplate<any>
+        title="Managed Registrations"
+        description="View and approve registrations you manage."
+        crumbs={[{ label: "Manager" }, { label: "Registrations" }]}
+        columns={columns}
+        rows={data}
+        loading={isLoading}
+        searchKeys={["id"]}
+        selectable={false}
+        facet={{
+          label: "Status",
+          key: "status",
+          options: ["PENDING", "APPROVED", "REJECTED", "WITHDRAWN"],
+        }}
+      />
+
+      <EventDetailsDialog
+        open={!!selectedDetailEvent}
+        onOpenChange={(open) => !open && setSelectedDetailEvent(null)}
+        event={selectedDetailEvent}
+        mode="manager"
+      />
+    </div>
   );
 }

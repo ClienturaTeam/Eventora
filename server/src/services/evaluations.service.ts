@@ -1,10 +1,24 @@
 import { EvaluationRepository } from "../repositories/evaluations.repository";
 import { AuditService } from "./audit.service";
 import { NotificationService } from "./notifications.service";
+import { prisma } from "../utils/prisma";
 
 export class EvaluationService {
-  static async getEvaluations(tenantId: string) {
-    return EvaluationRepository.findAll(tenantId);
+  static async getEvaluations(
+    tenantId: string,
+    filters?: { eventId?: string; roundId?: string; roundNumber?: number; status?: string; judgeId?: string }
+  ) {
+    if (filters?.roundId) {
+      const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(filters.roundId);
+      if (!isUuid) {
+        const parsed = parseInt(filters.roundId, 10);
+        if (!isNaN(parsed)) {
+          filters.roundNumber = parsed;
+          delete filters.roundId;
+        }
+      }
+    }
+    return EvaluationRepository.findAll(tenantId, filters);
   }
 
   static async getMyEvaluations(tenantId: string, judgeUserId: string) {
@@ -44,7 +58,27 @@ export class EvaluationService {
     const ev = await EvaluationRepository.findById(tenantId, id);
     if (!ev) throw { status: 404, code: "NOT_FOUND", message: "Evaluation not found." };
 
-    // Strict Role Constraint: Admins CANNOT enter or directly edit judge scores.
+    // Verify judge assignment unless admin
+    if (!isAdmin) {
+      const assignment = await prisma.submissionJudgeAssignment.findUnique({
+        where: {
+          submissionId_judgeId: {
+            submissionId: ev.submissionId,
+            judgeId: actorUserId,
+          }
+        }
+      });
+
+      if (!assignment && ev.judgeId !== actorUserId) {
+        throw {
+          status: 403,
+          code: "FORBIDDEN",
+          message: "You are not assigned to evaluate this submission.",
+        };
+      }
+    }
+
+    // Strict Role Constraint: Admins CANNOT enter or directly edit judge scores for another judge.
     if (isAdmin && ev.judgeId !== actorUserId) {
       throw {
         status: 403,
@@ -57,7 +91,7 @@ export class EvaluationService {
       throw {
         status: 403,
         code: "FORBIDDEN",
-        message: "You are not authorized to update this evaluation.",
+        message: "You are not authorized to update another judge's evaluation.",
       };
     }
 
@@ -93,6 +127,22 @@ export class EvaluationService {
           const scoresSummary = Object.entries(data.scores).map(([k, v]) => `${k}: ${v}`).join('\n');
           finalFeedback = `[Rubric Scores]\n${scoresSummary}\n\n${data.feedback || ''}`;
         }
+      }
+    }
+
+    // Dynamic maxMarks validation against actual EventRound
+    const sub = await prisma.submission.findUnique({
+      where: { id: ev.submissionId },
+      include: { eventRound: true }
+    });
+    const maxMarks = sub?.eventRound?.maxMarks ?? (ev as any).eventRound?.maxMarks ?? (ev as any).submission?.eventRound?.maxMarks ?? 100;
+
+    if (finalScore !== undefined) {
+      if (finalScore < 0) {
+        throw { status: 400, code: "BAD_REQUEST", message: "Marks cannot be negative." };
+      }
+      if (finalScore > maxMarks) {
+        throw { status: 400, code: "BAD_REQUEST", message: `Marks cannot exceed maximum marks (${maxMarks}) for this round.` };
       }
     }
 

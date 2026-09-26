@@ -166,7 +166,7 @@ export class HackathonProposalController {
         endTime: req.body.endTime,
         status: req.body.status,
         price: req.body.price || 0,
-        currency: req.body.currency || 'USD',
+        currency: req.body.currency || 'INR',
         registrationType: req.body.registrationType,
         minTeamSize: req.body.minTeamSize,
         maxTeamSize: req.body.maxTeamSize,

@@ -23,7 +23,14 @@ export class EvaluationController {
   static async findAll(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const tenantId = req.tenantId as string;
-      const data = await EvaluationService.getEvaluations(tenantId);
+      const filters = {
+        eventId: req.query.eventId as string,
+        roundId: req.query.roundId as string,
+        roundNumber: req.query.roundNumber ? Number(req.query.roundNumber) : undefined,
+        status: req.query.status as string,
+        judgeId: req.query.judgeId as string,
+      };
+      const data = await EvaluationService.getEvaluations(tenantId, filters);
       res.json({ success: true, data });
     } catch (error) {
       next(error);

@@ -28,6 +28,7 @@ router.post("/checkout", requirePermission("payments.manage"), PaymentsControlle
 // Event Registration Checkout (Participant)
 // No explicit 'payments.manage' needed since participants are paying for themselves.
 router.post("/event-registration/checkout", PaymentsController.createEventRegistrationCheckout);
+router.post("/event-registration/verify", PaymentsController.verifyEventRegistrationPayment);
 
 // Participant's own transactions
 router.get("/my-transactions", PaymentsController.getMyTransactions);

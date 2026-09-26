@@ -20,4 +20,11 @@ router.delete("/:id", requirePermission("events.delete"), MentorController.delet
 router.post("/:id/teams", requirePermission("events.update"), validateRequest(assignTeamSchema), MentorController.assignTeam);
 router.delete("/:id/teams/:teamId", requirePermission("events.update"), MentorController.removeTeam);
 
+// Mentor Q&A Routes
+router.get("/questions/all", MentorController.getQuestions);
+router.post("/questions", MentorController.askQuestion);
+router.get("/questions/:id", MentorController.getQuestionById);
+router.post("/questions/:id/replies", MentorController.addReply);
+router.patch("/questions/:id/status", MentorController.updateQuestionStatus);
+
 export { router as mentorRoutes };

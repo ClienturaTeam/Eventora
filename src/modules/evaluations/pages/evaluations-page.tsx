@@ -220,6 +220,17 @@ export function EvaluationsPage() {
   async function handleSaveDraft() {
     if (!selected) return;
     const total = calculateTotalScore();
+    const maxMarks = (selected as any)?.submission?.eventRound?.maxMarks || (selected as any)?.eventRound?.maxMarks || 100;
+    
+    if (total < 0) {
+      toast.error("Marks cannot be negative.");
+      return;
+    }
+    if (total > maxMarks) {
+      toast.error(`Marks (${total}) cannot exceed maximum marks (${maxMarks}) for this round.`);
+      return;
+    }
+
     const payload: any = {
       id: selected.id,
       score: total,
@@ -227,14 +238,29 @@ export function EvaluationsPage() {
       status: "IN_PROGRESS",
     };
 
-    await updateEval.mutateAsync(payload);
-    autoSaveDraft(rubricScores, total, feedbackText);
-    toast.success("Draft scorecard saved successfully");
+    try {
+      await updateEval.mutateAsync(payload);
+      autoSaveDraft(rubricScores, total, feedbackText);
+      toast.success("Draft scorecard saved successfully");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to save draft scorecard");
+    }
   }
 
   async function handleSubmitScorecard() {
     if (!selected) return;
     const total = calculateTotalScore();
+    const maxMarks = (selected as any)?.submission?.eventRound?.maxMarks || (selected as any)?.eventRound?.maxMarks || 100;
+
+    if (total < 0) {
+      toast.error("Marks cannot be negative.");
+      return;
+    }
+    if (total > maxMarks) {
+      toast.error(`Marks (${total}) cannot exceed maximum marks (${maxMarks}) for this round.`);
+      return;
+    }
+
     const payload: any = {
       id: selected.id,
       score: total,
@@ -242,10 +268,14 @@ export function EvaluationsPage() {
       status: "COMPLETED",
     };
 
-    await updateEval.mutateAsync(payload);
-    localStorage.removeItem(`eval_draft_${selected.id}`);
-    toast.success(`Scorecard submitted! Total score: ${total}/100`);
-    setSelected(null);
+    try {
+      await updateEval.mutateAsync(payload);
+      localStorage.removeItem(`eval_draft_${selected.id}`);
+      toast.success(`Scorecard submitted! Total score: ${total} / ${maxMarks}`);
+      setSelected(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to submit scorecard");
+    }
   }
 
   const isLoading = myLoading || allLoading;

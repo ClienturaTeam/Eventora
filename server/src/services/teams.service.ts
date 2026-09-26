@@ -84,6 +84,117 @@ export class TeamService {
     });
   }
 
+  static async getTeamDetails(tenantId: string, id: string) {
+    const team = await prisma.team.findFirst({
+      where: {
+        id,
+        competition: { event: { organizationId: tenantId } }
+      },
+      include: {
+        competition: {
+          include: {
+            event: {
+              include: {
+                organization: true,
+                rounds: { orderBy: { roundNumber: 'asc' } }
+              }
+            }
+          }
+        },
+        members: {
+          include: {
+            user: { select: { id: true, firstName: true, lastName: true, email: true } }
+          }
+        },
+        problemStatement: true
+      }
+    });
+
+    if (!team) {
+      throw { status: 404, code: "NOT_FOUND", message: "Team not found in this organization." };
+    }
+
+    const memberUserIds = team.members.map((m) => m.userId).filter(Boolean) as string[];
+
+    // Registration & Payment
+    const registration = memberUserIds.length > 0
+      ? await prisma.registration.findFirst({
+          where: {
+            eventId: team.competition.eventId,
+            userId: { in: memberUserIds }
+          },
+          include: { payment: true }
+        })
+      : null;
+
+    // Submissions
+    const submissions = await prisma.submission.findMany({
+      where: { teamId: id },
+      include: {
+        eventRound: true,
+        files: true,
+        judgeAssignments: {
+          include: {
+            judge: { select: { id: true, firstName: true, lastName: true, email: true } }
+          }
+        },
+        evaluations: {
+          include: {
+            judge: { select: { id: true, firstName: true, lastName: true, email: true } },
+            eventRound: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // Mentor Questions
+    const mentorQuestions = memberUserIds.length > 0
+      ? await prisma.mentorQuestion.findMany({
+          where: {
+            eventId: team.competition.eventId,
+            participantId: { in: memberUserIds }
+          },
+          include: {
+            participant: { select: { id: true, firstName: true, lastName: true, email: true } },
+            mentor: { select: { id: true, firstName: true, lastName: true, email: true } },
+            replies: {
+              include: { sender: { select: { id: true, firstName: true, lastName: true, email: true } } },
+              orderBy: { createdAt: 'asc' }
+            }
+          },
+          orderBy: { createdAt: 'desc' }
+        })
+      : [];
+
+    // Form rounds list
+    const eventRounds = team.competition?.event?.rounds || [];
+    const roundProgress = eventRounds.map((r) => {
+      const sub = submissions.find(
+        (s) => s.roundId === r.id || s.eventRound?.id === r.id || s.roundNumber === r.roundNumber
+      );
+      return {
+        round: r,
+        submission: sub || null,
+        evaluations: sub?.evaluations || [],
+        judgeAssignments: sub?.judgeAssignments || []
+      };
+    });
+
+    return {
+      team,
+      members: team.members,
+      event: team.competition?.event,
+      competition: team.competition,
+      registration,
+      payment: registration?.payment || null,
+      problemStatement: team.problemStatement,
+      submissions,
+      rounds: roundProgress,
+      mentorQuestions
+    };
+  }
+
   static async createTeam(tenantId: string, data: any) {
     return TeamRepository.create(tenantId, data);
   }
@@ -97,10 +208,20 @@ export class TeamService {
   }
 
   static async deleteTeam(tenantId: string, id: string) {
-    const team = await TeamRepository.delete(tenantId, id);
+    const team = await TeamRepository.findById(tenantId, id);
     if (!team) {
       throw { status: 404, code: "NOT_FOUND", message: "Team not found." };
     }
-    return true;
+
+    const subCount = await prisma.submission.count({ where: { teamId: id } });
+    if (subCount > 0) {
+      throw {
+        status: 400,
+        code: "DEPENDENT_RECORDS_EXIST",
+        message: `Cannot delete team "${team.name}" because it has ${subCount} existing submission(s).`
+      };
+    }
+
+    return TeamRepository.delete(tenantId, id);
   }
 }

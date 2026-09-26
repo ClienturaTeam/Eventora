@@ -7,7 +7,8 @@ export class ProblemStatementController {
     try {
       const isStudent = req.user?.status === "PENDING" || req.query.mode === "student";
       const orgId = (req.headers["x-organization-id"] as string) || undefined;
-      const statements = await ProblemStatementService.getAll(orgId, isStudent);
+      const eventId = (req.query.eventId as string) || undefined;
+      const statements = await ProblemStatementService.getAll(orgId, isStudent, eventId);
       res.json({ success: true, data: statements });
     } catch (error) {
       next(error);

@@ -54,7 +54,7 @@ interface DataTableProps<T extends { id: string }> {
 export function DataTable<T extends { id: string }>({
   columns,
   rows,
-  selectable = true,
+  selectable = false,
   selected = [],
   onSelectedChange,
   rowActions,

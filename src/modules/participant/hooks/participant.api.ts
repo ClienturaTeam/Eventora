@@ -114,7 +114,12 @@ export const useRegisterForEvent = () => {
 export const useRegisterTeamForEvent = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { eventId: string; teamName: string; competitionId: string; members: string[] }) => {
+    mutationFn: async (data: {
+      eventId: string;
+      teamName: string;
+      competitionId?: string | undefined;
+      members?: Array<{ name?: string; email: string; contactNumber?: string; college?: string; department?: string; year?: string }> | string[] | undefined;
+    }) => {
       const response = await fetchApi('/participant/registrations/team', {
         method: 'POST',
         body: JSON.stringify(data),
@@ -125,6 +130,7 @@ export const useRegisterTeamForEvent = () => {
       queryClient.invalidateQueries({ queryKey: participantKeys.registrations() });
       queryClient.invalidateQueries({ queryKey: participantKeys.teams() });
       queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
+      queryClient.invalidateQueries({ queryKey: participantKeys.discoverEvents() });
     },
   });
 };
@@ -189,14 +195,18 @@ export const useAcceptTeamInvite = () => {
 export const useCreateParticipantSubmission = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { teamId: string; content: string; competitionId: string }) => {
+    mutationFn: async (data: { teamId: string; competitionId?: string; eventId?: string; roundId?: string; title?: string; content?: string }) => {
       const response = await fetchApi('/participant/submissions', {
         method: 'POST',
         body: JSON.stringify(data),
       });
       return response.data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: participantKeys.submissions() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: participantKeys.submissions() });
+      queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
   });
 };
 
@@ -210,7 +220,11 @@ export const useUpdateParticipantSubmission = () => {
       });
       return response.data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: participantKeys.submissions() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: participantKeys.submissions() });
+      queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
   });
 };
 
@@ -255,6 +269,7 @@ export const useUploadSubmissionFile = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: participantKeys.submissions() });
       queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
     },
   });
 };
@@ -271,6 +286,7 @@ export const useFinalSubmitSubmission = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: participantKeys.submissions() });
       queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
     },
   });
 };

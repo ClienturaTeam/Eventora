@@ -5,7 +5,7 @@ import {
   HeartHandshake, LayoutDashboard,
   Sparkles, Trophy, Users, UsersRound,
   ClipboardList, Compass, Wallet, Award, Medal,
-  FilePlus2, Shield
+  FilePlus2, Shield, FileCode
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
@@ -134,6 +134,7 @@ const participantSections = [
       { title: "My Registrations", url: "/participant/registrations", icon: ClipboardCheck },
       { title: "My Teams", url: "/participant/teams", icon: UsersRound },
       { title: "My Submissions", url: "/participant/submissions", icon: Sparkles },
+      { title: "Problem Statements", url: "/participant/problem-statements", icon: FileCode },
       { title: "My Transactions", url: "/participant/transactions", icon: Wallet },
     ],
   },

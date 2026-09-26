@@ -59,4 +59,50 @@ export class MentorController {
       res.json({ success: true, data: { deleted: true } });
     } catch (error) { next(error); }
   }
+
+  // Mentor Q&A Controllers
+  static async askQuestion(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.tenantId as string;
+      const data = await MentorService.askQuestion(tenantId, req.user!.id, req.body);
+      res.status(201).json({ success: true, data });
+    } catch (error) { next(error); }
+  }
+
+  static async getQuestions(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.tenantId as string;
+      const filters = {
+        eventId: req.query.eventId as string,
+        roundId: req.query.roundId as string,
+        status: req.query.status as string,
+      };
+      const data = await MentorService.getQuestions(tenantId, req.user!.id, filters);
+      res.json({ success: true, data });
+    } catch (error) { next(error); }
+  }
+
+  static async getQuestionById(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.tenantId as string;
+      const data = await MentorService.getQuestionById(tenantId, req.params.id, req.user!.id);
+      res.json({ success: true, data });
+    } catch (error) { next(error); }
+  }
+
+  static async addReply(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.tenantId as string;
+      const reply = await MentorService.addReply(tenantId, req.params.id, req.user!.id, req.body.message);
+      res.status(201).json({ success: true, data: reply });
+    } catch (error) { next(error); }
+  }
+
+  static async updateQuestionStatus(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.tenantId as string;
+      const data = await MentorService.updateQuestionStatus(tenantId, req.params.id, req.body.status);
+      res.json({ success: true, data });
+    } catch (error) { next(error); }
+  }
 }

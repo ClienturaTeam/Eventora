@@ -379,8 +379,33 @@ export class PaymentsService {
     const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event) throw Object.assign(new Error("Event not found"), { status: 404 });
 
-    if (event.price <= 0) {
+    if (event.status === "DRAFT") {
+      throw Object.assign(new Error("Registration is unavailable for draft events."), { status: 400, code: "REGISTRATION_UNAVAILABLE" });
+    }
+    if (event.status === "LIVE") {
+      throw Object.assign(new Error("Registration is closed for live events."), { status: 400, code: "REGISTRATION_CLOSED" });
+    }
+    if (event.status === "COMPLETED") {
+      throw Object.assign(new Error("Registration is closed for completed events."), { status: 400, code: "REGISTRATION_CLOSED" });
+    }
+    if (event.status === "CANCELLED") {
+      throw Object.assign(new Error("Registration is unavailable for cancelled events."), { status: 400, code: "REGISTRATION_UNAVAILABLE" });
+    }
+    if (event.status !== "PUBLISHED") {
+      throw Object.assign(new Error(`Registration is unavailable for ${event.status.toLowerCase()} events.`), { status: 400, code: "REGISTRATION_UNAVAILABLE" });
+    }
+
+    const registrationFee = (event.price && event.price > 0) ? event.price : (event.revenue || 0);
+
+    if (registrationFee <= 0) {
       throw Object.assign(new Error("Event is free, no checkout required"), { status: 400 });
+    }
+
+    if (event.price <= 0 && registrationFee > 0) {
+      await prisma.event.update({
+        where: { id: eventId },
+        data: { price: registrationFee, revenue: registrationFee }
+      });
     }
 
     let registration = await prisma.registration.findUnique({
@@ -411,7 +436,7 @@ export class PaymentsService {
 
     const session = await StripeService.createEventRegistrationCheckout(
       event.name,
-      event.price,
+      registrationFee,
       event.currency,
       organizationId,
       eventId,
@@ -425,13 +450,13 @@ export class PaymentsService {
       await PaymentsRepository.updatePayment(existingPayment.id, organizationId, {
         status: "PENDING",
         providerPaymentId: session.id,
-        amount: event.price,
+        amount: registrationFee,
         currency: event.currency
       });
     } else {
       // Create the pending Payment
       await PaymentsRepository.createPayment(organizationId, {
-        amount: event.price,
+        amount: registrationFee,
         currency: event.currency,
         status: "PENDING",
         provider: "STRIPE",
@@ -445,6 +470,66 @@ export class PaymentsService {
     }
 
     return { url: session.url };
+  }
+
+  static async verifyEventRegistrationPayment(
+    organizationId: string,
+    userId: string,
+    eventId: string
+  ) {
+    const event = await prisma.event.findUnique({ where: { id: eventId } });
+    if (!event) throw Object.assign(new Error("Event not found"), { status: 404 });
+
+    const registration = await prisma.registration.findUnique({
+      where: { eventId_userId: { eventId, userId } },
+      include: { event: true }
+    });
+
+    if (!registration) {
+      return { verified: false, status: "NOT_REGISTERED", message: "No registration record found." };
+    }
+
+    if (registration.status === "PAID" || registration.status === "APPROVED" || registration.status === "COMPLETED") {
+      const payment = await prisma.payment.findUnique({ where: { registrationId: registration.id } });
+      return { verified: true, status: "PAID", registration, payment };
+    }
+
+    const payment = await prisma.payment.findUnique({
+      where: { registrationId: registration.id }
+    });
+
+    if (!payment) {
+      return { verified: false, status: registration.status, registration };
+    }
+
+    if (payment.status === "SUCCEEDED") {
+      const updatedReg = await prisma.registration.update({
+        where: { id: registration.id },
+        data: { status: "PAID" }
+      });
+      return { verified: true, status: "PAID", registration: updatedReg, payment };
+    }
+
+    if (payment.providerPaymentId && payment.providerPaymentId.startsWith("cs_")) {
+      try {
+        const session = await stripe.checkout.sessions.retrieve(payment.providerPaymentId);
+        if (session && session.payment_status === "paid") {
+          const updatedPayment = await prisma.payment.update({
+            where: { id: payment.id },
+            data: { status: "SUCCEEDED" }
+          });
+          const updatedReg = await prisma.registration.update({
+            where: { id: registration.id },
+            data: { status: "PAID" }
+          });
+          return { verified: true, status: "PAID", registration: updatedReg, payment: updatedPayment };
+        }
+      } catch (e) {
+        // Stripe retrieve fallback
+      }
+    }
+
+    return { verified: false, status: payment.status || registration.status, registration, payment };
   }
 
   static async getUserTransactions(userId: string) {

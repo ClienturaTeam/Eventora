@@ -5,6 +5,7 @@ export class JudgeRepository {
     return prisma.judge.findMany({
       where: { organizationId: tenantId },
       include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
         competitions: {
           include: {
             competition: { select: { id: true, name: true } },
@@ -19,6 +20,7 @@ export class JudgeRepository {
     return prisma.judge.findFirst({
       where: { id, organizationId: tenantId },
       include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
         competitions: {
           include: {
             competition: { select: { id: true, name: true } },

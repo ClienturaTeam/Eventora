@@ -861,7 +861,7 @@ async function main() {
     data: {
       organizationId: org1.id,
       amount: 15000,
-      currency: 'USD',
+      currency: 'INR',
       status: PaymentStatus.SUCCEEDED,
       provider: PaymentProvider.STRIPE,
       providerPaymentId: 'pi_3M2X1XYZ1',
@@ -872,7 +872,7 @@ async function main() {
     data: {
       organizationId: org1.id,
       amount: 2500,
-      currency: 'USD',
+      currency: 'INR',
       status: PaymentStatus.SUCCEEDED,
       provider: PaymentProvider.STRIPE,
       providerPaymentId: 'pi_3M2X2XYZ2',

@@ -64,7 +64,7 @@ function SponsorsPage() {
     id: s.id,
     name: s.name,
     tier: s.tier,
-    value: `$${s.committedValue?.toLocaleString() || "0"}`,
+    value: `₹${s.committedValue?.toLocaleString("en-IN") || "0"}`,
     events: s._count?.sponsorships || 0,
     contact: s.contacts?.[0]?.email || "N/A",
     status: s.status || "ACTIVE",
@@ -81,7 +81,7 @@ function SponsorsPage() {
       searchKeys={["name", "tier", "contact"]}
       stats={[
         { label: "Sponsors", value: stats?.sponsors?.toString() || "0" },
-        { label: "Committed value", value: `$${((stats?.committedValue || 0) / 1000000).toFixed(1)}M` },
+        { label: "Committed value", value: `₹${(stats?.committedValue || 0).toLocaleString("en-IN")}` },
         { label: "Deliverables met", value: `${stats?.deliverablesMet || 0}%`, progress: stats?.deliverablesMet || 0 },
         { label: "Renewals pending", value: stats?.renewalsPending?.toString() || "0", hint: "next 90 days" },
       ]}

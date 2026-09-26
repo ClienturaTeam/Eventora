@@ -26,6 +26,14 @@ export class TeamController {
     } catch (error) { next(error); }
   }
 
+  static async getDetails(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.tenantId as string;
+      const details = await TeamService.getTeamDetails(tenantId, req.params.id);
+      res.json({ success: true, data: details });
+    } catch (error) { next(error); }
+  }
+
   static async selectProblemStatement(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const teamId = req.params.id;

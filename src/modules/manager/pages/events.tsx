@@ -5,16 +5,18 @@ import type { Column } from "@/components/ds/data-table";
 import { useManagerEvents, useDeleteManagerEvent } from "../hooks/manager.api";
 import { ApiEvent } from "@/modules/events/services/events.api";
 import { ManagerEventDialog } from "../components/manager-event-dialog";
+import { ManagerRevenueDialog } from "../components/manager-revenue-dialog";
+import { EventDetailsDialog } from "@/modules/events/components/EventDetailsDialog";
 import { Button } from "@/components/ui/button";
-import { Trash2, Edit2, Plus, DollarSign } from "lucide-react";
+import { Trash2, Edit2, Plus, DollarSign, IndianRupee } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
 
 const statusLabel: Record<string, string> = {
   DRAFT: "draft",
   PUBLISHED: "published",
-  LIVE: "active",
-  COMPLETED: "closed",
+  LIVE: "live",
+  COMPLETED: "completed",
   CANCELLED: "cancelled",
 };
 
@@ -22,7 +24,9 @@ export function ManagerEventsPage() {
   const { data: events = [], isLoading } = useManagerEvents();
   const deleteMutation = useDeleteManagerEvent();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [revenueDialogOpen, setRevenueDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<ApiEvent | null>(null);
+  const [selectedDetailEvent, setSelectedDetailEvent] = useState<ApiEvent | null>(null);
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this event?")) {
@@ -40,13 +44,34 @@ export function ManagerEventsPage() {
       key: "name",
       header: "Event",
       sortable: true,
-      render: (row) => <span className="font-medium">{row.name}</span>,
+      render: (row) => (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedDetailEvent(row);
+          }}
+          className="font-medium text-primary hover:underline text-left"
+        >
+          {row.name}
+        </button>
+      ),
     },
     {
       key: "status",
       header: "Status",
       sortable: true,
       render: (row) => <StatusChip status={statusLabel[row.status] ?? row.status} />,
+    },
+    {
+      key: "revenue",
+      header: "Revenue",
+      sortable: true,
+      render: (row) => (
+        <span className="font-medium text-emerald-600 dark:text-emerald-400">
+          ₹{(row.revenue || 0).toLocaleString('en-IN')}
+        </span>
+      ),
     },
     {
       key: "startTime",
@@ -64,10 +89,10 @@ export function ManagerEventsPage() {
       key: "actions",
       header: "",
       render: (row) => (
-        <div className="flex justify-end space-x-2">
-          <Button variant="ghost" size="sm" asChild>
+        <div className="flex justify-end space-x-2" onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="sm" asChild title="View Financial Overview">
             <Link to={`/manager/events/${row.id}/revenue` as any}>
-              <DollarSign className="h-4 w-4" />
+              <IndianRupee className="h-4 w-4" />
             </Link>
           </Button>
           <Button variant="ghost" size="sm" onClick={() => { setEditingEvent(row); setDialogOpen(true); }}>
@@ -83,7 +108,11 @@ export function ManagerEventsPage() {
 
   return (
     <>
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-end gap-3 mb-4">
+        <Button variant="outline" onClick={() => setRevenueDialogOpen(true)}>
+          <IndianRupee className="h-4 w-4 mr-2 text-emerald-600 dark:text-emerald-400" />
+          Revenue
+        </Button>
         <Button onClick={() => { setEditingEvent(null); setDialogOpen(true); }}>
           <Plus className="h-4 w-4 mr-2" />
           Create Event
@@ -97,6 +126,8 @@ export function ManagerEventsPage() {
         rows={events}
         loading={isLoading}
         searchKeys={["name"]}
+        selectable={false}
+        onRowClick={(row) => setSelectedDetailEvent(row)}
         facet={{
           label: "Status",
           key: "status",
@@ -107,6 +138,17 @@ export function ManagerEventsPage() {
         open={dialogOpen} 
         onOpenChange={setDialogOpen} 
         event={editingEvent} 
+      />
+      <ManagerRevenueDialog
+        open={revenueDialogOpen}
+        onOpenChange={setRevenueDialogOpen}
+        events={events}
+      />
+      <EventDetailsDialog
+        event={selectedDetailEvent}
+        open={!!selectedDetailEvent}
+        onOpenChange={(open) => !open && setSelectedDetailEvent(null)}
+        mode="manager"
       />
     </>
   );
