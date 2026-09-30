@@ -61,6 +61,7 @@ model User {
   askedQuestions        MentorQuestion[]     @relation("QuestionParticipant")
   mentoredQuestions     MentorQuestion[]     @relation("QuestionMentor")
   questionReplies       QuestionReply[]
+  judgeProfiles         Judge[]
 }
 
 model Organization {
@@ -347,6 +348,7 @@ model SubmissionFile {
 model Judge {
   id             String             @id @default(uuid())
   userId         String?
+  user           User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
   name           String             @default("Unknown Judge")
   email          String             @default("unknown@example.com")
   organizationId String

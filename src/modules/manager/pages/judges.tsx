@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
 export function ManagerJudgesPage() {
-  const { data: judges = [], isLoading } = useManagerJudges();
+  const { data: judges = [], isLoading, isError } = useManagerJudges();
   const { data: events = [] } = useManagerEvents();
   const assignCompetition = useAssignJudgeCompetition();
   const createJudge = useAssignManagerJudge();
@@ -73,11 +73,20 @@ export function ManagerJudgesPage() {
             render: (row) => (
               <div>
                 <div className="font-medium">
-                  {row.user ? `${row.user.firstName || ''} ${row.user.lastName || ''}`.trim() : row.userId}
+                  {row.user ? `${row.user.firstName || ''} ${row.user.lastName || ''}`.trim() : (row.name || row.userId)}
                 </div>
-                <div className="text-xs text-muted-foreground">{row.user?.email}</div>
+                <div className="text-xs text-muted-foreground">{row.user?.email || row.email}</div>
               </div>
             ) 
+          },
+          {
+            key: "status",
+            header: "Status",
+            render: (row) => (
+              <Badge variant="outline" className="capitalize bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                {row.status || "Active"}
+              </Badge>
+            )
           },
           { 
             key: "expertise", 
@@ -115,7 +124,9 @@ export function ManagerJudgesPage() {
         ]}
         rows={judges}
         loading={isLoading}
-        searchKeys={["user", "userId", "expertise"]}
+        error={isError}
+        statusKey="status"
+        searchKeys={["name", "email", "expertise", "bio", "user.firstName", "user.lastName", "user.email"]}
         rowActions={[
           {
             label: "Assign Competition",
