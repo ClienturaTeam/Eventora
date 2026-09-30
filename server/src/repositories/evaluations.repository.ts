@@ -71,13 +71,13 @@ export class EvaluationRepository {
             submittedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
             judgeAssignments: {
               include: {
-                judge: { select: { id: true, firstName: true, lastName: true, email: true } }
+                judge: { select: { id: true, name: true, email: true } }
               }
             },
             files: true
           },
         },
-        judge: { select: { id: true, firstName: true, lastName: true, email: true } },
+        judge: { select: { id: true, name: true, email: true } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -106,7 +106,7 @@ export class EvaluationRepository {
             files: true
           },
         },
-        judge: { select: { id: true, firstName: true, lastName: true, email: true } }
+        judge: { select: { id: true, name: true, email: true } }
       },
       orderBy: { createdAt: "desc" },
     });
@@ -134,7 +134,7 @@ export class EvaluationRepository {
             files: true
           },
         },
-        judge: { select: { id: true, firstName: true, lastName: true, email: true } },
+        judge: { select: { id: true, name: true, email: true } },
       },
     });
   }
