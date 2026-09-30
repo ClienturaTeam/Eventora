@@ -24,6 +24,7 @@ export function EventDialog({ open, onOpenChange, event }: EventDialogProps) {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [status, setStatus] = useState("DRAFT");
+  const [maxTeamSize, setMaxTeamSize] = useState<number>(4);
 
   const createMutation = useCreateEvent();
   const updateMutation = useUpdateEvent();
@@ -33,23 +34,34 @@ export function EventDialog({ open, onOpenChange, event }: EventDialogProps) {
     if (event) {
       setName(event.name);
       setDescription(event.description ?? "");
-      setStartTime(event.startTime.slice(0, 16));
-      setEndTime(event.endTime.slice(0, 16));
+      setStartTime(event.startTime ? event.startTime.slice(0, 16) : "");
+      setEndTime(event.endTime ? event.endTime.slice(0, 16) : "");
       setStatus(event.status);
+      setMaxTeamSize(event.maxTeamSize ?? 4);
     } else {
-      setName(""); setDescription(""); setStartTime(""); setEndTime(""); setStatus("DRAFT");
+      setName(""); setDescription(""); setStartTime(""); setEndTime(""); setStatus("DRAFT"); setMaxTeamSize(4);
     }
   }, [event, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (!startTime || !endTime) {
+        toast.error("Event start time and end time are required.");
+        return;
+      }
+      if (new Date(endTime).getTime() <= new Date(startTime).getTime()) {
+        toast.error("Event end time must be after event start time.");
+        return;
+      }
       const payload = {
         name,
         ...(description ? { description } : {}),
         startTime: new Date(startTime).toISOString(),
         endTime: new Date(endTime).toISOString(),
         status,
+        maxTeamSize: Number(maxTeamSize),
+        registrationType: "TEAM",
       };
       if (isEditing) {
         await updateMutation.mutateAsync({ id: event.id, ...payload });
@@ -96,18 +108,37 @@ export function EventDialog({ open, onOpenChange, event }: EventDialogProps) {
                 <Input id="ev-end" type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
               </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="ev-status">Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger id="ev-status"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DRAFT">Draft</SelectItem>
-                  <SelectItem value="PUBLISHED">Published</SelectItem>
-                  <SelectItem value="LIVE">Live</SelectItem>
-                  <SelectItem value="COMPLETED">Completed</SelectItem>
-                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="ev-status">Status</Label>
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger id="ev-status"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DRAFT">Draft</SelectItem>
+                    <SelectItem value="PUBLISHED">Published</SelectItem>
+                    <SelectItem value="LIVE">Live</SelectItem>
+                    <SelectItem value="COMPLETED">Completed</SelectItem>
+                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="ev-team-size">Team Size / Maximum Team Participants</Label>
+                <Select value={String(maxTeamSize)} onValueChange={(val) => setMaxTeamSize(Number(val))}>
+                  <SelectTrigger id="ev-team-size"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2">2 Participants</SelectItem>
+                    <SelectItem value="3">3 Participants</SelectItem>
+                    <SelectItem value="4">4 Participants</SelectItem>
+                    <SelectItem value="5">5 Participants</SelectItem>
+                    <SelectItem value="6">6 Participants</SelectItem>
+                    <SelectItem value="7">7 Participants</SelectItem>
+                    <SelectItem value="8">8 Participants</SelectItem>
+                    <SelectItem value="10">10 Participants</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <DialogFooter>

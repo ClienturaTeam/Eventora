@@ -59,22 +59,25 @@ export function ParticipantDiscoverEventsPage() {
               } else {
                 toast.success("Payment completed successfully!");
               }
-              queryClient.invalidateQueries({ queryKey: ["discover-events"] });
-              queryClient.invalidateQueries({ queryKey: ["my-registrations"] });
+              queryClient.invalidateQueries({ queryKey: ["participant"] });
+              queryClient.invalidateQueries({ queryKey: ["payments"] });
+              queryClient.invalidateQueries({ queryKey: ["events"] });
               refetchRegistrations();
             },
             onError: () => {
               toast.success("Payment completed! Registration is confirmed.");
-              queryClient.invalidateQueries({ queryKey: ["discover-events"] });
-              queryClient.invalidateQueries({ queryKey: ["my-registrations"] });
+              queryClient.invalidateQueries({ queryKey: ["participant"] });
+              queryClient.invalidateQueries({ queryKey: ["payments"] });
+              queryClient.invalidateQueries({ queryKey: ["events"] });
               refetchRegistrations();
             },
           }
         );
       } else {
         toast.success("Payment completed! You are now registered.");
-        queryClient.invalidateQueries({ queryKey: ["discover-events"] });
-        queryClient.invalidateQueries({ queryKey: ["my-registrations"] });
+        queryClient.invalidateQueries({ queryKey: ["participant"] });
+        queryClient.invalidateQueries({ queryKey: ["payments"] });
+        queryClient.invalidateQueries({ queryKey: ["events"] });
         refetchRegistrations();
       }
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -263,7 +266,9 @@ export function ParticipantDiscoverEventsPage() {
         columns={columns}
         rows={events}
         loading={isLoading}
-        searchKeys={["name"]}
+        searchKeys={["name", "description", "category", "id"]}
+        statusKey="status"
+        dateKey="startTime"
         selectable={false}
         onRowClick={(row) => setSelectedDetailEvent(row)}
       />

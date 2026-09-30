@@ -201,6 +201,8 @@ function UsersPage() {
     loading: isLoading,
     error: isError,
     searchKeys: ["firstName", "lastName", "email"],
+    statusKey: "status",
+    dateKey: "createdAt",
     facet: {
       label: "Role",
       key: "roleName",

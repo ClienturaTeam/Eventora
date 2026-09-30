@@ -94,7 +94,9 @@ export function RegistrationsListPage() {
         columns={columns}
         rows={registrations}
         loading={isLoading}
-        searchKeys={["eventId"]}
+        searchKeys={["event.name", "user.email", "user.firstName", "user.lastName", "id", "eventId"]}
+        statusKey="status"
+        dateKey="createdAt"
         selectable={false}
         stats={[
           { label: "Total registrations", value: String(registrations.length) },

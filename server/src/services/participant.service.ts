@@ -165,9 +165,141 @@ export class ParticipantService {
     });
   }
 
-  static async getMySubmissions(userId: string) {
-    return prisma.submission.findMany({
-      where: { team: { members: { some: { userId } } } },
+  static async verifyParticipantRegistrationAndPayment(userId: string, eventId: string) {
+    if (!eventId) {
+      return {
+        allowed: false,
+        reason: "NO_EVENT_SELECTED",
+        message: "No event selected.",
+        registrationStatus: "NOT_REGISTERED",
+        paymentStatus: "PENDING",
+        isPaidEvent: false
+      };
+    }
+
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { id: true, price: true, revenue: true, name: true }
+    });
+
+    if (!event) {
+      return {
+        allowed: false,
+        reason: "EVENT_NOT_FOUND",
+        message: "Event not found.",
+        registrationStatus: "NOT_REGISTERED",
+        paymentStatus: "PENDING",
+        isPaidEvent: false
+      };
+    }
+
+    const isPaidEvent = event.price !== null && event.price > 0;
+
+    // 1. Direct user registration
+    let registration = await prisma.registration.findFirst({
+      where: { userId, eventId },
+      include: { payment: true }
+    });
+
+    // 2. Team registration if user is a member of a team for this event
+    if (!registration) {
+      const teamMember = await prisma.teamMember.findFirst({
+        where: {
+          userId,
+          team: { competition: { eventId } }
+        },
+        include: { team: { include: { members: true } } }
+      });
+
+      if (teamMember && teamMember.team) {
+        const memberUserIds = teamMember.team.members.map(m => m.userId).filter(Boolean) as string[];
+        if (memberUserIds.length > 0) {
+          registration = await prisma.registration.findFirst({
+            where: {
+              eventId,
+              userId: { in: memberUserIds }
+            },
+            include: { payment: true }
+          });
+        }
+      }
+    }
+
+    if (!registration) {
+      return {
+        allowed: false,
+        reason: "NOT_REGISTERED",
+        message: "Complete event registration and payment before submitting.",
+        registrationStatus: "NOT_REGISTERED",
+        paymentStatus: isPaidEvent ? "PENDING" : "N/A",
+        isPaidEvent
+      };
+    }
+
+    const regStatus = (registration.status || "").toUpperCase();
+    const isRegConfirmed = ["APPROVED", "CONFIRMED", "PAID", "REGISTERED"].includes(regStatus);
+
+    if (!isRegConfirmed) {
+      return {
+        allowed: false,
+        reason: "REGISTRATION_PENDING",
+        message: "Complete event registration and payment before submitting.",
+        registrationStatus: regStatus || "PENDING",
+        paymentStatus: registration.payment?.status || "PENDING",
+        isPaidEvent
+      };
+    }
+
+    if (isPaidEvent) {
+      let payment = registration.payment;
+      if (!payment) {
+        payment = await prisma.payment.findFirst({
+          where: {
+            eventId,
+            registrationId: registration.id,
+            status: "SUCCEEDED"
+          }
+        });
+      }
+
+      const payStatus = (payment?.status || "").toUpperCase();
+      const isPaySuccess = payStatus === "SUCCEEDED" || payStatus === "PAID" || payStatus === "COMPLETED" || regStatus === "PAID";
+
+      if (!isPaySuccess) {
+        return {
+          allowed: false,
+          reason: "PAYMENT_PENDING",
+          message: "Complete event registration and payment before submitting.",
+          registrationStatus: "PENDING_PAYMENT",
+          paymentStatus: payStatus || "PENDING",
+          isPaidEvent
+        };
+      }
+    }
+
+    return {
+      allowed: true,
+      reason: "OK",
+      message: "Access granted.",
+      registrationStatus: "APPROVED",
+      paymentStatus: isPaidEvent ? "PAID" : "FREE",
+      isPaidEvent
+    };
+  }
+
+  static async getMySubmissions(userId: string, eventId?: string) {
+    if (eventId) {
+      const access = await this.verifyParticipantRegistrationAndPayment(userId, eventId);
+      if (!access.allowed) {
+        return [];
+      }
+    }
+
+    const submissions = await prisma.submission.findMany({
+      where: {
+        team: { members: { some: { userId } } },
+        ...(eventId ? { eventId } : {})
+      },
       include: {
         team: true,
         eventRound: true,
@@ -178,6 +310,25 @@ export class ParticipantService {
       },
       orderBy: { createdAt: 'desc' }
     });
+
+    if (!eventId) {
+      const verifiedMap = new Map<string, boolean>();
+      const allowedSubs = [];
+      for (const sub of submissions) {
+        const targetEventId = sub.eventId || sub.competition?.eventId;
+        if (!targetEventId) continue;
+        if (!verifiedMap.has(targetEventId)) {
+          const acc = await this.verifyParticipantRegistrationAndPayment(userId, targetEventId);
+          verifiedMap.set(targetEventId, acc.allowed);
+        }
+        if (verifiedMap.get(targetEventId)) {
+          allowedSubs.push(sub);
+        }
+      }
+      return allowedSubs;
+    }
+
+    return submissions;
   }
 
   static async getMyCertificates(userId: string) {
@@ -307,15 +458,11 @@ export class ParticipantService {
       throw { status: 400, code: "BAD_REQUEST", message: "Registration is closed." };
     }
 
-    const minSize = event.minTeamSize ?? (event.registrationType === "TEAM" ? 2 : 1);
-    const maxSize = event.maxTeamSize ?? (event.registrationType === "TEAM" ? 4 : 1);
-
+    const maxSize = event.maxTeamSize ?? 4;
     const teamSize = (data.members?.length || 0) + 1; // including the logged-in team leader
-    if (teamSize < minSize) {
-      throw { status: 400, code: "BAD_REQUEST", message: `Team size must be at least ${minSize}.` };
-    }
+
     if (teamSize > maxSize) {
-      throw { status: 400, code: "BAD_REQUEST", message: `Team size must be at most ${maxSize}.` };
+      throw { status: 400, code: "BAD_REQUEST", message: `Team cannot have more than ${maxSize} participants for this event.` };
     }
 
     let competitionId = data.competitionId;
@@ -511,7 +658,14 @@ export class ParticipantService {
   static async createSubmission(userId: string, data: { teamId: string; competitionId?: string; eventId?: string; roundId?: string; title?: string; content?: string }) {
     const member = await prisma.teamMember.findFirst({
       where: { teamId: data.teamId, userId },
-      include: { team: { include: { competition: true } } }
+      include: {
+        team: {
+          include: {
+            problemStatement: { include: { applicableRounds: true } },
+            competition: true
+          }
+        }
+      }
     });
     if (!member) throw { status: 403, code: "FORBIDDEN", message: "Not a member of this team." };
 
@@ -520,6 +674,28 @@ export class ParticipantService {
     if (!comp) throw { status: 404, code: "NOT_FOUND", message: "Competition not found." };
 
     const targetEventId = data.eventId || comp.eventId;
+
+    // Strict Backend Access Gate: Verify Registration & Payment
+    const access = await ParticipantService.verifyParticipantRegistrationAndPayment(userId, targetEventId);
+    if (!access.allowed) {
+      throw {
+        status: 403,
+        code: "FORBIDDEN",
+        message: access.message || "Complete event registration and payment before submitting."
+      };
+    }
+
+    // Check if event has problem statements and team has selected one
+    const eventProblemStatementsCount = await prisma.problemStatement.count({
+      where: { eventId: targetEventId }
+    });
+    if (eventProblemStatementsCount > 0 && !member.team.problemStatementId) {
+      throw {
+        status: 400,
+        code: "NO_PROBLEM_STATEMENT_SELECTED",
+        message: "Your team must select a Problem Statement before starting a round submission."
+      };
+    }
 
     let targetRoundNumber = 1;
     if (data.roundId) {
@@ -531,12 +707,25 @@ export class ParticipantService {
         throw { status: 400, code: "BAD_REQUEST", message: "Selected round does not belong to this event." };
       }
 
+      // Check applicable rounds for team's selected problem statement
+      const ps = member.team.problemStatement;
+      if (ps && ps.applicableRounds && ps.applicableRounds.length > 0) {
+        const isApplicable = ps.applicableRounds.some(r => r.id === data.roundId);
+        if (!isApplicable) {
+          throw {
+            status: 400,
+            code: "UNAUTHORIZED_ROUND_SUBMISSION",
+            message: `Round '${round.name}' is not configured for your team's selected Problem Statement ('${ps.code}: ${ps.title}').`
+          };
+        }
+      }
+
       // Submission timeline checks
       const now = new Date();
-      if (round.submissionStart && now < round.submissionStart) {
+      if (round.submissionStart && now < new Date(round.submissionStart)) {
         throw { status: 400, code: "SUBMISSION_NOT_STARTED", message: "Submissions for this round have not started yet." };
       }
-      if (round.submissionDeadline && now > round.submissionDeadline) {
+      if (round.submissionDeadline && now > new Date(round.submissionDeadline)) {
         throw { status: 400, code: "SUBMISSION_CLOSED", message: "Submission deadline for this round has passed." };
       }
 
@@ -545,7 +734,7 @@ export class ParticipantService {
         where: { teamId: data.teamId, roundId: data.roundId }
       });
       if (existingSub) {
-        throw { status: 400, code: "DUPLICATE_SUBMISSION", message: "You have already submitted for this round." };
+        return existingSub;
       }
 
       targetRoundNumber = round.roundNumber;
@@ -560,7 +749,8 @@ export class ParticipantService {
         roundNumber: targetRoundNumber,
         submittedById: userId,
         title: data.title || `${member.team.name} - Round ${targetRoundNumber} Submission`,
-        status: "DRAFT"
+        status: "DRAFT",
+        problemStatementId: member.team.problemStatementId || null
       },
       include: {
         eventRound: true,
@@ -576,6 +766,18 @@ export class ParticipantService {
     if (!sub.team.members.find((m: any) => m.userId === userId)) {
       throw { status: 403, code: "FORBIDDEN", message: "Not a team member." };
     }
+
+    if (sub.eventId) {
+      const access = await ParticipantService.verifyParticipantRegistrationAndPayment(userId, sub.eventId);
+      if (!access.allowed) {
+        throw {
+          status: 403,
+          code: "FORBIDDEN",
+          message: access.message || "Complete event registration and payment before submitting."
+        };
+      }
+    }
+
     return prisma.submission.update({
       where: { id: submissionId },
       data

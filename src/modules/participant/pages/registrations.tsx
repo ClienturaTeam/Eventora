@@ -110,7 +110,9 @@ export function ParticipantRegistrationsPage() {
         columns={columns}
         rows={data}
         loading={isLoading}
-        searchKeys={["id"]}
+        searchKeys={["event.name", "event.title", "event.description", "id", "team.name"]}
+        statusKey="status"
+        dateKey="createdAt"
         selectable={false}
         onRowClick={(row) => setSelectedRegRecord(row)}
       />

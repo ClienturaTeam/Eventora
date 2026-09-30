@@ -33,3 +33,5 @@ dist-ssr
 .workspace/
 
 .env
+
+scratch/

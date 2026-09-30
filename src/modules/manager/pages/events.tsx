@@ -125,7 +125,9 @@ export function ManagerEventsPage() {
         columns={columns}
         rows={events}
         loading={isLoading}
-        searchKeys={["name"]}
+        searchKeys={["name", "description", "category", "id"]}
+        statusKey="status"
+        dateKey="startTime"
         selectable={false}
         onRowClick={(row) => setSelectedDetailEvent(row)}
         facet={{

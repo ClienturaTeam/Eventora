@@ -42,14 +42,17 @@ export function TeamRegistrationWizard({
   const { user } = useAuth();
   const registerTeamMutation = useRegisterTeamForEvent();
 
-  const minTeamSize = event.minTeamSize ?? (event.registrationType === "TEAM" ? 2 : 1);
-  const maxTeamSize = event.maxTeamSize ?? (event.registrationType === "TEAM" ? 4 : 1);
+  const maxTeamSize = event.maxTeamSize ?? 4;
 
   const [step, setStep] = useState<1 | 2>(1);
   const [teamName, setTeamName] = useState(initialValues?.teamName || "");
-  const [teamSize, setTeamSize] = useState<number>(initialValues?.teamSize || minTeamSize);
   const [competitionId, setCompetitionId] = useState<string>("");
-  const [additionalMembers, setAdditionalMembers] = useState<TeamMemberInput[]>([]);
+  const [additionalMembers, setAdditionalMembers] = useState<TeamMemberInput[]>(
+    initialValues?.members || []
+  );
+
+  const currentTotalParticipants = 1 + additionalMembers.length;
+  const isMaxReached = currentTotalParticipants >= maxTeamSize;
 
   // Calculate fees
   const registrationFee = (event.price && event.price > 0) ? event.price : (event.revenue || 0);
@@ -66,30 +69,28 @@ export function TeamRegistrationWizard({
     }
   }, [event]);
 
-  // Adjust additional members array based on selected team size
-  useEffect(() => {
-    const requiredAdditional = Math.max(0, teamSize - 1);
-    setAdditionalMembers((prev) => {
-      const updated = [...prev];
-      if (updated.length < requiredAdditional) {
-        for (let i = updated.length; i < requiredAdditional; i++) {
-          updated.push({ name: "", email: "", contactNumber: "", college: "" });
-        }
-      } else if (updated.length > requiredAdditional) {
-        return updated.slice(0, requiredAdditional);
-      }
-      return updated;
-    });
-  }, [teamSize]);
-
   // Initialize from props if available
   useEffect(() => {
     if (initialValues) {
       if (initialValues.teamName) setTeamName(initialValues.teamName);
-      if (initialValues.teamSize) setTeamSize(initialValues.teamSize);
       if (initialValues.members) setAdditionalMembers(initialValues.members);
     }
   }, [initialValues]);
+
+  const handleAddMember = () => {
+    if (currentTotalParticipants >= maxTeamSize) {
+      toast.error(`Maximum team size reached (${maxTeamSize} participants).`);
+      return;
+    }
+    setAdditionalMembers((prev) => [
+      ...prev,
+      { name: "", email: "", contactNumber: "", college: "" },
+    ]);
+  };
+
+  const handleRemoveMember = (indexToRemove: number) => {
+    setAdditionalMembers((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
 
   const validateStep1 = (): boolean => {
     if (!teamName.trim()) {
@@ -97,8 +98,8 @@ export function TeamRegistrationWizard({
       return false;
     }
 
-    if (teamSize < minTeamSize || teamSize > maxTeamSize) {
-      toast.error(`Team size must be between ${minTeamSize} and ${maxTeamSize}.`);
+    if (currentTotalParticipants > maxTeamSize) {
+      toast.error(`Team cannot have more than ${maxTeamSize} participants for this event.`);
       return false;
     }
 
@@ -186,12 +187,6 @@ export function TeamRegistrationWizard({
     }
   };
 
-  // Generate size options
-  const sizeOptions: number[] = [];
-  for (let s = minTeamSize; s <= maxTeamSize; s++) {
-    sizeOptions.push(s);
-  }
-
   const deadlineFormatted = event.registrationEnd || event.endTime
     ? new Date(event.registrationEnd || event.endTime).toLocaleDateString("en-IN", {
         day: "numeric",
@@ -230,11 +225,9 @@ export function TeamRegistrationWizard({
             <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formattedFee}</span>
           </div>
           <div>
-            <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Team Size</span>
+            <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Max Team Size</span>
             <span className="font-semibold text-foreground">
-              {minTeamSize === maxTeamSize
-                ? `${minTeamSize} ${minTeamSize === 1 ? "Member" : "Members"}`
-                : `${minTeamSize} - ${maxTeamSize} Members`}
+              {maxTeamSize} Participants
             </span>
           </div>
           <div>
@@ -262,25 +255,13 @@ export function TeamRegistrationWizard({
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="teamSize" className="text-xs font-semibold">
-                  Team Size <span className="text-destructive">*</span>
-                </Label>
-                <Select
-                  value={String(teamSize)}
-                  onValueChange={(val) => setTeamSize(Number(val))}
-                  disabled={minTeamSize === maxTeamSize}
-                >
-                  <SelectTrigger id="teamSize" className="h-9 text-sm">
-                    <SelectValue placeholder="Select team size" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sizeOptions.map((s) => (
-                      <SelectItem key={s} value={String(s)}>
-                        {s} {s === 1 ? "Member (Individual)" : "Members"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs font-semibold">Team Size Counter</Label>
+                <div className="h-9 border rounded-md px-3 flex items-center justify-between bg-muted/20 text-xs font-mono">
+                  <span className="text-muted-foreground">Participants:</span>
+                  <Badge variant={isMaxReached ? "secondary" : "outline"} className="font-bold">
+                    {currentTotalParticipants} / {maxTeamSize}
+                  </Badge>
+                </div>
               </div>
             </div>
 
@@ -311,7 +292,7 @@ export function TeamRegistrationWizard({
                   <span>Team Leader (Captain)</span>
                 </div>
                 <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
-                  Logged-in User
+                  Logged-in User (1 / {maxTeamSize})
                 </Badge>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-muted/40 p-2.5 rounded border">
@@ -327,21 +308,60 @@ export function TeamRegistrationWizard({
             </div>
 
             {/* Additional Team Members */}
-            {additionalMembers.length > 0 && (
-              <div className="space-y-3 pt-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5" />
-                    Additional Team Members ({additionalMembers.length})
-                  </h4>
-                </div>
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5" />
+                  Additional Team Members ({additionalMembers.length})
+                </h4>
 
+                {!isMaxReached ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddMember}
+                    className="h-7 text-xs gap-1 text-primary hover:text-primary"
+                  >
+                    + Add Member
+                  </Button>
+                ) : (
+                  <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                    Maximum team size reached ({maxTeamSize} participants).
+                  </span>
+                )}
+              </div>
+
+              {additionalMembers.length === 0 ? (
+                <div className="p-3 border border-dashed rounded-lg text-center text-xs text-muted-foreground space-y-1">
+                  <p>No additional members added yet.</p>
+                  {!isMaxReached && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleAddMember}
+                      className="text-xs text-primary font-medium"
+                    >
+                      + Add Member ({currentTotalParticipants}/{maxTeamSize})
+                    </Button>
+                  )}
+                </div>
+              ) : (
                 <div className="space-y-3">
                   {additionalMembers.map((member, idx) => (
-                    <div key={idx} className="rounded-lg border bg-card p-3 space-y-2 text-xs shadow-xs">
+                    <div key={idx} className="rounded-lg border bg-card p-3 space-y-2 text-xs shadow-xs relative">
                       <div className="font-semibold text-primary text-xs pb-1 border-b flex justify-between items-center">
                         <span>Member #{idx + 2} Details</span>
-                        <span className="text-[10px] text-muted-foreground font-normal">Required</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveMember(idx)}
+                          className="h-6 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                        >
+                          Remove Member
+                        </Button>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div className="space-y-1">
@@ -405,8 +425,8 @@ export function TeamRegistrationWizard({
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
 
@@ -425,8 +445,8 @@ export function TeamRegistrationWizard({
               </div>
 
               <div className="flex justify-between items-center pb-2 border-b">
-                <span className="text-muted-foreground font-medium">Team Size</span>
-                <span className="font-semibold text-foreground">{teamSize} {teamSize === 1 ? "Member" : "Members"}</span>
+                <span className="text-muted-foreground font-medium">Total Team Participants</span>
+                <span className="font-semibold text-foreground">{currentTotalParticipants} / {maxTeamSize} Participants</span>
               </div>
 
               <div className="flex justify-between items-center pb-2 border-b">

@@ -44,7 +44,6 @@ const managerSections = [
       { title: "Problem Statements", url: "/manager/problem-statements", icon: Sparkles },
       { title: "Users", url: "/users", icon: Users },
       { title: "Role Management", url: "/roles", icon: Shield },
-      { title: "Registrations", url: "/manager/registrations", icon: ClipboardCheck },
       { title: "Teams", url: "/manager/teams", icon: UsersRound },
       { title: "Submissions", url: "/manager/submissions", icon: Sparkles },
       { title: "Evaluations", url: "/manager/evaluations", icon: FileCheck2 },

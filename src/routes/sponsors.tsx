@@ -79,6 +79,7 @@ function SponsorsPage() {
       rows={rows}
       loading={isSponsorsLoading || isStatsLoading}
       searchKeys={["name", "tier", "contact"]}
+      statusKey="status"
       stats={[
         { label: "Sponsors", value: stats?.sponsors?.toString() || "0" },
         { label: "Committed value", value: `₹${(stats?.committedValue || 0).toLocaleString("en-IN")}` },

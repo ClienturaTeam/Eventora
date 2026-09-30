@@ -8,6 +8,7 @@ import {
   useMyTeams,
   useMyRegistrations,
   useCreateParticipantSubmission,
+  useEventAccessStatus,
 } from "../hooks/participant.api";
 import { useEventRounds } from "@/modules/events/services/events.api";
 import { useAskMentorQuestion, useMentorQuestions } from "@/modules/mentors/services/mentors.api";
@@ -32,26 +33,23 @@ export function ParticipantSubmissionsPage() {
   const { data: dashboardData, isLoading: loadingDashboard } = useParticipantDashboard();
   const { data: myTeams = [], isLoading: loadingTeams } = useMyTeams();
   const { data: registrations = [], isLoading: loadingRegistrations } = useMyRegistrations();
-  const { data: submissions = [], isLoading: loadingSubmissions } = useMySubmissions();
   
   const uploadFileMutation = useUploadSubmissionFile();
   const finalSubmitMutation = useFinalSubmitSubmission();
   const createSubmissionMutation = useCreateParticipantSubmission();
   const askMentorMutation = useAskMentorQuestion();
 
-  // Aggregate real eligible approved events from participant registrations & teams
+  // Aggregate real eligible events from participant registrations & teams
   const eligibleEvents = useMemo(() => {
     const map = new Map<string, { id: string; name: string; status: string; event: any }>();
 
     (registrations || []).forEach((reg: any) => {
-      const regStatus = reg.status?.toUpperCase() || "APPROVED";
-      const isApproved = ["APPROVED", "REGISTERED", "PAID", "CONFIRMED"].includes(regStatus);
       const eventObj = reg.event;
-      if (isApproved && eventObj && eventObj.id) {
+      if (eventObj && eventObj.id) {
         map.set(eventObj.id, {
           id: eventObj.id,
           name: eventObj.name || eventObj.title || "Event",
-          status: regStatus === "REGISTERED" || regStatus === "PAID" || regStatus === "CONFIRMED" ? "APPROVED" : regStatus,
+          status: reg.status || "PENDING",
           event: eventObj
         });
       }
@@ -64,7 +62,7 @@ export function ParticipantSubmissionsPage() {
         map.set(eventObj.id, {
           id: eventObj.id,
           name: eventObj.name || eventObj.title || "Event",
-          status: "APPROVED",
+          status: "REGISTERED",
           event: eventObj
         });
       }
@@ -80,6 +78,10 @@ export function ParticipantSubmissionsPage() {
     }
     return eligibleEvents[0]?.id || dashboardData?.event?.id || "";
   }, [search.eventId, eligibleEvents, dashboardData]);
+
+  // Access status gate & submissions for activeEventId
+  const { data: accessStatus, isLoading: loadingAccess } = useEventAccessStatus(activeEventId);
+  const { data: submissions = [], isLoading: loadingSubmissions } = useMySubmissions(activeEventId);
 
   // Find active team & event & selected Problem Statement for activeEventId
   const activeTeamMember = useMemo(() => {
@@ -98,6 +100,12 @@ export function ParticipantSubmissionsPage() {
   }, [activeCompetition, eligibleEvents, activeEventId, dashboardData]);
 
   const selectedProblemStatement = activeTeam?.problemStatement;
+
+  const hasProblemStatements = useMemo(() => {
+    if (activeEvent?.problemStatements && activeEvent.problemStatements.length > 0) return true;
+    if (activeCompetition?.event?.problemStatements && activeCompetition.event.problemStatements.length > 0) return true;
+    return false;
+  }, [activeEvent, activeCompetition]);
 
   // Fetch real rounds and mentor questions for activeEventId
   const { data: rounds = [], isLoading: loadingRounds } = useEventRounds(activeEventId);
@@ -161,6 +169,13 @@ export function ParticipantSubmissionsPage() {
   // Determine active round object from configured rounds
   const currentRound = configuredRounds.find((r: any) => r.id === selectedRoundId) || activeSubmission?.eventRound || configuredRounds[0] || { roundNumber: 1, name: "Qualifier Round", maxMarks: 100 };
 
+  const currentRoundStartDate = currentRound.submissionStart ? new Date(currentRound.submissionStart) : currentRound.startDate ? new Date(currentRound.startDate) : null;
+  const currentRoundDeadlineDate = currentRound.submissionDeadline ? new Date(currentRound.submissionDeadline) : currentRound.endDate ? new Date(currentRound.endDate) : null;
+  const nowTime = new Date();
+  const currentRoundNotStarted = currentRoundStartDate ? nowTime < currentRoundStartDate : false;
+  const currentRoundExpired = currentRoundDeadlineDate ? nowTime > currentRoundDeadlineDate : false;
+  const currentRoundIsOpen = !currentRoundNotStarted && !currentRoundExpired;
+
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -186,6 +201,19 @@ export function ParticipantSubmissionsPage() {
   const handleStartRoundSubmission = async (round: any) => {
     if (!activeTeam) {
       toast.error("You are not part of an active team for this event.");
+      return;
+    }
+
+    const now = new Date();
+    const startDate = round.submissionStart ? new Date(round.submissionStart) : round.startDate ? new Date(round.startDate) : null;
+    const deadlineDate = round.submissionDeadline ? new Date(round.submissionDeadline) : round.endDate ? new Date(round.endDate) : null;
+
+    if (startDate && now < startDate) {
+      toast.error(`Submissions for ${round.name} have not opened yet.`);
+      return;
+    }
+    if (deadlineDate && now > deadlineDate) {
+      toast.error(`Submission deadline for ${round.name} has passed.`);
       return;
     }
 
@@ -220,6 +248,19 @@ export function ParticipantSubmissionsPage() {
     }
     if (isLocked) {
       toast.error("Submission is locked and cannot accept further uploads.");
+      return;
+    }
+
+    const now = new Date();
+    const startDate = currentRound.submissionStart ? new Date(currentRound.submissionStart) : currentRound.startDate ? new Date(currentRound.startDate) : null;
+    const deadlineDate = currentRound.submissionDeadline ? new Date(currentRound.submissionDeadline) : currentRound.endDate ? new Date(currentRound.endDate) : null;
+
+    if (startDate && now < startDate) {
+      toast.error(`Submissions for ${currentRound.name} have not opened yet.`);
+      return;
+    }
+    if (deadlineDate && now > deadlineDate) {
+      toast.error(`Submission deadline for ${currentRound.name} has passed.`);
       return;
     }
 
@@ -274,7 +315,7 @@ export function ParticipantSubmissionsPage() {
     }
   };
 
-  if (loadingDashboard || loadingSubmissions || loadingRounds || loadingRegistrations || loadingTeams) {
+  if (loadingDashboard || loadingSubmissions || loadingRounds || loadingRegistrations || loadingTeams || loadingAccess) {
     return (
       <div className="flex h-[40vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -303,19 +344,19 @@ export function ParticipantSubmissionsPage() {
               }}
             >
               <SelectTrigger className="w-[300px] text-xs font-semibold">
-                <SelectValue placeholder="Select an approved event..." />
+                <SelectValue placeholder="Select an event..." />
               </SelectTrigger>
               <SelectContent>
                 {eligibleEvents.map((item) => (
                   <SelectItem key={item.id} value={item.id} className="text-xs font-medium">
-                    {item.name} ({item.status})
+                    {item.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           ) : (
             <Badge variant="outline" className="text-xs">
-              No Approved Events
+              No Registered Events
             </Badge>
           )}
         </div>
@@ -327,86 +368,123 @@ export function ParticipantSubmissionsPage() {
         )}
       </div>
 
-      <div className="flex flex-col gap-1 border-b pb-4">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <Upload className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              {activeEvent?.name || activeEvent?.title || "Event Submissions"}
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-2">
+      {/* ACCESS CONTROL GATE: Check Registration & Payment Status */}
+      {accessStatus && !accessStatus.allowed ? (
+        <Card className="p-6 border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 shadow-sm rounded-xl">
+          <div className="flex flex-col items-center justify-center text-center space-y-4 py-8">
+            <div className="p-4 bg-amber-100 dark:bg-amber-900/50 rounded-full">
+              <Lock className="h-10 w-10 text-amber-600 dark:text-amber-400" />
+            </div>
+            <h2 className="text-xl font-bold tracking-tight text-foreground">🔒 Submissions Locked</h2>
+            <p className="text-sm text-muted-foreground max-w-md">
+              Complete your event registration and payment to access problem statements and round submissions.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 py-2">
+              <Badge variant="outline" className="text-xs font-semibold px-3 py-1 bg-background">
+                Registration: {accessStatus.registrationStatus === "PENDING_PAYMENT" ? "Pending Payment ⚠️" : (accessStatus.registrationStatus === "APPROVED" || accessStatus.registrationStatus === "CONFIRMED" || accessStatus.registrationStatus === "PAID" ? "Confirmed ✓" : (accessStatus.registrationStatus || "Pending"))}
+              </Badge>
+              {accessStatus.isPaidEvent && (
+                <Badge variant="outline" className="text-xs font-semibold px-3 py-1 bg-background">
+                  Payment: {accessStatus.paymentStatus === "SUCCEEDED" || accessStatus.paymentStatus === "PAID" ? "Paid ✓" : (accessStatus.paymentStatus || "Pending")}
+                </Badge>
+              )}
+            </div>
             <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAskMentorModal(true)}
-              className="gap-1.5 text-xs"
+              className="gap-2 text-xs font-semibold"
+              onClick={() => navigate({ to: "/participant/discover-events" })}
             >
-              <MessageSquare className="h-4 w-4 text-primary" />
-              Ask Mentor / Doubt
+              Complete Registration
             </Button>
-
-            {isLocked ? (
-              <Badge variant="default" className="bg-emerald-600 gap-1.5 px-3 py-1 text-xs">
-                <Lock className="h-3.5 w-3.5" /> Submission Locked
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-xs">
-                Draft / Editable
-              </Badge>
-            )}
           </div>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          View event rounds, manage round-wise project submissions, and upload project files.
-        </p>
-      </div>
-
-      {/* Selected Problem Statement Banner */}
-      {selectedProblemStatement ? (
-        <Card className="border-emerald-500/40 bg-emerald-500/5 shadow-sm">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
-                <CheckCircle2 className="h-5 w-5" /> Selected Problem Statement
-              </div>
-              <Badge variant="outline" className="bg-emerald-600/10 text-emerald-600 border-emerald-600/30 text-xs font-semibold gap-1">
-                <Lock className="h-3.5 w-3.5" /> 🔒 Permanently Selected
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2 text-xs text-foreground">
-            <div className="flex items-center gap-2 font-mono font-bold text-base text-primary">
-              <span>{selectedProblemStatement.code}</span>
-              <span>•</span>
-              <span>{selectedProblemStatement.title}</span>
-            </div>
-            <p className="text-muted-foreground leading-relaxed">{selectedProblemStatement.description}</p>
-          </CardContent>
         </Card>
       ) : (
-        <Card className="border-amber-500/30 bg-amber-500/5 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold text-amber-700 dark:text-amber-400 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" /> Problem Statement Selection Required
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-xs text-muted-foreground space-y-3">
-            <p>
-              Your team has not permanently selected a Problem Statement for <strong>{activeEvent?.name || activeEvent?.title || "this event"}</strong> yet. Please select a problem statement to view your configured rounds.
+        <>
+          {/* Header with Event Title and Confirmed Status Badges */}
+          <div className="flex flex-col gap-1 border-b pb-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Upload className="h-6 w-6 text-primary" />
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                  {activeEvent?.name || activeEvent?.title || "Event Submissions"}
+                </h1>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-xs font-semibold gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Registration: Confirmed ✓
+                </Badge>
+                {accessStatus?.isPaidEvent ? (
+                  <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-xs font-semibold gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Payment: Paid ✓
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 text-xs font-semibold gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Free Event ✓
+                  </Badge>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAskMentorModal(true)}
+                  className="gap-1.5 text-xs ml-2"
+                >
+                  <MessageSquare className="h-4 w-4 text-primary" />
+                  Ask Mentor / Doubt
+                </Button>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              View event rounds, manage round-wise project submissions, and upload project files.
             </p>
-            <Button
-              size="sm"
-              variant="default"
-              className="text-xs gap-1.5"
-              onClick={() => navigate({ to: "/participant/problem-statements", search: { eventId: activeEventId } })}
-            >
-              <FileCode className="h-3.5 w-3.5" /> Go to Problem Statements
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+
+          {/* PROBLEM STATEMENT SELECTION CHECK */}
+          {hasProblemStatements && !selectedProblemStatement ? (
+            <Card className="border-amber-500/30 bg-amber-500/5 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" /> Problem Statement Selection Required
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-xs text-muted-foreground space-y-3">
+                <p>
+                  Your team has not permanently selected a Problem Statement for <strong>{activeEvent?.name || activeEvent?.title || "this event"}</strong> yet. Please select a problem statement to access your round submissions.
+                </p>
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="text-xs gap-1.5"
+                  onClick={() => navigate({ to: "/participant/problem-statements", search: { eventId: activeEventId } })}
+                >
+                  <FileCode className="h-3.5 w-3.5" /> Go to Problem Statements
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Selected Problem Statement Banner */}
+              {selectedProblemStatement && (
+                <Card className="border-emerald-500/40 bg-emerald-500/5 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
+                        <CheckCircle2 className="h-5 w-5" /> Selected Problem Statement
+                      </div>
+                      <Badge variant="outline" className="bg-emerald-600/10 text-emerald-600 border-emerald-600/30 text-xs font-semibold gap-1">
+                        <Lock className="h-3.5 w-3.5" /> 🔒 Permanently Selected
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-xs text-foreground">
+                    <div className="flex items-center gap-2 font-mono font-bold text-base text-primary">
+                      <span>{selectedProblemStatement.code}</span>
+                      <span>•</span>
+                      <span>{selectedProblemStatement.title}</span>
+                    </div>
+                    <p className="text-muted-foreground leading-relaxed">{selectedProblemStatement.description}</p>
+                  </CardContent>
+                </Card>
+              )}
 
       {/* Backend-Driven Configured Round Roster & Timeline */}
       <div className="space-y-3">
@@ -584,18 +662,39 @@ export function ParticipantSubmissionsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {!activeSubmission ? (
-              <div className="p-6 border border-dashed rounded-lg text-center space-y-2">
-                <p className="text-xs text-muted-foreground font-medium">
-                  No submission initiated for Round {currentRound.roundNumber}: {currentRound.name} yet.
-                </p>
-                <Button
-                  size="sm"
-                  onClick={() => handleStartRoundSubmission(currentRound)}
-                  disabled={createSubmissionMutation.isPending}
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1.5" /> Start Round {currentRound.roundNumber} Submission
-                </Button>
-              </div>
+              currentRoundNotStarted ? (
+                <div className="p-6 border rounded-lg bg-blue-500/5 border-blue-500/20 text-center space-y-2">
+                  <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 flex items-center justify-center gap-1.5">
+                    <AlertCircle className="h-4 w-4" /> Submissions Upcoming
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Submissions for <strong>Round {currentRound.roundNumber}: {currentRound.name}</strong> will open on {formatScheduleDate(currentRoundStartDate)}.
+                  </p>
+                </div>
+              ) : currentRoundExpired ? (
+                <div className="p-6 border rounded-lg bg-destructive/5 border-destructive/20 text-center space-y-2">
+                  <p className="text-xs font-semibold text-destructive flex items-center justify-center gap-1.5">
+                    <AlertCircle className="h-4 w-4" /> Submissions Closed
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    The submission deadline for <strong>Round {currentRound.roundNumber}: {currentRound.name}</strong> passed on {formatScheduleDate(currentRoundDeadlineDate)}.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-6 border border-dashed rounded-lg text-center space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium">
+                    No submission initiated for Round {currentRound.roundNumber}: {currentRound.name} yet.
+                  </p>
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5 text-xs"
+                    onClick={() => handleStartRoundSubmission(currentRound)}
+                    disabled={createSubmissionMutation.isPending || !selectedProblemStatement}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Start Round {currentRound.roundNumber} Submission
+                  </Button>
+                </div>
+              )
             ) : isLocked ? (
               <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-700 dark:text-emerald-400 space-y-1">
                 <p className="font-semibold flex items-center gap-2 text-sm">
@@ -603,6 +702,15 @@ export function ParticipantSubmissionsPage() {
                 </p>
                 <p className="text-xs">
                   Your team project has been finalized for Round {currentRound.roundNumber}: {currentRound.name}. No further edits permitted.
+                </p>
+              </div>
+            ) : !currentRoundIsOpen ? (
+              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-700 dark:text-amber-400 space-y-1">
+                <p className="font-semibold flex items-center gap-2 text-sm">
+                  <AlertCircle className="h-5 w-5" /> Submissions Not Open
+                </p>
+                <p className="text-xs">
+                  Submissions for Round {currentRound.roundNumber}: {currentRound.name} are currently {currentRoundNotStarted ? "upcoming" : "closed"}. File uploads are disabled outside the submission schedule window.
                 </p>
               </div>
             ) : (
@@ -683,7 +791,7 @@ export function ParticipantSubmissionsPage() {
               Status: <span className="font-semibold text-foreground">{isLocked ? "SUBMITTED" : activeSubmission ? "DRAFT" : "NOT STARTED"}</span>
             </span>
 
-            {activeSubmission && !isLocked && (
+            {activeSubmission && !isLocked && currentRoundIsOpen && (
               <Button
                 variant="default"
                 size="sm"
@@ -812,6 +920,10 @@ export function ParticipantSubmissionsPage() {
           </Card>
         </div>
       </div>
+          </>
+        )}
+      </>
+    )}
 
       {/* Final Submit Confirmation Modal */}
       <Dialog open={showFinalSubmitModal} onOpenChange={setShowFinalSubmitModal}>

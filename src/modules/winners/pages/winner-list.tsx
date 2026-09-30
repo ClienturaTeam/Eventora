@@ -71,6 +71,7 @@ export function WinnerListPage() {
       columns={columns}
       rows={data}
       searchKeys={["winner", "competition", "team"]}
+      dateKey="createdAt"
       facet={{
         label: "Position",
         key: "position",

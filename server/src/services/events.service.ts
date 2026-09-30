@@ -1,6 +1,7 @@
 import { EventRepository } from "../repositories/events.repository";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../utils/prisma";
+import { validateEventAndRoundsSchedule } from "../utils/schedule-validator";
 
 export class EventService {
   static async getEvents(tenantId: string, onlyAssignedUserId?: string) {
@@ -22,6 +23,14 @@ export class EventService {
     } else if (typeof eventData.price === "number" && (eventData.revenue === undefined || eventData.revenue === 0)) {
       eventData.revenue = eventData.price;
     }
+
+    // Validate Event Start/End and Rounds Schedule
+    validateEventAndRoundsSchedule({
+      startTime: eventData.startTime,
+      endTime: eventData.endTime,
+      rounds: rounds || [],
+    });
+
     const event = await EventRepository.create(tenantId, eventData);
     let fcId = facultyCoordinatorId;
     if (!fcId) {
@@ -78,10 +87,53 @@ export class EventService {
     } else if (typeof eventData.price === "number" && (eventData.revenue === undefined || eventData.revenue === 0)) {
       eventData.revenue = eventData.price;
     }
-    const event = await EventRepository.update(tenantId, id, eventData);
-    if (!event) {
+
+    const existingEvent = await EventRepository.findById(tenantId, id);
+    if (!existingEvent) {
       throw { status: 404, code: "NOT_FOUND", message: "Event not found." };
     }
+
+    const mergedStartTime = eventData.startTime || existingEvent.startTime;
+    const mergedEndTime = eventData.endTime || existingEvent.endTime;
+
+    // Get merged rounds list for validation
+    let mergedRounds = existingEvent.rounds || [];
+    if (rounds && Array.isArray(rounds)) {
+      const roundsMap = new Map<string | number, any>();
+      mergedRounds.forEach(r => roundsMap.set(r.id || r.roundNumber, r));
+      rounds.forEach(r => roundsMap.set(r.id || r.roundNumber, { ...roundsMap.get(r.id || r.roundNumber), ...r }));
+      mergedRounds = Array.from(roundsMap.values());
+    }
+
+    // Validate schedule
+    validateEventAndRoundsSchedule({
+      startTime: mergedStartTime,
+      endTime: mergedEndTime,
+      rounds: mergedRounds,
+    });
+
+    if (eventData.maxTeamSize !== undefined && eventData.maxTeamSize !== null) {
+      const newMax = Number(eventData.maxTeamSize);
+      const existingTeams = await prisma.team.findMany({
+        where: { competition: { eventId: id } },
+        include: { members: true }
+      });
+      let maxExistingSize = 0;
+      for (const t of existingTeams) {
+        if (t.members.length > maxExistingSize) {
+          maxExistingSize = t.members.length;
+        }
+      }
+      if (maxExistingSize > newMax) {
+        throw {
+          status: 400,
+          code: "TEAM_SIZE_REDUCTION_INVALID",
+          message: `Cannot reduce the team size to ${newMax} because existing registered teams contain up to ${maxExistingSize} participants.`
+        };
+      }
+    }
+
+    const event = await EventRepository.update(tenantId, id, eventData);
 
     if (facultyCoordinatorId) {
       const existingFc = await prisma.eventTeamMember.findFirst({
@@ -158,6 +210,15 @@ export class EventService {
     const event = await EventRepository.findById(tenantId, eventId);
     if (!event) throw { status: 404, code: "NOT_FOUND", message: "Event not found." };
 
+    const existingRounds = await prisma.eventRound.findMany({ where: { eventId } });
+    const allRounds = [...existingRounds, data];
+
+    validateEventAndRoundsSchedule({
+      startTime: event.startTime,
+      endTime: event.endTime,
+      rounds: allRounds,
+    });
+
     return prisma.eventRound.create({
       data: {
         eventId,
@@ -177,6 +238,15 @@ export class EventService {
   static async updateRound(tenantId: string, eventId: string, roundId: string, data: any) {
     const event = await EventRepository.findById(tenantId, eventId);
     if (!event) throw { status: 404, code: "NOT_FOUND", message: "Event not found." };
+
+    const existingRounds = await prisma.eventRound.findMany({ where: { eventId } });
+    const updatedRounds = existingRounds.map(r => r.id === roundId ? { ...r, ...data } : r);
+
+    validateEventAndRoundsSchedule({
+      startTime: event.startTime,
+      endTime: event.endTime,
+      rounds: updatedRounds,
+    });
 
     return prisma.eventRound.update({
       where: { id: roundId },

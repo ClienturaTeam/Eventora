@@ -81,7 +81,6 @@ export function Topbar() {
     { label: "Events", to: "/events" },
     { label: "Create event", to: "/events/new" },
     { label: "Competitions", to: "/competitions" },
-    { label: "Registrations", to: "/registrations" },
     { label: "Submissions", to: "/submissions" },
     { label: "Evaluations", to: "/evaluations" },
     { label: "Certificates", to: "/certificates" },

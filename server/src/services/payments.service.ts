@@ -480,52 +480,113 @@ export class PaymentsService {
     const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event) throw Object.assign(new Error("Event not found"), { status: 404 });
 
-    const registration = await prisma.registration.findUnique({
-      where: { eventId_userId: { eventId, userId } },
-      include: { event: true }
+    const isPaidEvent = event.price !== null && event.price > 0;
+
+    // 1. Direct user registration
+    let registration = await prisma.registration.findFirst({
+      where: { userId, eventId },
+      include: { event: true, payment: true }
     });
+
+    // 2. Team registration if user is a member of a team for this event
+    if (!registration) {
+      const teamMember = await prisma.teamMember.findFirst({
+        where: {
+          userId,
+          team: { competition: { eventId } }
+        },
+        include: { team: { include: { members: true } } }
+      });
+
+      if (teamMember && teamMember.team) {
+        const memberUserIds = teamMember.team.members.map(m => m.userId).filter(Boolean) as string[];
+        if (memberUserIds.length > 0) {
+          registration = await prisma.registration.findFirst({
+            where: {
+              eventId,
+              userId: { in: memberUserIds }
+            },
+            include: { event: true, payment: true }
+          });
+        }
+      }
+    }
 
     if (!registration) {
       return { verified: false, status: "NOT_REGISTERED", message: "No registration record found." };
     }
 
-    if (registration.status === "PAID" || registration.status === "APPROVED" || registration.status === "COMPLETED") {
-      const payment = await prisma.payment.findUnique({ where: { registrationId: registration.id } });
-      return { verified: true, status: "PAID", registration, payment };
+    // For a free event:
+    if (!isPaidEvent) {
+      if (registration.status !== "APPROVED" && registration.status !== "PAID" && registration.status !== "CONFIRMED") {
+        registration = await prisma.registration.update({
+          where: { id: registration.id },
+          data: { status: "APPROVED" },
+          include: { event: true, payment: true }
+        });
+      }
+      return { verified: true, status: "APPROVED", registration };
     }
 
-    const payment = await prisma.payment.findUnique({
-      where: { registrationId: registration.id }
-    });
+    // For a paid event:
+    let payment = registration.payment;
+    if (!payment) {
+      payment = await prisma.payment.findFirst({
+        where: {
+          eventId,
+          registrationId: registration.id
+        }
+      });
+    }
 
     if (!payment) {
       return { verified: false, status: registration.status, registration };
     }
 
-    if (payment.status === "SUCCEEDED") {
-      const updatedReg = await prisma.registration.update({
-        where: { id: registration.id },
-        data: { status: "PAID" }
-      });
-      return { verified: true, status: "PAID", registration: updatedReg, payment };
+    // Check if payment is ALREADY marked SUCCEEDED / PAID
+    if (payment.status === "SUCCEEDED" || payment.status === "PAID" || payment.status === "COMPLETED") {
+      if (registration.status !== "APPROVED" && registration.status !== "PAID" && registration.status !== "CONFIRMED") {
+        registration = await prisma.registration.update({
+          where: { id: registration.id },
+          data: { status: "APPROVED" },
+          include: { event: true, payment: true }
+        });
+      }
+      return { verified: true, status: "PAID", registration, payment };
     }
 
-    if (payment.providerPaymentId && payment.providerPaymentId.startsWith("cs_")) {
+    // If payment status is PENDING: verify against Stripe Checkout session
+    if (payment.providerPaymentId) {
       try {
-        const session = await stripe.checkout.sessions.retrieve(payment.providerPaymentId);
-        if (session && session.payment_status === "paid") {
-          const updatedPayment = await prisma.payment.update({
-            where: { id: payment.id },
-            data: { status: "SUCCEEDED" }
-          });
-          const updatedReg = await prisma.registration.update({
-            where: { id: registration.id },
-            data: { status: "PAID" }
-          });
-          return { verified: true, status: "PAID", registration: updatedReg, payment: updatedPayment };
+        let session: Stripe.Checkout.Session | null = null;
+        if (payment.providerPaymentId.startsWith("cs_")) {
+          session = await stripe.checkout.sessions.retrieve(payment.providerPaymentId);
+        } else {
+          const sessions = await stripe.checkout.sessions.list({ limit: 10 });
+          session = sessions.data.find(s => s.metadata?.registrationId === registration.id || s.payment_intent === payment.providerPaymentId) || null;
         }
-      } catch (e) {
-        // Stripe retrieve fallback
+
+        if (session && (session.payment_status === "paid" || session.status === "complete")) {
+          const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
+
+          payment = await prisma.payment.update({
+            where: { id: payment.id },
+            data: {
+              status: "SUCCEEDED",
+              providerPaymentId: paymentIntentId || session.id
+            }
+          });
+
+          registration = await prisma.registration.update({
+            where: { id: registration.id },
+            data: { status: "APPROVED" },
+            include: { event: true, payment: true }
+          });
+
+          return { verified: true, status: "PAID", registration, payment };
+        }
+      } catch (err: any) {
+        console.error("Error retrieving Stripe session during verification:", err?.message || err);
       }
     }
 

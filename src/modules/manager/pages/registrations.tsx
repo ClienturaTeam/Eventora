@@ -92,7 +92,9 @@ export function ManagerRegistrationsPage() {
         columns={columns}
         rows={data}
         loading={isLoading}
-        searchKeys={["id"]}
+        searchKeys={["event.name", "event.title", "user.email", "user.firstName", "user.lastName", "id"]}
+        statusKey="status"
+        dateKey="createdAt"
         selectable={false}
         facet={{
           label: "Status",

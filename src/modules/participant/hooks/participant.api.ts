@@ -7,7 +7,8 @@ export const participantKeys = {
   discoverEvents: () => [...participantKeys.all, 'discoverEvents'] as const,
   registrations: () => [...participantKeys.all, 'registrations'] as const,
   teams: () => [...participantKeys.all, 'teams'] as const,
-  submissions: () => [...participantKeys.all, 'submissions'] as const,
+  submissions: (eventId?: string) => [...participantKeys.all, 'submissions', eventId || 'all'] as const,
+  accessStatus: (eventId?: string) => [...participantKeys.all, 'accessStatus', eventId || 'none'] as const,
   certificates: () => [...participantKeys.all, 'certificates'] as const,
   achievements: () => [...participantKeys.all, 'achievements'] as const,
   notifications: () => [...participantKeys.all, 'notifications'] as const,
@@ -43,6 +44,18 @@ export const useMyRegistrations = () => {
   });
 };
 
+export const useEventAccessStatus = (eventId?: string) => {
+  return useQuery({
+    queryKey: participantKeys.accessStatus(eventId),
+    queryFn: async () => {
+      if (!eventId) return null;
+      const response = await fetchApi(`/participant/access-status?eventId=${eventId}`);
+      return response.data;
+    },
+    enabled: !!eventId,
+  });
+};
+
 export const useMyTeams = () => {
   return useQuery({
     queryKey: participantKeys.teams(),
@@ -53,11 +66,12 @@ export const useMyTeams = () => {
   });
 };
 
-export const useMySubmissions = () => {
+export const useMySubmissions = (eventId?: string) => {
   return useQuery({
-    queryKey: participantKeys.submissions(),
+    queryKey: participantKeys.submissions(eventId),
     queryFn: async () => {
-      const response = await fetchApi('/participant/submissions');
+      const url = `/participant/submissions${eventId ? `?eventId=${eventId}` : ''}`;
+      const response = await fetchApi(url);
       return response.data;
     },
   });

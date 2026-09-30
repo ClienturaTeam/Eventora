@@ -405,28 +405,24 @@ export function CreateEventPage() {
               </div>
               
               {registrationType === "TEAM" && (
-                <>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="minTeamSize">Min Team Size</Label>
-                    <Input 
-                      id="minTeamSize" 
-                      type="number" 
-                      value={minTeamSize} 
-                      onChange={(e) => setMinTeamSize(e.target.value)} 
-                      min={1} 
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="maxTeamSize">Max Team Size</Label>
-                    <Input 
-                      id="maxTeamSize" 
-                      type="number" 
-                      value={maxTeamSize} 
-                      onChange={(e) => setMaxTeamSize(e.target.value)} 
-                      min={1} 
-                    />
-                  </div>
-                </>
+                <div className="space-y-1.5">
+                  <Label htmlFor="maxTeamSize">Team Size / Maximum Team Participants</Label>
+                  <Select value={maxTeamSize || "4"} onValueChange={(val) => setMaxTeamSize(val)}>
+                    <SelectTrigger id="maxTeamSize">
+                      <SelectValue placeholder="Select max team size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2">2 Participants</SelectItem>
+                      <SelectItem value="3">3 Participants</SelectItem>
+                      <SelectItem value="4">4 Participants</SelectItem>
+                      <SelectItem value="5">5 Participants</SelectItem>
+                      <SelectItem value="6">6 Participants</SelectItem>
+                      <SelectItem value="7">7 Participants</SelectItem>
+                      <SelectItem value="8">8 Participants</SelectItem>
+                      <SelectItem value="10">10 Participants</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               )}
             </div>
           ),

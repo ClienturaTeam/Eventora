@@ -174,7 +174,9 @@ export function ParticipantCertificatesPage() {
         ]}
         rows={data}
         loading={isLoading}
-        searchKeys={["type", "title", "awardTitle", "teamName"]}
+        searchKeys={["event.name", "type", "title", "awardTitle", "teamName", "certificateNumber"]}
+        statusKey="status"
+        dateKey="createdAt"
         onRowClick={(row) => setSelectedCert(row)}
       />
 

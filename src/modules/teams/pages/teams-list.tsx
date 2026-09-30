@@ -83,7 +83,8 @@ export function TeamsListPage() {
         columns={columns}
         rows={teams}
         loading={isLoading}
-        searchKeys={["name"]}
+        searchKeys={["name", "competition.name", "id"]}
+        dateKey="createdAt"
         selectable={false}
         stats={[
           { label: "Total teams", value: String(teams.length) },

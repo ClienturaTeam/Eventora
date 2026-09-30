@@ -49,6 +49,7 @@ export function PrizeDistributionPage() {
       columns={columns}
       rows={data}
       searchKeys={["winner", "competition", "reference"]}
+      statusKey="status"
       facet={{
         label: "Status",
         key: "status",

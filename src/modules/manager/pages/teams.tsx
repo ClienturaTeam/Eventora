@@ -51,7 +51,8 @@ export function ManagerTeamsPage() {
         ]}
         rows={data}
         loading={isLoading}
-        searchKeys={["name"]}
+        searchKeys={["name", "competition.name", "id"]}
+        dateKey="createdAt"
         selectable={false}
         rowActions={[
           {

@@ -9,6 +9,7 @@ router.use(requireAuth);
 router.get("/dashboard/stats", ParticipantController.getDashboardStats);
 router.get("/events/discover", ParticipantController.getDiscoverEvents);
 router.get("/registrations", ParticipantController.getMyRegistrations);
+router.get("/access-status", ParticipantController.getAccessStatus);
 router.get("/teams", ParticipantController.getMyTeams);
 router.get("/submissions", ParticipantController.getMySubmissions);
 router.get("/certificates", ParticipantController.getMyCertificates);

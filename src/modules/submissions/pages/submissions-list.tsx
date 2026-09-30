@@ -243,7 +243,7 @@ export function SubmissionsListPage() {
             {/* Render dynamic rounds if an event is selected */}
             {activeEventId && eventRounds.length > 0 ? (
               eventRounds.map((round) => {
-                const isSelected = selectedRoundFilter === round.id || selectedRoundFilter === String(round.roundNumber);
+                const isSelected = selectedRoundFilter === round.id;
                 return (
                   <Button
                     key={round.id}
@@ -256,34 +256,11 @@ export function SubmissionsListPage() {
                   </Button>
                 );
               })
-            ) : (
-              <>
-                <Button
-                  variant={selectedRoundFilter === "1" ? "default" : "outline"}
-                  size="sm"
-                  className="h-7 text-xs px-3"
-                  onClick={() => setSelectedRoundFilter("1")}
-                >
-                  Round 1
-                </Button>
-                <Button
-                  variant={selectedRoundFilter === "2" ? "default" : "outline"}
-                  size="sm"
-                  className="h-7 text-xs px-3"
-                  onClick={() => setSelectedRoundFilter("2")}
-                >
-                  Round 2
-                </Button>
-                <Button
-                  variant={selectedRoundFilter === "3" ? "default" : "outline"}
-                  size="sm"
-                  className="h-7 text-xs px-3"
-                  onClick={() => setSelectedRoundFilter("3")}
-                >
-                  Round 3
-                </Button>
-              </>
-            )}
+            ) : !activeEventId ? (
+              <span className="text-[11px] text-muted-foreground italic ml-1">
+                Select an event to filter by configured rounds
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -294,7 +271,9 @@ export function SubmissionsListPage() {
           columns={columns}
           rows={submissions}
           loading={isLoading}
-          searchKeys={["title"]}
+          searchKeys={["title", "team.name", "submittedBy.firstName", "submittedBy.lastName", "submittedBy.email", "id"]}
+          statusKey="status"
+          dateKey="createdAt"
           selectable={false}
           stats={statsList}
           facet={{

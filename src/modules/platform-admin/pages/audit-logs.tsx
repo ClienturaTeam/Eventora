@@ -60,6 +60,7 @@ export function AuditLogsPage() {
       loading={isLoading}
       error={isError}
       searchKeys={["actor", "action", "target"]}
+      dateKey="timestamp"
       facet={{
         label: "Severity",
         key: "severity",

@@ -144,11 +144,12 @@ export class RegistrationService {
       }
 
       // Create Registration
+      const isPaidEvent = event.price !== null && event.price > 0;
       const registration = await tx.registration.create({
         data: {
           eventId,
           userId: leadUser.id,
-          status: "APPROVED"
+          status: isPaidEvent ? "PENDING" : "APPROVED"
         }
       });
 

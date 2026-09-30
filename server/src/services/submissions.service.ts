@@ -1,5 +1,6 @@
 import { SubmissionRepository } from "../repositories/submissions.repository";
 import { prisma } from "../utils/prisma";
+import { ParticipantService } from "./participant.service";
 
 export class SubmissionService {
   static ALLOWED_EXTENSIONS = ["png", "jpg", "jpeg", "pdf", "doc", "docx", "mp4", "mov", "avi"];
@@ -302,6 +303,26 @@ export class SubmissionService {
     });
     if (!sub) throw { status: 404, code: "NOT_FOUND", message: "Submission not found." };
 
+    if (sub.eventId) {
+      const access = await ParticipantService.verifyParticipantRegistrationAndPayment(userId, sub.eventId);
+      if (!access.allowed) {
+        throw { status: 403, code: "FORBIDDEN", message: access.message || "Complete event registration and payment before submitting." };
+      }
+    }
+
+    if (sub.roundId) {
+      const round = await prisma.eventRound.findUnique({ where: { id: sub.roundId } });
+      if (round) {
+        const now = new Date();
+        if (round.submissionStart && now < new Date(round.submissionStart)) {
+          throw { status: 400, code: "SUBMISSION_WINDOW_NOT_OPEN", message: `Submission window for '${round.name}' has not opened yet.` };
+        }
+        if (round.submissionDeadline && now > new Date(round.submissionDeadline)) {
+          throw { status: 400, code: "SUBMISSION_WINDOW_CLOSED", message: `Submission deadline for '${round.name}' has passed.` };
+        }
+      }
+    }
+
     if (sub.isLocked) {
       throw { status: 400, code: "SUBMISSION_LOCKED", message: "Submission is locked and cannot accept file uploads." };
     }
@@ -342,6 +363,13 @@ export class SubmissionService {
     });
 
     if (!sub) throw { status: 404, code: "NOT_FOUND", message: "Submission not found." };
+
+    if (sub.eventId) {
+      const access = await ParticipantService.verifyParticipantRegistrationAndPayment(userId, sub.eventId);
+      if (!access.allowed) {
+        throw { status: 403, code: "FORBIDDEN", message: access.message || "Complete event registration and payment before submitting." };
+      }
+    }
 
     if (sub.isLocked) {
       throw { status: 400, code: "SUBMISSION_LOCKED", message: "Submission is already locked." };
