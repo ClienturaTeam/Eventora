@@ -6,6 +6,7 @@ import { TeamService } from "../services/teams.service";
 import { SubmissionService } from "../services/submissions.service";
 import { EvaluationService } from "../services/evaluations.service";
 import { JudgeService } from "../services/judges.service";
+import { MentorService } from "../services/mentors.service";
 import { VolunteerService } from "../services/volunteers.service";
 import { CertificateService } from "../services/certificates.service";
 import { AuthRequest } from "../middleware/auth.middleware";
@@ -183,6 +184,33 @@ export class ManagerController {
   static async removeJudge(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       await JudgeService.deleteJudge(req.tenantId!, req.params.id);
+      res.json({ success: true, data: { deleted: true } });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getMentors(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const data = await MentorService.getMentors(req.tenantId!);
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async assignMentor(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const data = await MentorService.createMentor(req.tenantId!, req.body);
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async removeMentor(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      await MentorService.deleteMentor(req.tenantId!, req.params.id);
       res.json({ success: true, data: { deleted: true } });
     } catch (error) {
       next(error);
