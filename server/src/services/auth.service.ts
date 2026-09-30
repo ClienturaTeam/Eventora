@@ -25,7 +25,7 @@ export class AuthService {
     }
 
     const requestedRoleName = data.role || "Participant";
-    if (!["Participant", "Student Coordinator", "Faculty Coordinator"].includes(requestedRoleName)) {
+    if (!["Participant", "Student Coordinator", "Faculty Coordinator", "Judge"].includes(requestedRoleName)) {
       throw { status: 400, code: "INVALID_ROLE", message: "Invalid role requested" };
     }
 
@@ -61,6 +61,17 @@ export class AuthService {
           status: isFacultyCoordinator ? "PENDING" : "ACTIVE"
         }
       });
+
+      if (requestedRoleName === "Judge") {
+        await tx.judge.create({
+          data: {
+            userId: newUser.id,
+            organizationId: defaultOrg.id,
+            expertise: "General",
+            bio: "Temporary Judge account created via signup",
+          }
+        });
+      }
 
       return newUser;
     });

@@ -46,7 +46,7 @@ const managerSections = [
       { title: "Role Management", url: "/roles", icon: Shield },
       { title: "Teams", url: "/manager/teams", icon: UsersRound },
       { title: "Submissions", url: "/manager/submissions", icon: Sparkles },
-      { title: "Evaluations", url: "/manager/evaluations", icon: FileCheck2 },
+      { title: "Judges", url: "/manager/judges", icon: Gavel },
       { title: "Results", url: "/winners", icon: Trophy },
       { title: "Live Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Reports", url: "/manager/reports", icon: FileBarChart },
@@ -84,9 +84,9 @@ const judgeSections = [
   {
     label: "Evaluation Space",
     items: [
-      { title: "Dashboard & Mine", url: "/evaluations", icon: LayoutDashboard },
-      { title: "Submissions", url: "/submissions", icon: Sparkles },
-      { title: "Competitions", url: "/competitions", icon: Gavel },
+      { title: "Dashboard", url: "/judge", icon: LayoutDashboard },
+      { title: "Events & Competitions", url: "/judge/events", icon: CalendarDays },
+      { title: "Submissions & Grading", url: "/judge/submissions", icon: FileCheck2 },
       { title: "Live Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Notifications", url: "/notifications", icon: Bell },
     ],
@@ -197,7 +197,7 @@ export function AppSidebar() {
     basePath = "/coordinator";
   } else if (roleName === "Judge" || roleName === "Evaluator") {
     sections = judgeSections;
-    basePath = "/evaluations";
+    basePath = "/judge";
   } else if (roleName === "Mentor") {
     sections = mentorSections;
     basePath = "/teams";
@@ -288,7 +288,7 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
 
-      {!collapsed && roleName !== "Participant" && roleName !== "Manager" ? (
+      {!collapsed && roleName !== "Participant" && roleName !== "Manager" && roleName !== "Judge" ? (
         <SidebarFooter className="border-t border-sidebar-border p-3">
           <div className="rounded-lg border border-sidebar-border bg-sidebar-accent/60 p-3">
             <p className="text-xs font-medium">Enterprise trial</p>

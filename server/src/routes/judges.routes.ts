@@ -15,6 +15,7 @@ router.use(requireAuth);
 router.use(requireTenant);
 
 router.get("/", requirePermission("evaluations.read"), JudgeController.findAll);
+router.get("/me", JudgeController.findMe);
 router.get("/:id", requirePermission("evaluations.read"), JudgeController.findById);
 router.post(
   "/",

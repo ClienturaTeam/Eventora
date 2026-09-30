@@ -128,6 +128,8 @@ export function Topbar() {
             target = "/faculty-coordinator";
           } else if (roleName === "Participant") {
             target = "/participant";
+          } else if (roleName === "Judge") {
+            target = "/judge";
           }
         }
         
@@ -174,6 +176,42 @@ export function Topbar() {
             <CommandIcon className="h-2.5 w-2.5" />K
           </kbd>
         </button>
+
+        {/* Dev Role Switcher */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden h-9 border-dashed text-muted-foreground sm:inline-flex"
+            >
+              <BugPlay className="mr-2 h-4 w-4" />
+              Dev Role
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Switch Test User</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => switchDevUser("admin@ascent.dev")}>
+              Platform Admin
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => switchDevUser("manager@contoso.com")}>
+              Org Admin / Manager
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => switchDevUser("participant1@contoso.com")}>
+              Participant
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => switchDevUser("faculty1@contoso.com")}>
+              Faculty Coordinator
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => switchDevUser("student1@contoso.com")}>
+              Student Coordinator (Sub-manager)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => switchDevUser("elena@ascent.dev")}>
+              Judge
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <ThemeToggle />
 

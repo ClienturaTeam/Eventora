@@ -2,7 +2,7 @@ import { prisma } from "../utils/prisma";
 
 export class JudgeRepository {
   static async findAll(tenantId: string) {
-    return prisma.judge.findMany({
+    const judges = await prisma.judge.findMany({
       where: { organizationId: tenantId },
       include: {
         user: { select: { id: true, firstName: true, lastName: true, email: true } },
@@ -14,6 +14,11 @@ export class JudgeRepository {
       },
       orderBy: { createdAt: "desc" },
     });
+
+    return judges.map(j => ({
+      ...j,
+      user: { firstName: j.name, lastName: "", email: j.email } // Compatibility for frontend
+    }));
   }
 
   static async findById(tenantId: string, id: string) {
@@ -36,15 +41,15 @@ export class JudgeRepository {
     });
   }
 
-  static async create(tenantId: string, data: { userId: string; expertise?: string; bio?: string }) {
-    // Verify user is a member of this org
-    const member = await prisma.organizationMember.findUnique({
-      where: { userId_organizationId: { userId: data.userId, organizationId: tenantId } },
-    });
-    if (!member) throw new Error("User is not a member of this organization.");
-
+  static async create(tenantId: string, data: { name: string; email: string; expertise?: string; bio?: string }) {
     return prisma.judge.create({
-      data: { userId: data.userId, organizationId: tenantId, expertise: data.expertise, bio: data.bio },
+      data: { 
+        name: data.name,
+        email: data.email,
+        organizationId: tenantId, 
+        expertise: data.expertise, 
+        bio: data.bio 
+      },
     });
   }
 
@@ -91,7 +96,7 @@ export class JudgeRepository {
       judges.map(async (j) => {
         const evals = await prisma.evaluation.findMany({
           where: {
-            judgeId: j.userId,
+            judgeId: j.id,
             submission: { competition: { event: { organizationId: tenantId } } },
           },
           select: { score: true, status: true },

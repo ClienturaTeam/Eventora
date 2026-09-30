@@ -71,7 +71,7 @@ export function JudgesPage() {
   // Flatten for table display
   const rows = judges.map((j) => ({
     ...j,
-    _displayName: `${j.userId.slice(0, 6)}…`, // userId — backend should include user.name
+    _displayName: j.name || "Unknown Judge", // Use name from schema
     _assigned: j._evalStats?.assigned ?? 0,
     _completed: j._evalStats?.completed ?? 0,
     _avgScore: j._evalStats?.avgScore ?? 0,

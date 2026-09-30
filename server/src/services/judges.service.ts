@@ -11,7 +11,16 @@ export class JudgeService {
     return judge;
   }
 
-  static async createJudge(tenantId: string, data: { userId: string; expertise?: string; bio?: string }) {
+  static async getJudgeByUserId(tenantId: string, userId: string) {
+    const judge = await JudgeRepository.findByUserId(tenantId, userId);
+    if (!judge) throw { status: 404, code: "NOT_FOUND", message: "Judge not found for this user." };
+    
+    // Also include competitions in the return
+    const judgeWithCompetitions = await JudgeRepository.findById(tenantId, judge.id);
+    return judgeWithCompetitions;
+  }
+
+  static async createJudge(tenantId: string, data: { name: string; email: string; expertise?: string; bio?: string }) {
     try {
       return await JudgeRepository.create(tenantId, data);
     } catch (err: any) {

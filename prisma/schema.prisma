@@ -28,7 +28,6 @@ model User {
   courseEnrollments     CourseEnrollment[]   @relation("CourseParticipant")
   discussionsAuthored   Discussion[]         @relation("DiscussionAuthor")
   discussionReplies     DiscussionReply[]    @relation("ReplyAuthor")
-  evaluations           Evaluation[]
   communityGroups       GroupMembership[]    @relation("GroupMember")
   integrationsConnected Integration[]        @relation("IntegrationConnector")
   jobApplications       JobApplication[]     @relation("JobCandidate")
@@ -59,6 +58,7 @@ model User {
   managerReports        EventFinalReport[]   @relation("ReportManager")
   submittedSubmissions  Submission[]         @relation("SubmissionSubmitter")
   judgeAssignments      SubmissionJudgeAssignment[]
+  evaluations           Evaluation[]
   askedQuestions        MentorQuestion[]     @relation("QuestionParticipant")
   mentoredQuestions     MentorQuestion[]     @relation("QuestionMentor")
   questionReplies       QuestionReply[]
@@ -347,7 +347,9 @@ model SubmissionFile {
 
 model Judge {
   id             String             @id @default(uuid())
-  userId         String
+  userId         String?
+  name           String             @default("Unknown Judge")
+  email          String             @default("unknown@example.com")
   organizationId String
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
@@ -355,8 +357,6 @@ model Judge {
   expertise      String?
   organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   competitions   JudgeCompetition[]
-
-  @@unique([userId, organizationId])
 }
 
 model JudgeCompetition {

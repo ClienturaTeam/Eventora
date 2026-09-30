@@ -412,6 +412,8 @@ async function main() {
   const judge1 = await prisma.judge.create({
     data: {
       userId: judgeUser1.id,
+      name: judgeUser1.firstName + ' ' + judgeUser1.lastName,
+      email: judgeUser1.email,
       organizationId: org1.id,
       expertise: 'Machine Learning',
       bio: 'PhD in ML from MIT, 10 years industry experience.',
@@ -421,6 +423,8 @@ async function main() {
   const judge2 = await prisma.judge.create({
     data: {
       userId: judgeUser2.id,
+      name: judgeUser2.firstName + ' ' + judgeUser2.lastName,
+      email: judgeUser2.email,
       organizationId: org1.id,
       expertise: 'Accessibility Tech',
       bio: 'Expert in assistive technologies and inclusive design.',
@@ -435,7 +439,7 @@ async function main() {
   await prisma.evaluation.create({
     data: {
       submissionId: sub1.id,
-      judgeId: judgeUser1.id,
+      judgeId: judge1.id,
       score: 87.5,
       feedback: 'Strong technical depth. Excellent use of on-device inference.',
       status: EvaluationStatus.COMPLETED,
@@ -445,7 +449,7 @@ async function main() {
   await prisma.evaluation.create({
     data: {
       submissionId: sub2.id,
-      judgeId: judgeUser1.id,
+      judgeId: judge1.id,
       score: 79,
       feedback: 'Good concept, needs more robust error handling.',
       status: EvaluationStatus.IN_PROGRESS,
@@ -455,7 +459,7 @@ async function main() {
   await prisma.evaluation.create({
     data: {
       submissionId: sub1.id,
-      judgeId: judgeUser2.id,
+      judgeId: judge2.id,
       score: null,
       feedback: null,
       status: EvaluationStatus.PENDING,
@@ -465,7 +469,7 @@ async function main() {
   await prisma.evaluation.create({
     data: {
       submissionId: sub2.id,
-      judgeId: judgeUser2.id,
+      judgeId: judge2.id,
       score: 82,
       feedback: 'Creative solution with real-world impact potential.',
       status: EvaluationStatus.COMPLETED,
