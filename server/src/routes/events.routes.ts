@@ -28,6 +28,12 @@ router.post("/:id/complete", requireAnyPermission(["events.complete", "reports.c
 
 router.delete("/:id", requirePermission("events.delete"), EventController.delete);
 
+// Event Round Routes
+router.get("/:id/rounds", requireAnyPermission(["events.read", "events.read_assigned"]), EventController.getRounds);
+router.post("/:id/rounds", requirePermission("events.update"), EventController.createRound);
+router.patch("/:id/rounds/:roundId", requirePermission("events.update"), EventController.updateRound);
+router.delete("/:id/rounds/:roundId", requirePermission("events.update"), EventController.deleteRound);
+
 // Event Team Routes
 router.post("/:id/assignment/faculty", requirePermission("events.assign_faculty_coordinator"), EventController.assignFacultyCoordinator);
 router.post("/:id/assignment/student", requirePermission("events.assign_student_coordinator"), EventController.assignStudentCoordinator);

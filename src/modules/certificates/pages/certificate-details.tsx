@@ -89,7 +89,7 @@ export function CertificateDetails({ id }: { id: string }) {
               <div className="bg-muted/30 p-8 flex items-end justify-between border-t border-border">
                 <div>
                   <p className="text-sm font-medium mb-1">Issued By</p>
-                  <p className="text-xs text-muted-foreground">Ascent Platform</p>
+                  <p className="text-xs text-muted-foreground">Eventora Platform</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-medium mb-1">Date</p>

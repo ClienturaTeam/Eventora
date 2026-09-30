@@ -83,6 +83,8 @@ function SCParticipantsPage() {
         loading={isLoading}
         error={isError}
         searchKeys={["firstName", "lastName", "email"]}
+        statusKey="status"
+        dateKey="createdAt"
         rowActions={[
           { label: "Activate Account", onSelect: (user) => updateStatusMutation.mutate({ id: user.id, status: 'ACTIVE' }) },
           { label: "Deactivate Account", onSelect: (user) => updateStatusMutation.mutate({ id: user.id, status: 'SUSPENDED' }) },

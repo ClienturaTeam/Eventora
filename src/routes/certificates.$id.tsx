@@ -4,7 +4,7 @@ import { CertificateDetails } from "@/modules/certificates/pages/certificate-det
 export const Route = createFileRoute("/certificates/$id")({
   head: () => ({
     meta: [
-      { title: "Certificate preview · Ascent Platform" },
+      { title: "Certificate preview · Eventora Platform" },
       {
         name: "description",
         content: "Preview, verify and download issued certificates with serial validation.",

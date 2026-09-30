@@ -33,7 +33,7 @@ async function run() {
       payments.push({
         organizationId: tenantId,
         amount: amount,
-        currency: "USD",
+        currency: "INR",
         status: "SUCCEEDED",
         provider: "STRIPE",
         description: "Generated Payment",

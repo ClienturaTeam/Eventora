@@ -3,7 +3,7 @@ import { DiscussionDetailsPage } from "@/modules/community/pages/discussion-deta
 
 export const Route = createFileRoute("/community/discussions/$id")({
   head: () => ({
-    meta: [{ title: "Discussion Details · Ascent Platform" }],
+    meta: [{ title: "Discussion Details · Eventora Platform" }],
   }),
   component: DiscussionDetailsPage,
 });

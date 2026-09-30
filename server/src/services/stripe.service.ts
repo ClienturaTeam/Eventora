@@ -116,7 +116,7 @@ export class StripeService {
         couponParams.percent_off = value;
       } else {
         couponParams.amount_off = Math.round(value * 100);
-        couponParams.currency = "usd";
+        couponParams.currency = "inr";
       }
 
       return stripe.coupons.create(couponParams);

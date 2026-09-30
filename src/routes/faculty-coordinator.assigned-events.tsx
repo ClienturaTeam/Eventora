@@ -3,7 +3,7 @@ import { AssignedEventsPage } from "@/modules/events/pages/assigned-events";
 
 export const Route = createFileRoute("/faculty-coordinator/assigned-events")({
   head: () => ({
-    meta: [{ title: "Assigned Events · Ascent Platform" }],
+    meta: [{ title: "Assigned Events · Eventora Platform" }],
   }),
   component: AssignedEventsPage,
 });

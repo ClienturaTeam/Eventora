@@ -4,9 +4,9 @@ import { SubmissionsListPage } from "@/modules/submissions/pages/submissions-lis
 export const Route = createFileRoute("/submissions/")({
   head: () => ({
     meta: [
-      { title: "Submissions · Ascent Platform" },
+      { title: "Submissions · Eventora Platform" },
       { name: "description", content: "Every submission with round, score and reviewer coverage." },
-      { property: "og:title", content: "Submissions · Ascent Platform" },
+      { property: "og:title", content: "Submissions · Eventora Platform" },
       {
         property: "og:description",
         content: "Every submission with round, score and reviewer coverage.",

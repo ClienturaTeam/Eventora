@@ -199,12 +199,12 @@ export class IntegrationsService {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "User-Agent": "Ascent-Webhook-Dispatcher/1.0"
+          "User-Agent": "Eventora-Webhook-Dispatcher/1.0"
         },
         body: JSON.stringify({
           event: "ping",
           timestamp: new Date().toISOString(),
-          data: { message: "Test ping from Ascent Developer Platform" }
+          data: { message: "Test ping from Eventora Developer Platform" }
         }),
         signal: controller.signal
       });

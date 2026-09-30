@@ -3,7 +3,7 @@ import { GroupsPage } from "@/modules/community/pages/groups";
 
 export const Route = createFileRoute("/community/groups")({
   head: () => ({
-    meta: [{ title: "Groups · Ascent Platform" }],
+    meta: [{ title: "Groups · Eventora Platform" }],
   }),
   component: GroupsPage,
 });

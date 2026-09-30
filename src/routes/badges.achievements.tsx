@@ -3,7 +3,7 @@ import { AchievementsPage } from "@/modules/badges/pages/achievements";
 
 export const Route = createFileRoute("/badges/achievements")({
   head: () => ({
-    meta: [{ title: "Achievements · Ascent Platform" }],
+    meta: [{ title: "Achievements · Eventora Platform" }],
   }),
   component: AchievementsPage,
 });

@@ -47,6 +47,8 @@ interface DataTableProps<T extends { id: string }> {
   onRetry?: (() => void) | undefined;
   emptyTitle?: string | undefined;
   emptyDescription?: string | undefined;
+  emptyActionLabel?: string | undefined;
+  onEmptyAction?: (() => void) | undefined;
   pageSize?: number | undefined;
   onRowClick?: ((row: T) => void) | undefined;
 }
@@ -54,7 +56,7 @@ interface DataTableProps<T extends { id: string }> {
 export function DataTable<T extends { id: string }>({
   columns,
   rows,
-  selectable = true,
+  selectable = false,
   selected = [],
   onSelectedChange,
   rowActions,
@@ -63,11 +65,18 @@ export function DataTable<T extends { id: string }>({
   onRetry,
   emptyTitle = "Nothing here yet",
   emptyDescription = "Records will appear once data matching your filters exists.",
+  emptyActionLabel,
+  onEmptyAction,
   pageSize = 8,
   onRowClick,
 }: DataTableProps<T>) {
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(null);
   const [page, setPage] = useState(1);
+
+  // Reset page to 1 whenever rows change (filtering, sorting, search)
+  useMemo(() => {
+    setPage(1);
+  }, [rows]);
 
   const sorted = useMemo(() => {
     if (!sort) return rows;
@@ -124,7 +133,12 @@ export function DataTable<T extends { id: string }>({
   if (rows.length === 0) {
     return (
       <div className="card-surface overflow-hidden">
-        <EmptyState title={emptyTitle} description={emptyDescription} />
+        <EmptyState
+          title={emptyTitle}
+          description={emptyDescription}
+          actionLabel={emptyActionLabel}
+          onAction={onEmptyAction}
+        />
       </div>
     );
   }

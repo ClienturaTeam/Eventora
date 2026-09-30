@@ -111,7 +111,7 @@ export class PaymentsRepository {
         memberships: {
           none: {
             role: {
-              name: { in: ["Platform Admin", "Organization Admin"] }
+              name: { in: ["Sudo Admin", "Platform Admin", "Admin", "Organization Admin"] }
             }
           }
         }
@@ -146,7 +146,7 @@ export class PaymentsRepository {
         memberships: {
           none: {
             role: {
-              name: { in: ["Platform Admin", "Organization Admin"] }
+              name: { in: ["Sudo Admin", "Platform Admin", "Admin", "Organization Admin"] }
             }
           }
         }
@@ -172,7 +172,7 @@ export class PaymentsRepository {
         memberships: {
           none: {
             role: {
-              name: { in: ["Platform Admin", "Organization Admin"] }
+              name: { in: ["Sudo Admin", "Platform Admin", "Admin", "Organization Admin"] }
             }
           }
         }
@@ -305,7 +305,7 @@ export class PaymentsRepository {
         memberships: {
           none: {
             role: {
-              name: { in: ["Platform Admin", "Organization Admin"] }
+              name: { in: ["Sudo Admin", "Platform Admin", "Admin", "Organization Admin"] }
             }
           }
         }

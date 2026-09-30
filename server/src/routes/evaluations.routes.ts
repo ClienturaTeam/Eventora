@@ -26,12 +26,18 @@ router.post(
   EvaluationController.create
 );
 
-// Update score/feedback — additional judge-ownership check enforced in controller
+// Update score/feedback — judge-ownership & assignment check enforced in controller/service
 router.patch(
   "/:id",
-  requirePermission("evaluations.read"), // minimum: must be a member who can read
   validateRequest(updateEvaluationSchema),
   EvaluationController.update
+);
+
+// Admin requests evaluation correction from judge
+router.post(
+  "/:id/request-correction",
+  requirePermission("evaluations.manage"),
+  EvaluationController.requestCorrection
 );
 
 router.delete("/:id", requirePermission("evaluations.manage"), EvaluationController.delete);

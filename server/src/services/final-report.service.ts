@@ -35,7 +35,7 @@ export class FinalReportService {
       where: { userId, organizationId: tenantId },
       include: { role: true }
     });
-    if (!userRole || !['Organization Admin', 'Platform Admin', 'Manager'].includes(userRole.role.name)) {
+    if (!userRole || !['Admin', 'Organization Admin', 'Sudo Admin', 'Platform Admin', 'Manager'].includes(userRole.role.name)) {
       throw { status: 403, code: "FORBIDDEN", message: "Only a Manager can perform this action." };
     }
   }
@@ -253,7 +253,7 @@ Please write the comprehensive final report using the exact requested structure,
       const managers = await prisma.organizationMember.findMany({
         where: { 
           organizationId: tenantId, 
-          role: { name: { in: ['Organization Admin', 'Platform Admin', 'Manager'] } } 
+          role: { name: { in: ['Admin', 'Organization Admin', 'Sudo Admin', 'Platform Admin', 'Manager'] } } 
         }
       });
       const managerIds = managers.map(m => m.userId);

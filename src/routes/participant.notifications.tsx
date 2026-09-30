@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ParticipantNotificationsPage } from "@/modules/participant/pages/notifications";
+import { NotificationsPage } from "./notifications";
 
 export const Route = createFileRoute("/participant/notifications")({
-  head: () => ({ meta: [{ title: "ParticipantNotificationsPage · Ascent Platform" }] }),
-  component: ParticipantNotificationsPage,
+  head: () => ({ meta: [{ title: "Notifications · Eventora Platform" }] }),
+  component: NotificationsPage,
 });

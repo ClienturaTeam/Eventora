@@ -15,7 +15,7 @@ export function DataPagination({
   pageSize: number;
   onPageChange: (page: number) => void;
 }) {
-  const from = (page - 1) * pageSize + 1;
+  const from = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, totalItems);
   const pages = Array.from({ length: totalPages }).map((_, i) => i + 1);
   const visible = pages.filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1);

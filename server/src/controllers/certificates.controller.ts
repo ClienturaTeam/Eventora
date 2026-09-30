@@ -18,9 +18,9 @@ export class CertificateController {
 
   static async verify(req: Request, res: Response) {
     const { code } = req.params;
-    const certificate = await CertificateService.findByVerificationCode(code);
-    if (!certificate) return res.status(404).json({ error: "Certificate not found or invalid code" });
-    res.json(certificate);
+    const result = await CertificateService.findByVerificationCode(code);
+    if (!result) return res.status(404).json({ error: "Certificate not found or invalid code" });
+    res.json(result);
   }
 
   static async create(req: Request, res: Response) {
@@ -66,13 +66,32 @@ export class CertificateController {
   }
 
   static async download(req: Request, res: Response) {
-    const tenantId = req.tenantId!;
-    const { id } = req.params;
-    const certificate = await CertificateService.findById(tenantId, id);
-    if (!certificate) return res.status(404).json({ error: "Certificate not found" });
-    
-    // Placeholder implementation for PDF download
-    // Since PDF generation is too large for current architecture, we return a mock URL.
-    res.json({ url: `https://fake-s3-bucket.ascent.dev/certificates/${certificate.certificateNumber}.pdf` });
+    try {
+      const tenantId = req.tenantId!;
+      const userId = req.user!.userId;
+      const { id } = req.params;
+
+      const { pdfBuffer, filename } = await CertificateService.downloadMyCertificate(tenantId, userId, id);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(pdfBuffer);
+    } catch (err: any) {
+      res.status(err.status || 500).json({ error: err.message || "Failed to download certificate" });
+    }
+  }
+
+  static async downloadTeam(req: Request, res: Response) {
+    try {
+      const tenantId = req.tenantId!;
+      const userId = req.user!.userId;
+
+      const { zipBuffer, filename } = await CertificateService.downloadTeamCertificates(tenantId, userId);
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(zipBuffer);
+    } catch (err: any) {
+      res.status(err.status || 500).json({ error: err.message || "Failed to download team certificates" });
+    }
   }
 }
+

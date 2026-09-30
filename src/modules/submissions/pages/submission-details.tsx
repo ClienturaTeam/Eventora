@@ -49,28 +49,50 @@ export function SubmissionDetailsPage() {
         { label: "Plagiarism", value: "0 flags" }, // Not real yet
       ]}
       overview={
-        <SectionCard title="Evaluations breakdown" description="Judge feedback and scores" padded={false}>
-          <ul className="divide-y divide-border">
-            {evaluations.length > 0 ? (
-              evaluations.map((e) => (
-                <li key={e.id} className="px-5 py-4">
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                    <p className="truncate text-sm font-medium">{e.judge.firstName} {e.judge.lastName}</p>
-                    <span className="shrink-0 text-sm tabular-nums">
-                      {e.score || 0} / 100
-                    </span>
+        <div className="space-y-4">
+          {submission.problemStatement && (
+            <SectionCard title="Problem Statement" description="Assigned problem statement details">
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center gap-2 font-mono font-bold text-sm text-primary">
+                  <span>{submission.problemStatement.code}</span>
+                  <span>•</span>
+                  <span>{submission.problemStatement.title}</span>
+                </div>
+                <p className="text-muted-foreground leading-relaxed">
+                  {submission.problemStatement.description}
+                </p>
+                {submission.problemStatement.category && (
+                  <div className="pt-1">
+                    <span className="text-xs font-medium text-foreground">Category: {submission.problemStatement.category}</span>
                   </div>
-                  <Progress value={e.score || 0} className="mt-2 h-1.5" />
-                  <p className="mt-2 text-xs text-muted-foreground">{e.feedback || "No feedback provided."}</p>
-                </li>
-              ))
-            ) : (
-              <div className="p-8 text-center text-muted-foreground">
-                No evaluations yet.
+                )}
               </div>
-            )}
-          </ul>
-        </SectionCard>
+            </SectionCard>
+          )}
+
+          <SectionCard title="Evaluations breakdown" description="Judge feedback and scores" padded={false}>
+            <ul className="divide-y divide-border">
+              {evaluations.length > 0 ? (
+                evaluations.map((e) => (
+                  <li key={e.id} className="px-5 py-4">
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                      <p className="truncate text-sm font-medium">{e.judge.firstName} {e.judge.lastName}</p>
+                      <span className="shrink-0 text-sm tabular-nums">
+                        {e.score || 0} / 100
+                      </span>
+                    </div>
+                    <Progress value={e.score || 0} className="mt-2 h-1.5" />
+                    <p className="mt-2 text-xs text-muted-foreground">{e.feedback || "No feedback provided."}</p>
+                  </li>
+                ))
+              ) : (
+                <div className="p-8 text-center text-muted-foreground">
+                  No evaluations yet.
+                </div>
+              )}
+            </ul>
+          </SectionCard>
+        </div>
       }
     />
   );

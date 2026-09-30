@@ -40,6 +40,14 @@ export const requirePermission = (requiredPermission: string) => {
         });
       }
 
+      // Check if temporary access delegation window has expired
+      if ((membership as any).expiresAt && new Date((membership as any).expiresAt) < new Date()) {
+        return res.status(403).json({
+          success: false,
+          error: { code: "DELEGATION_EXPIRED", message: "Your temporary role access window has expired.", details: [] }
+        });
+      }
+
       // 2. Check if the role has the required permission
       const userPermissions = membership.role.permissions.map((rp) => rp.permission.action);
       req.permissions = userPermissions;

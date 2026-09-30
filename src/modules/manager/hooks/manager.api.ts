@@ -66,11 +66,16 @@ export const useManagerSubmissions = () => {
   });
 };
 
-export const useManagerEvaluations = () => {
+export const useManagerEvaluations = (filters?: { eventId?: string | undefined; roundId?: string | undefined; roundNumber?: number | string | undefined }) => {
   return useQuery({
-    queryKey: managerKeys.evaluations(),
+    queryKey: [...managerKeys.evaluations(), filters],
     queryFn: async () => {
-      const response = await fetchApi('/manager/evaluations');
+      const params = new URLSearchParams();
+      if (filters?.eventId && filters.eventId !== "ALL") params.set("eventId", filters.eventId);
+      if (filters?.roundId) params.set("roundId", filters.roundId);
+      if (filters?.roundNumber !== undefined && filters?.roundNumber !== null) params.set("roundNumber", String(filters.roundNumber));
+      const queryString = params.toString();
+      const response = await fetchApi(`/manager/evaluations${queryString ? `?${queryString}` : ""}`);
       return response.data;
     },
   });
@@ -358,5 +363,23 @@ export const useUpdateManagerCertificate = () => {
       return response.data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: managerKeys.certificates() }),
+  });
+};
+
+export const usePublishManagerResult = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { competitionId: string; teamId: string; resultType: string; prizeAmount?: number; currency?: string }) => {
+      const response = await fetchApi('/manager/results/publish', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: managerKeys.evaluations() });
+      queryClient.invalidateQueries({ queryKey: managerKeys.certificates() });
+      queryClient.invalidateQueries({ queryKey: managerKeys.teams() });
+    },
   });
 };

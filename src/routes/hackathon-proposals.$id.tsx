@@ -96,7 +96,7 @@ function ProposalDetailsComponent() {
         </div>
         <div>
           <p className="text-sm text-gray-500">Estimated Budget</p>
-          <p className="font-medium">${proposal.estimatedBudget}</p>
+          <p className="font-medium">₹{Number(proposal.estimatedBudget || 0).toLocaleString('en-IN')}</p>
         </div>
         <div>
           <p className="text-sm text-gray-500">Required Manpower</p>

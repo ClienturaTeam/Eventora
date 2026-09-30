@@ -52,9 +52,11 @@ async function main() {
   await prisma.judge.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.evaluation.deleteMany();
+  await prisma.submissionFile.deleteMany();
   await prisma.submission.deleteMany();
   await prisma.teamMember.deleteMany();
   await prisma.team.deleteMany();
+  await prisma.problemStatement.deleteMany();
   await prisma.registration.deleteMany();
   await prisma.competition.deleteMany();
   await prisma.event.deleteMany();
@@ -107,7 +109,15 @@ async function main() {
   }
 
   // 3. Users
-  const passwordHash = await bcrypt.hash('password123', 10);
+  const passwordHash = await bcrypt.hash('Password123!', 10);
+
+  const sudoAdmin = await prisma.user.create({
+    data: { email: 'sudo@ascent.com', firstName: 'Sudo', lastName: 'Admin', passwordHash, status: UserStatus.ACTIVE },
+  });
+
+  const adminUser = await prisma.user.create({
+    data: { email: 'admin@ascent.com', firstName: 'Organization', lastName: 'Admin', passwordHash, status: UserStatus.ACTIVE },
+  });
 
   const platformAdmin = await prisma.user.create({
     data: { email: 'admin@ascent.dev', firstName: 'Admin', lastName: 'User', passwordHash, status: UserStatus.ACTIVE },
@@ -164,38 +174,18 @@ async function main() {
 
   // 5. Roles
   const globalAdminRole = await prisma.role.create({
-    data: { name: 'Platform Admin', description: 'Global administrator' },
+    data: { name: 'Sudo Admin', description: 'Sudo Administrator with full system access across all organizations' },
   });
 
   const orgAdminRole = await prisma.role.create({
-    data: { name: 'Organization Admin', organizationId: org1.id, description: 'Org administrator' },
-  });
-
-  const judgeRole = await prisma.role.create({
-    data: { name: 'Judge', organizationId: org1.id, description: 'Evaluates submissions' },
-  });
-
-  const participantRole = await prisma.role.create({
-    data: { name: 'Participant', organizationId: org1.id, description: 'Event participant' },
-  });
-
-  const mentorRole = await prisma.role.create({
-    data: { name: 'Mentor', organizationId: org1.id, description: 'Coaches teams' },
-  });
-
-  const volunteerRole = await prisma.role.create({
-    data: { name: 'Volunteer', organizationId: org1.id, description: 'Event volunteer' },
-  });
-
-  const principalRole = await prisma.role.create({
-    data: { name: 'Principal', organizationId: org1.id, description: 'College Principal' },
+    data: { name: 'Admin', organizationId: org1.id, description: 'Organization Administrator' },
   });
 
   const managerRole = await prisma.role.create({
-    data: { name: 'Manager', organizationId: org1.id, description: 'Hackathon Manager' },
+    data: { name: 'Manager', organizationId: org1.id, description: 'Event & Competition Manager' },
   });
 
-  const facultyCoordinatorRole = await prisma.role.create({
+  const facultyRole = await prisma.role.create({
     data: { name: 'Faculty Coordinator', organizationId: org1.id, description: 'Faculty Coordinator' },
   });
 
@@ -203,12 +193,20 @@ async function main() {
     data: { name: 'Student Coordinator', organizationId: org1.id, description: 'Student Coordinator' },
   });
 
-  const facultyOrganizerRole = await prisma.role.create({
-    data: { name: 'Faculty Organizer', organizationId: org1.id, description: 'Faculty Organizer' },
+  const judgeRole = await prisma.role.create({
+    data: { name: 'Judge', organizationId: org1.id, description: 'Competition Judge' },
   });
 
-  const studentOrganizerRole = await prisma.role.create({
-    data: { name: 'Student Organizer', organizationId: org1.id, description: 'Student Organizer' },
+  const mentorRole = await prisma.role.create({
+    data: { name: 'Mentor', organizationId: org1.id, description: 'Team Mentor' },
+  });
+
+  const volunteerRole = await prisma.role.create({
+    data: { name: 'Volunteer', organizationId: org1.id, description: 'Event Volunteer' },
+  });
+
+  const participantRole = await prisma.role.create({
+    data: { name: 'Participant', organizationId: org1.id, description: 'Event & Hackathon Participant' },
   });
 
   // Assign permissions
@@ -216,6 +214,7 @@ async function main() {
     await prisma.rolePermission.create({ data: { roleId: globalAdminRole.id, permissionId: permissions[p].id } });
   }
   const orgAdminPerms = [
+    'organization.read', 'organization.manage',
     'events.read', 'events.create', 'events.update', 'events.delete', 'events.complete',
     'competitions.read', 'competitions.manage',
     'registrations.read', 'registrations.manage',
@@ -227,44 +226,41 @@ async function main() {
     'notifications.read', 'notifications.manage',
     'winners.read', 'winners.manage', 'winners.finalize',
     'badges.read', 'badges.manage', 'badges.award',
+    'learning.read', 'learning.manage',
+    'community.read', 'community.manage',
+    'feedback.read', 'feedback.manage',
+    'recruitment.read', 'recruitment.manage',
+    'sponsors.read', 'sponsors.manage',
+    
+    // Payments
+    'payments.read', 'payments.manage', 'payments.refund', 'payments.export',
+    'security.read', 'security.manage',
     'hackathon_proposals.create', 'hackathon_proposals.read', 'hackathon_proposals.update',
+    'hackathon_proposals.read_own', 'hackathon_proposals.update_own',
     'hackathon_proposals.submit', 'hackathon_proposals.review', 'hackathon_proposals.principal_review', 'hackathon_proposals.create_event',
+    'users.read', 'users.manage',
   ];
   for (const p of orgAdminPerms) {
     await prisma.rolePermission.create({ data: { roleId: orgAdminRole.id, permissionId: permissions[p].id } });
-  }
-
-  const judgePerms = ['evaluations.read', 'submissions.read', 'notifications.read'];
-  for (const p of judgePerms) {
-    await prisma.rolePermission.create({ data: { roleId: judgeRole.id, permissionId: permissions[p].id } });
-  }
-
-  await prisma.rolePermission.create({ data: { roleId: participantRole.id, permissionId: permissions['events.read'].id } });
-  await prisma.rolePermission.create({ data: { roleId: participantRole.id, permissionId: permissions['notifications.read'].id } });
-  await prisma.rolePermission.create({ data: { roleId: mentorRole.id, permissionId: permissions['events.read'].id } });
-  await prisma.rolePermission.create({ data: { roleId: mentorRole.id, permissionId: permissions['notifications.read'].id } });
-  await prisma.rolePermission.create({ data: { roleId: volunteerRole.id, permissionId: permissions['events.read'].id } });
-  await prisma.rolePermission.create({ data: { roleId: volunteerRole.id, permissionId: permissions['notifications.read'].id } });
-
-  const studentCoordinatorPerms = ['hackathon_proposals.create', 'hackathon_proposals.read_own', 'hackathon_proposals.update_own', 'hackathon_proposals.submit', 'events.read_assigned', 'notifications.read'];
-  for (const p of studentCoordinatorPerms) {
-    await prisma.rolePermission.create({ data: { roleId: studentCoordinatorRole.id, permissionId: permissions[p].id } });
-  }
-
-  const managerPerms = ['hackathon_proposals.read', 'hackathon_proposals.review', 'hackathon_proposals.create_event', 'events.read', 'events.complete', 'notifications.read'];
-  for (const p of managerPerms) {
     await prisma.rolePermission.create({ data: { roleId: managerRole.id, permissionId: permissions[p].id } });
   }
 
-  const principalPerms = ['hackathon_proposals.read', 'hackathon_proposals.principal_review', 'events.read', 'notifications.read'];
-  for (const p of principalPerms) {
-    await prisma.rolePermission.create({ data: { roleId: principalRole.id, permissionId: permissions[p].id } });
+  const participantPerms = [
+    'events.read', 'competitions.read', 'registrations.read', 'teams.read',
+    'submissions.read', 'submissions.manage', 'certificates.read', 'notifications.read', 'badges.read'
+  ];
+  for (const p of participantPerms) {
+    if (permissions[p]) {
+      await prisma.rolePermission.create({ data: { roleId: participantRole.id, permissionId: permissions[p].id } });
+    }
   }
 
   // 6. Organization Memberships
   const allUsersForOrg = [
+    { userId: sudoAdmin.id, roleId: globalAdminRole.id },
+    { userId: adminUser.id, roleId: orgAdminRole.id },
     { userId: platformAdmin.id, roleId: globalAdminRole.id },
-    { userId: orgManager.id, roleId: orgAdminRole.id },
+    { userId: orgManager.id, roleId: managerRole.id },
     { userId: participant1.id, roleId: participantRole.id },
     { userId: judgeUser1.id, roleId: judgeRole.id },
     { userId: judgeUser2.id, roleId: judgeRole.id },
@@ -322,6 +318,40 @@ async function main() {
     },
   });
 
+  // Problem Statements
+  const ps1 = await prisma.problemStatement.create({
+    data: {
+      organizationId: org1.id,
+      code: "PS-001",
+      title: "AI-Powered Smart City Grid Optimization",
+      description: "Design an intelligent algorithm to optimize renewable energy distribution and reduce peak grid load across urban neighborhoods.",
+      category: "Artificial Intelligence & Sustainability",
+      isReleased: true,
+    }
+  });
+
+  const ps2 = await prisma.problemStatement.create({
+    data: {
+      organizationId: org1.id,
+      code: "PS-002",
+      title: "Decentralized Event Verification Protocol",
+      description: "Build a zero-knowledge credential verification system for hackathon certificates and academic badges.",
+      category: "Blockchain & Security",
+      isReleased: true,
+    }
+  });
+
+  const ps3 = await prisma.problemStatement.create({
+    data: {
+      organizationId: org1.id,
+      code: "PS-003",
+      title: "Real-Time Collaborative Code Playground",
+      description: "Develop a low-latency web workspace enabling real-time multi-user code editing and instant preview execution.",
+      category: "Developer Tools",
+      isReleased: false,
+    }
+  });
+
   // 9. Registrations
   await prisma.registration.create({ data: { eventId: event1.id, userId: participant1.id, status: 'APPROVED' } });
   await prisma.registration.create({ data: { eventId: event1.id, userId: participant2.id, status: 'APPROVED' } });
@@ -333,8 +363,19 @@ async function main() {
   const team1 = await prisma.team.create({
     data: {
       name: 'Team Quantum',
+      size: 4,
       competitionId: comp1.id,
-      members: { create: [{ userId: participant1.id, isLead: true }] },
+      problemStatementId: ps1.id,
+      problemStatementLocked: true,
+      problemStatementSelectedAt: new Date(),
+      members: {
+        create: [
+          { userId: participant1.id, name: 'Bob Participant', email: 'participant@gmail.com', isLead: true },
+          { name: 'Rahul Sharma', email: 'rahul@example.com', contactNumber: '9876543211', college: 'NIT Warangal', department: 'CSE', isLead: false },
+          { name: 'Kiran Kumar', email: 'kiran@example.com', contactNumber: '9876543212', college: 'NIT Warangal', department: 'ECE', isLead: false },
+          { name: 'Sai Teja', email: 'sai@example.com', contactNumber: '9876543213', college: 'NIT Warangal', department: 'EEE', isLead: false }
+        ]
+      },
     },
   });
 
@@ -824,7 +865,7 @@ async function main() {
     data: {
       organizationId: org1.id,
       amount: 15000,
-      currency: 'USD',
+      currency: 'INR',
       status: PaymentStatus.SUCCEEDED,
       provider: PaymentProvider.STRIPE,
       providerPaymentId: 'pi_3M2X1XYZ1',
@@ -835,7 +876,7 @@ async function main() {
     data: {
       organizationId: org1.id,
       amount: 2500,
-      currency: 'USD',
+      currency: 'INR',
       status: PaymentStatus.SUCCEEDED,
       provider: PaymentProvider.STRIPE,
       providerPaymentId: 'pi_3M2X2XYZ2',
@@ -871,15 +912,8 @@ async function main() {
   console.log("\n✅ Seeding complete!");
   console.log("─────────────────────────────────────────────");
   console.log("TEST CREDENTIALS (DEVELOPMENT ONLY):");
-  console.log("  Platform Admin:  admin@ascent.dev       / password123");
-  console.log("  Org Manager:     manager@contoso.com    / password123");
-  console.log("  Participant:     participant@gmail.com  / password123");
-  console.log("  Judge 1:         elena@ascent.dev       / password123");
-  console.log("  Judge 2:         rajat@ascent.dev       / password123");
-  console.log("  Mentor 1:        arjun@ascent.dev       / password123");
-  console.log("  Mentor 2:        lena@ascent.dev        / password123");
-  console.log("  Volunteer 1:     tomas@ascent.dev       / password123");
-  console.log("  Volunteer 2:     ishita@ascent.dev      / password123");
+  console.log("  Sudo Admin:      admin@ascent.dev       / password123");
+  console.log("  Admin:           manager@contoso.com    / password123");
   console.log("─────────────────────────────────────────────");
   console.log(`Organizations: ${org1.name}, ${org2.name}`);
   console.log(`Events: ${event1.name}, ${event2.name}`);

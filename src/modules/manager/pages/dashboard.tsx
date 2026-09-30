@@ -44,10 +44,11 @@ export function ManagerDashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Evaluations</CardTitle>
+            <CardTitle className="text-sm font-medium">Evaluation Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.pendingEvaluations || 0}</div>
+            <div className="text-2xl font-bold">{stats?.pendingEvaluations || 0} Pending</div>
+            <p className="text-xs text-muted-foreground mt-1">Official Judge Scorecards</p>
           </CardContent>
         </Card>
       </div>

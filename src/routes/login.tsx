@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { fetchApi, ApiError } from "@/lib/api-client";
 import { toast } from "sonner";
 import { Trophy } from "lucide-react";
+import { ClienturaLogo } from "@/components/ds/clientura-logo";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,12 +39,13 @@ function LoginPage() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "admin@ascent.dev",
-      password: "password123",
+      email: "admin@ascent.com",
+      password: "Password123!",
     },
   });
 
@@ -57,7 +59,7 @@ function LoginPage() {
 
   const handleRedirect = (user: any) => {
     if (!user || !user.memberships || user.memberships.length === 0) {
-      router.navigate({ to: "/events" });
+      router.navigate({ to: "/participant" });
       return;
     }
     const roleName = user.memberships[0]?.role?.name;
@@ -68,13 +70,15 @@ function LoginPage() {
       return;
     }
 
-    if (roleName === "Platform Admin") {
+    if (roleName === "Sudo Admin" || roleName === "Platform Admin") {
       router.navigate({ to: "/platform-admin" });
-    } else if (roleName === "Organization Admin" || roleName === "Manager") {
+    } else if (roleName === "Admin" || roleName === "Organization Admin" || roleName === "Manager") {
       router.navigate({ to: "/manager" });
+    } else if (roleName === "Faculty Coordinator") {
+      router.navigate({ to: "/faculty-coordinator" });
     } else if (roleName === "Student Coordinator") {
       router.navigate({ to: "/coordinator" });
-    } else if (roleName === "Participant") {
+    } else if (roleName === "Participant" || roleName === "STUDENT" || roleName === "Student") {
       router.navigate({ to: "/participant" });
     } else if (roleName === "Judge") {
       router.navigate({ to: "/evaluations" });
@@ -83,16 +87,20 @@ function LoginPage() {
     } else if (roleName === "Volunteer") {
       router.navigate({ to: "/volunteers" });
     } else {
-      router.navigate({ to: "/events" }); // Fallback
+      router.navigate({ to: "/participant" });
     }
   };
 
   const onSubmit = async (data: LoginFormValues) => {
     try {
       setIsLoading(true);
+      const cleanData = {
+        ...data,
+        email: data.email.trim().toLowerCase(),
+      };
       const res = await fetchApi("/auth/login", {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify(cleanData),
       });
 
       if (res.success && res.data?.mfaRequired) {
@@ -150,11 +158,8 @@ function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 sm:p-8">
-      <div className="absolute left-8 top-8 flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-          <Trophy className="h-4 w-4 text-primary-foreground" />
-        </div>
-        <span className="text-xl font-bold tracking-tight">Ascent</span>
+      <div className="absolute left-8 top-8">
+        <ClienturaLogo size="md" />
       </div>
 
       <Card className="w-full max-w-sm">
@@ -198,6 +203,36 @@ function LoginPage() {
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Signing in..." : "Sign in"}
               </Button>
+
+              <div className="pt-2">
+                <p className="text-xs text-muted-foreground mb-2 text-center">Quick Demo Login:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => {
+                      setValue("email", "manager@contoso.com");
+                      setValue("password", "Password123!");
+                    }}
+                  >
+                    Manager
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => {
+                      setValue("email", "participant@gmail.com");
+                      setValue("password", "Password123!");
+                    }}
+                  >
+                    Participant
+                  </Button>
+                </div>
+              </div>
             </form>
           ) : (
             <form onSubmit={handleMfaSubmit(onMfaSubmit)} className="space-y-4">

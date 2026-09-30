@@ -3,7 +3,7 @@ import { WinnerDetailsPage } from "@/modules/winners/pages/winner-details";
 
 export const Route = createFileRoute("/winners/$id")({
   head: () => ({
-    meta: [{ title: "Winner Details · Ascent Platform" }],
+    meta: [{ title: "Winner Details · Eventora Platform" }],
   }),
   component: WinnerDetailsPage,
 });

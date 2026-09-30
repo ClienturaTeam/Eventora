@@ -1,0 +1,53 @@
+# ==============================================================================
+# EVENTORA powered by Clientura - System & Environment Requirements
+# ==============================================================================
+# Node.js Version: >= 18.0.0 (Recommended v20.x or v22.x LTS)
+# Package Manager: npm >= 9.x or yarn / pnpm / bun
+# Database Engine: PostgreSQL >= 14.0
+# OS Support: Windows 10/11, macOS, Ubuntu / Linux
+# ==============================================================================
+
+# Core Runtime Environment Prerequisites
+node>=18.0.0
+npm>=9.0.0
+postgresql>=14.0
+
+# Backend & Database Engine Packages
+@prisma/client==5.22.0
+prisma==5.22.0
+express==5.2.1
+bcrypt==6.0.0
+jsonwebtoken==9.0.3
+cors==2.8.6
+dotenv==17.4.2
+express-rate-limit==8.6.2
+helmet==8.3.0
+otplib==13.4.1
+speakeasy==2.0.0
+pdfkit==0.20.2
+qrcode==1.5.4
+stripe==22.5.0
+zod==3.24.2
+tsx==4.23.12
+typescript==5.8.3
+
+# Frontend Core Framework Packages
+react==19.2.0
+react-dom==19.2.0
+@tanstack/react-router==1.170.18
+@tanstack/react-query==5.101.1
+@tanstack/react-table==9.0.0
+vite==8.2.0
+tailwindcss==4.2.1
+framer-motion==13.0.0
+lucide-react==0.575.0
+sonner==2.0.7
+react-hook-form==7.71.2
+@hookform/resolvers==5.2.2
+recharts==2.15.4
+
+# Installation Command for Node Environment:
+# npm install
+# npx prisma generate
+# npx prisma db push
+# npm run db:seed

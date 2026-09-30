@@ -151,6 +151,23 @@ export const useEventRegistrationCheckout = () => {
   });
 };
 
+export const useVerifyEventRegistrationPayment = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { eventId: string }) => {
+      const response = await fetchApi<{ data: any }>("/payments/event-registration/verify", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["participant", "events", "discover"] });
+      queryClient.invalidateQueries({ queryKey: ["participant", "registrations"] });
+    },
+  });
+};
+
 export const useMyTransactions = () => {
   return useQuery({
     queryKey: ["payments", "my-transactions"],

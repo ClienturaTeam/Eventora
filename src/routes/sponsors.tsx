@@ -41,12 +41,12 @@ const columns: Column<Row>[] = [
 export const Route = createFileRoute("/sponsors")({
   head: () => ({
     meta: [
-      { title: "Sponsors · Ascent Platform" },
+      { title: "Sponsors · Eventora Platform" },
       {
         name: "description",
         content: "Sponsorship tiers, committed value and deliverable tracking.",
       },
-      { property: "og:title", content: "Sponsors · Ascent Platform" },
+      { property: "og:title", content: "Sponsors · Eventora Platform" },
       {
         property: "og:description",
         content: "Sponsorship tiers, committed value and deliverable tracking.",
@@ -64,15 +64,11 @@ function SponsorsPage() {
     id: s.id,
     name: s.name,
     tier: s.tier,
-    value: `$${s.committedValue?.toLocaleString() || "0"}`,
+    value: `₹${s.committedValue?.toLocaleString("en-IN") || "0"}`,
     events: s._count?.sponsorships || 0,
     contact: s.contacts?.[0]?.email || "N/A",
     status: s.status || "ACTIVE",
   }));
-
-  if (isSponsorsLoading || isStatsLoading) {
-    return <div className="p-8">Loading sponsors...</div>;
-  }
 
   return (
     <ListPageTemplate<Row>
@@ -81,10 +77,12 @@ function SponsorsPage() {
       crumbs={[{ label: "People" }, { label: "Sponsors" }]}
       columns={columns}
       rows={rows}
+      loading={isSponsorsLoading || isStatsLoading}
       searchKeys={["name", "tier", "contact"]}
+      statusKey="status"
       stats={[
         { label: "Sponsors", value: stats?.sponsors?.toString() || "0" },
-        { label: "Committed value", value: `$${((stats?.committedValue || 0) / 1000000).toFixed(1)}M` },
+        { label: "Committed value", value: `₹${(stats?.committedValue || 0).toLocaleString("en-IN")}` },
         { label: "Deliverables met", value: `${stats?.deliverablesMet || 0}%`, progress: stats?.deliverablesMet || 0 },
         { label: "Renewals pending", value: stats?.renewalsPending?.toString() || "0", hint: "next 90 days" },
       ]}

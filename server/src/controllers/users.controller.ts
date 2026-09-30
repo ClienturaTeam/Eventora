@@ -72,7 +72,8 @@ export class UserController {
 
   static async create(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const user = await UserService.create(req.body, req.user!.id);
+      const tenantId = (req.headers["x-organization-id"] as string) || req.tenantId;
+      const user = await UserService.create(req.body, req.user!.id, tenantId);
       res.status(201).json({ success: true, data: user });
     } catch (error) { next(error); }
   }

@@ -1,10 +1,28 @@
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import { prisma } from "./server/src/utils/prisma";
+
 async function main() {
-  const p = await prisma.payment.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 5
+  const users = await prisma.user.findMany({
+    include: {
+      memberships: {
+        include: {
+          role: true,
+        },
+      },
+    },
   });
-  console.log(JSON.stringify(p, null, 2));
+
+  console.log(
+    JSON.stringify(
+      users.map((u) => ({
+        id: u.id,
+        email: u.email,
+        name: `${u.firstName} ${u.lastName}`,
+        roleName: u.memberships[0]?.role?.name || "None",
+      })),
+      null,
+      2
+    )
+  );
 }
-main();
+
+main().catch(console.error).finally(() => prisma.$disconnect());

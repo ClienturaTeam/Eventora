@@ -130,7 +130,14 @@ export class ManagerController {
 
   static async getEvaluations(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const data = await EvaluationService.getEvaluations(req.tenantId!);
+      const filters = {
+        eventId: req.query.eventId as string,
+        roundId: req.query.roundId as string,
+        roundNumber: req.query.roundNumber ? Number(req.query.roundNumber) : undefined,
+        status: req.query.status as string,
+        judgeId: req.query.judgeId as string,
+      };
+      const data = await EvaluationService.getEvaluations(req.tenantId!, filters);
       res.json({ success: true, data });
     } catch (error) {
       next(error);
@@ -253,6 +260,27 @@ export class ManagerController {
       // Need to import ReportsService at the top
       const data = await require("../services/reports.service").ReportsService.getDashboardSummary(req.tenantId!);
       res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Results & Prizes Workflow
+  static async publishResult(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { ResultsService } = await import("../services/results.service");
+      const result = await ResultsService.publishResult(req.tenantId!, req.user!.userId, req.body);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updatePrizeStatus(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { ResultsService } = await import("../services/results.service");
+      const prize = await ResultsService.updatePrizeStatus(req.tenantId!, req.params.id, req.body.status);
+      res.json({ success: true, data: prize });
     } catch (error) {
       next(error);
     }

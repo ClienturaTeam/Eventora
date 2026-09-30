@@ -27,10 +27,31 @@ export class UserService {
   }
 
   static async update(id: string, data: any, actorId: string) {
-    const user = await this.getById(id);
-    const updated = await UserRepository.update(id, data);
+    const { roleId, ...userData } = data;
+    await this.getById(id);
+    const updated = await UserRepository.update(id, userData);
+
+    if (roleId) {
+      const membership = await prisma.organizationMember.findFirst({
+        where: { userId: id }
+      });
+      if (membership) {
+        await prisma.organizationMember.update({
+          where: { id: membership.id },
+          data: { roleId }
+        });
+      } else {
+        const defaultOrg = await prisma.organization.findFirst({ where: { status: "ACTIVE" } });
+        if (defaultOrg) {
+          await prisma.organizationMember.create({
+            data: { userId: id, organizationId: defaultOrg.id, roleId, status: "ACTIVE" }
+          });
+        }
+      }
+    }
+
     await AuditService.logAction({ organizationId: "PLATFORM", actorId, action: "user.updated", target: id, metadata: data });
-    return updated;
+    return this.getById(id);
   }
 
   static async updateStatus(id: string, status: UserStatus, actorId: string) {
@@ -47,36 +68,77 @@ export class UserService {
     return deleted;
   }
 
-  static async create(data: any, actorId: string) {
-    const { firstName, lastName, email, password } = data;
+  static async create(data: any, actorId: string, tenantId?: string) {
+    const { firstName, lastName, email, password, roleId, role } = data;
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       throw { status: 400, code: "USER_EXISTS", message: "Email is already registered" };
     }
 
+    let dbRole: any = null;
+    if (roleId) {
+      dbRole = await prisma.role.findUnique({ where: { id: roleId } });
+    } else if (role) {
+      dbRole = await prisma.role.findFirst({
+        where: { name: role, OR: tenantId ? [{ organizationId: tenantId }, { organizationId: null }] : undefined }
+      });
+    }
+
+    if ((roleId || role) && !dbRole) {
+      throw { status: 400, code: "INVALID_ROLE", message: "Specified role was not found" };
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const user = await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-        firstName,
-        lastName,
-        status: UserStatus.ACTIVE,
+    let targetOrgId = tenantId || dbRole?.organizationId;
+    if (!targetOrgId) {
+      const defaultOrg = await prisma.organization.findFirst({
+        where: { status: "ACTIVE" },
+        orderBy: { createdAt: "asc" }
+      });
+      targetOrgId = defaultOrg?.id || "PLATFORM";
+    }
+
+    const createdUser = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          email,
+          passwordHash,
+          firstName,
+          lastName,
+          status: UserStatus.ACTIVE,
+        }
+      });
+
+      if (dbRole) {
+        await tx.organizationMember.create({
+          data: {
+            userId: newUser.id,
+            organizationId: targetOrgId!,
+            roleId: dbRole.id,
+            status: "ACTIVE"
+          }
+        });
       }
+
+      return newUser;
     });
 
     await AuditService.logAction({
-      organizationId: "PLATFORM",
+      organizationId: targetOrgId || "PLATFORM",
       actorId,
       action: "user.created",
-      target: user.id,
-      metadata: { email }
+      target: createdUser.id,
+      metadata: { email, role: dbRole?.name || null }
     });
 
-    const { passwordHash: _, ...safeUser } = user;
-    return safeUser;
+    const fullUser = await UserRepository.findById(createdUser.id);
+    if (!fullUser) {
+      const { passwordHash: _, ...safeUser } = createdUser;
+      return safeUser;
+    }
+    return fullUser;
   }
 
   static async createPrivilegedUser(tenantId: string, data: any, actorId: string) {

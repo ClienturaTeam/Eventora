@@ -23,7 +23,14 @@ export class EvaluationController {
   static async findAll(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const tenantId = req.tenantId as string;
-      const data = await EvaluationService.getEvaluations(tenantId);
+      const filters = {
+        eventId: req.query.eventId as string,
+        roundId: req.query.roundId as string,
+        roundNumber: req.query.roundNumber ? Number(req.query.roundNumber) : undefined,
+        status: req.query.status as string,
+        judgeId: req.query.judgeId as string,
+      };
+      const data = await EvaluationService.getEvaluations(tenantId, filters);
       res.json({ success: true, data });
     } catch (error) {
       next(error);
@@ -93,6 +100,23 @@ export class EvaluationController {
         profileId, // Passing profileId instead of actorUserId for judges
         admin,
         req.body
+      );
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async requestCorrection(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.tenantId as string;
+      const adminUserId = req.user!.id;
+      const { reason } = req.body;
+      const data = await EvaluationService.requestCorrection(
+        tenantId,
+        req.params.id,
+        adminUserId,
+        reason
       );
       res.json({ success: true, data });
     } catch (error) {

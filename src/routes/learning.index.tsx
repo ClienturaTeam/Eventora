@@ -3,7 +3,7 @@ import { LearningDashboard } from "@/modules/learning/pages/dashboard";
 
 export const Route = createFileRoute("/learning/")({
   head: () => ({
-    meta: [{ title: "Learning Center · Ascent Platform" }],
+    meta: [{ title: "Learning Center · Eventora Platform" }],
   }),
   component: LearningDashboard,
 });

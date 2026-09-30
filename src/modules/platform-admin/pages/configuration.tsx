@@ -24,7 +24,7 @@ export function ConfigurationPage() {
             <div className="grid gap-5">
               <div className="space-y-1.5">
                 <Label htmlFor="platform-name">Platform Name</Label>
-                <Input id="platform-name" defaultValue="Ascent Enterprise" />
+                <Input id="platform-name" defaultValue="Eventora Enterprise" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="localization">Default Localization</Label>

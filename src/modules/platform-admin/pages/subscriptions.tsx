@@ -132,7 +132,7 @@ export function SubscriptionsPage() {
             >
               <div className="space-y-4">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold">${plan.price}</span>
+                  <span className="text-3xl font-bold">₹{Number(plan.price).toLocaleString("en-IN")}</span>
                   <span className="text-sm text-muted-foreground">
                     /{plan.interval === "month" ? "mo" : "yr"}
                   </span>
@@ -205,8 +205,8 @@ export function SubscriptionsPage() {
                     <td className="px-4 py-3 font-medium">
                       {tx.description || "Subscription Payment"}
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums">
-                      {tx.currency === "USD" ? "$" : ""}{tx.amount.toFixed(2)} {tx.currency}
+                    <td className="px-4 py-3 text-right tabular-nums font-medium">
+                      ₹{tx.amount.toLocaleString("en-IN")}
                     </td>
                     <td className="px-4 py-3">
                       <StatusChip status={tx.status === "SUCCEEDED" ? "success" : "warning"} label={tx.status} />

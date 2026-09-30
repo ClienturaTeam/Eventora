@@ -5,7 +5,7 @@ import {
   HeartHandshake, LayoutDashboard,
   Sparkles, Trophy, Users, UsersRound,
   ClipboardList, Compass, Wallet, Award, Medal,
-  FilePlus2
+  FilePlus2, Shield, FileCode
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
@@ -14,17 +14,20 @@ import {
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
+import { ClienturaLogo } from "@/components/ds/clientura-logo";
 
 const orgAdminSections = [
   {
     label: "Platform",
     items: [
       { title: "Dashboard", url: "/platform-admin", icon: LayoutDashboard },
-      { title: "All Proposals", url: "/platform-admin/all-proposals", icon: Sparkles },
+      { title: "All Proposals", url: "/manager/all-proposals", icon: Sparkles },
       { title: "Proposal Approvals", url: "/principal/proposals", icon: Sparkles },
-      { title: "Approved Proposals", url: "/platform-admin/approved-proposals", icon: Sparkles },
+      { title: "Approved Proposals", url: "/manager/all-proposals?status=APPROVED", icon: Sparkles },
       { title: "Events", url: "/events", icon: CalendarDays },
       { title: "Users", url: "/users", icon: Users },
+      { title: "Role Management", url: "/roles", icon: Shield },
+      { title: "Live Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Reports", url: "/reports", icon: FileBarChart },
       { title: "Notifications", url: "/notifications", icon: Bell },
     ],
@@ -37,18 +40,82 @@ const managerSections = [
     items: [
       { title: "Dashboard", url: "/manager", icon: LayoutDashboard },
       { title: "All Proposals", url: "/manager/all-proposals", icon: Sparkles },
-      { title: "Proposal Reviews", url: "/manager/proposals", icon: Sparkles },
-      { title: "Approved Proposals", url: "/manager/approved-proposals", icon: Sparkles },
       { title: "Events", url: "/manager/events", icon: CalendarDays },
-      { title: "Faculty Coordinators", url: "/manager/coordinators", icon: UsersRound },
-      { title: "FC Requests", url: "/manager/requests", icon: ClipboardCheck },
-      { title: "Registrations", url: "/manager/registrations", icon: ClipboardCheck },
+      { title: "Problem Statements", url: "/manager/problem-statements", icon: Sparkles },
+      { title: "Users", url: "/users", icon: Users },
+      { title: "Role Management", url: "/roles", icon: Shield },
       { title: "Teams", url: "/manager/teams", icon: UsersRound },
       { title: "Submissions", url: "/manager/submissions", icon: Sparkles },
       { title: "Evaluations", url: "/manager/evaluations", icon: FileCheck2 },
+      { title: "Results", url: "/winners", icon: Trophy },
+      { title: "Live Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Judges", url: "/manager/judges", icon: Gavel },
       { title: "Reports", url: "/manager/reports", icon: FileBarChart },
-      { title: "Notifications", url: "/participant/notifications", icon: Bell },
+      { title: "Notifications", url: "/notifications", icon: Bell },
+    ],
+  },
+];
+
+const facultySections = [
+  {
+    label: "Faculty Space",
+    items: [
+      { title: "Dashboard", url: "/faculty-coordinator", icon: LayoutDashboard },
+      { title: "Assigned Events", url: "/faculty-coordinator/assigned-events", icon: CalendarDays },
+      { title: "Student Coordinators", url: "/faculty-coordinator/student-coordinators", icon: UsersRound },
+      { title: "Notifications", url: "/notifications", icon: Bell },
+    ],
+  },
+];
+
+const studentCoordinatorSections = [
+  {
+    label: "My Coordinator Space",
+    items: [
+      { title: "Dashboard", url: "/coordinator", icon: LayoutDashboard },
+      { title: "My Proposals", url: "/hackathon-proposals", icon: FilePlus2 },
+      { title: "Assigned Events", url: "/coordinator/assigned-events", icon: CalendarDays },
+      { title: "Participants", url: "/coordinator/participants", icon: UsersRound },
+      { title: "Notifications", url: "/notifications", icon: Bell },
+    ],
+  },
+];
+
+const judgeSections = [
+  {
+    label: "Evaluation Space",
+    items: [
+      { title: "Dashboard & Mine", url: "/evaluations", icon: LayoutDashboard },
+      { title: "Submissions", url: "/submissions", icon: Sparkles },
+      { title: "Competitions", url: "/competitions", icon: Gavel },
+      { title: "Live Leaderboard", url: "/leaderboard", icon: Trophy },
+      { title: "Notifications", url: "/notifications", icon: Bell },
+    ],
+  },
+];
+
+const mentorSections = [
+  {
+    label: "Mentorship Space",
+    items: [
+      { title: "Dashboard & Teams", url: "/teams", icon: LayoutDashboard },
+      { title: "Mentors Directory", url: "/mentors", icon: GraduationCap },
+      { title: "Submissions", url: "/submissions", icon: Sparkles },
+      { title: "Live Leaderboard", url: "/leaderboard", icon: Trophy },
+      { title: "Notifications", url: "/notifications", icon: Bell },
+    ],
+  },
+];
+
+const volunteerSections = [
+  {
+    label: "Volunteer Operations",
+    items: [
+      { title: "Dashboard & Roster", url: "/volunteers", icon: LayoutDashboard },
+      { title: "Attendance Sessions", url: "/attendance/sessions", icon: CalendarDays },
+      { title: "QR Scan Check-in", url: "/attendance/qr", icon: ClipboardCheck },
+      { title: "Attendance Records", url: "/attendance/records", icon: FileCheck2 },
+      { title: "Notifications", url: "/notifications", icon: Bell },
     ],
   },
 ];
@@ -67,6 +134,7 @@ const participantSections = [
       { title: "My Registrations", url: "/participant/registrations", icon: ClipboardCheck },
       { title: "My Teams", url: "/participant/teams", icon: UsersRound },
       { title: "My Submissions", url: "/participant/submissions", icon: Sparkles },
+      { title: "Problem Statements", url: "/participant/problem-statements", icon: FileCode },
       { title: "My Transactions", url: "/participant/transactions", icon: Wallet },
     ],
   },
@@ -75,18 +143,7 @@ const participantSections = [
     items: [
       { title: "Certificates", url: "/participant/certificates", icon: Award },
       { title: "Achievements", url: "/participant/achievements", icon: Medal },
-      { title: "Notifications", url: "/participant/notifications", icon: Bell },
-    ],
-  },
-];
-
-const judgeSections = [
-  {
-    label: "Evaluation",
-    items: [
-      { title: "Dashboard", url: "/judge", icon: LayoutDashboard },
-      { title: "Events & Competitions", url: "/judge/events", icon: CalendarDays },
-      { title: "Submissions & Grading", url: "/judge/submissions", icon: FileCheck2 },
+      { title: "Notifications", url: "/notifications", icon: Bell },
     ],
   },
 ];
@@ -98,57 +155,59 @@ export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const isActive = (url: string) => {
-    if (url === "/" || url === "/manager" || url === "/participant" || url === "/coordinator") {
+    if (url === pathname) return true;
+    const rootDashboards = [
+      "/",
+      "/platform-admin",
+      "/manager",
+      "/participant",
+      "/coordinator",
+      "/faculty-coordinator",
+      "/events",
+      "/users",
+      "/roles",
+      "/reports",
+      "/notifications",
+      "/evaluations",
+      "/teams",
+      "/volunteers",
+    ];
+    if (rootDashboards.includes(url)) {
       return pathname === url;
     }
-    return pathname.startsWith(url);
+    return pathname.startsWith(url + "/");
   };
 
   const roleName = user?.memberships?.[0]?.role?.name;
   const permissions = user?.memberships?.[0]?.role?.permissions?.map(p => p.permission.action) || [];
   
-  let sections = orgAdminSections;
-  let basePath = "/events";
-  if (roleName === "Organization Admin" || roleName === "Manager") {
+  let sections = participantSections;
+  let basePath = "/participant";
+
+  if (roleName === "Sudo Admin" || roleName === "Platform Admin") {
+    sections = orgAdminSections;
+    basePath = "/platform-admin";
+  } else if (roleName === "Organization Admin" || roleName === "Admin" || roleName === "Manager") {
     sections = managerSections;
     basePath = "/manager";
+  } else if (roleName === "Faculty Coordinator") {
+    sections = facultySections;
+    basePath = "/faculty-coordinator";
+  } else if (roleName === "Student Coordinator" || (!permissions.includes("events.read") && permissions.includes("events.read_assigned"))) {
+    sections = studentCoordinatorSections;
+    basePath = "/coordinator";
+  } else if (roleName === "Judge" || roleName === "Evaluator") {
+    sections = judgeSections;
+    basePath = "/evaluations";
+  } else if (roleName === "Mentor") {
+    sections = mentorSections;
+    basePath = "/teams";
+  } else if (roleName === "Volunteer") {
+    sections = volunteerSections;
+    basePath = "/volunteers";
   } else if (roleName === "Participant") {
     sections = participantSections;
     basePath = "/participant";
-  } else if (roleName === "Faculty Coordinator") {
-    sections = [
-      {
-        label: "Faculty Space",
-        items: [
-          { title: "Dashboard", url: "/faculty-coordinator", icon: LayoutDashboard },
-          { title: "Assigned Events", url: "/faculty-coordinator/assigned-events", icon: CalendarDays },
-          { title: "Student Coordinators", url: "/faculty-coordinator/student-coordinators", icon: UsersRound },
-          { title: "Notifications", url: "/notifications", icon: Bell },
-        ]
-      }
-    ];
-    basePath = "/faculty-coordinator";
-  } else if (roleName === "Student Coordinator" || (!permissions.includes("events.read") && permissions.includes("events.read_assigned"))) {
-    // Hide administrative navigation, only show what they have access to
-    sections = [
-      {
-        label: "My Coordinator Space",
-        items: [
-          { title: "Dashboard", url: "/coordinator", icon: LayoutDashboard },
-          { title: "My Proposals", url: "/hackathon-proposals", icon: FilePlus2 },
-          { title: "Assigned Events", url: "/coordinator/assigned-events", icon: CalendarDays },
-          { title: "Participants", url: "/coordinator/participants", icon: UsersRound },
-          { title: "Notifications", url: "/notifications", icon: Bell },
-        ]
-      }
-    ];
-    basePath = "/coordinator";
-  } else if (roleName === "Judge") {
-    sections = judgeSections;
-    basePath = "/judge";
-  } else if (roleName === "Platform Admin") {
-    sections = orgAdminSections;
-    basePath = "/platform-admin";
   }
 
   // Clone sections to avoid mutating static arrays across renders
@@ -157,8 +216,8 @@ export function AppSidebar() {
     items: [...section.items]
   }));
 
-  if (permissions.includes("users.create_manager") || permissions.includes("users.create_faculty_coordinator")) {
-    if (roleName === "Organization Admin" || roleName === "Platform Admin") {
+  if (permissions.includes("users.create_manager") || permissions.includes("users.create_faculty_coordinator") || permissions.includes("platform.manage")) {
+    if (roleName === "Admin" || roleName === "Organization Admin" || roleName === "Sudo Admin" || roleName === "Platform Admin") {
       const platformSection = sections.find(s => s.label === "Platform");
       if (platformSection && !platformSection.items.some(i => i.title === "Privileged Accounts")) {
         platformSection.items.push({ title: "Privileged Accounts", url: "/platform-admin/privileged-accounts", icon: Users });
@@ -171,23 +230,34 @@ export function AppSidebar() {
     }
   }
 
+  // Filter sections by granular permissions
+  sections = sections.map(section => ({
+    ...section,
+    items: section.items.filter(item => {
+      if (item.url === "/events" || item.url === "/manager/events") {
+        return permissions.includes("events.read") || permissions.includes("events.manage") || permissions.includes("events.create") || permissions.includes("platform.manage") || permissions.includes("organization.manage") || roleName === "Sudo Admin" || roleName === "Platform Admin" || roleName === "Admin" || roleName === "Organization Admin" || roleName === "Manager";
+      }
+      if (item.url === "/users") {
+        return permissions.includes("users.read") || permissions.includes("users.manage") || permissions.includes("platform.manage") || permissions.includes("organization.manage") || roleName === "Sudo Admin" || roleName === "Platform Admin" || roleName === "Admin" || roleName === "Organization Admin";
+      }
+      if (item.url === "/roles") {
+        return permissions.includes("platform.manage") || permissions.includes("organization.manage") || permissions.includes("users.manage") || roleName === "Sudo Admin" || roleName === "Platform Admin" || roleName === "Admin" || roleName === "Organization Admin";
+      }
+      if (item.url === "/reports" || item.url === "/manager/reports") {
+        return permissions.includes("reports.read") || permissions.includes("organization.manage") || permissions.includes("platform.manage") || roleName === "Sudo Admin" || roleName === "Platform Admin" || roleName === "Admin" || roleName === "Organization Admin" || roleName === "Manager";
+      }
+      if (item.url === "/manager/submissions") {
+        return permissions.includes("submissions.read") || permissions.includes("submissions.manage") || roleName === "Sudo Admin" || roleName === "Platform Admin" || roleName === "Admin" || roleName === "Organization Admin" || roleName === "Manager";
+      }
+      return true;
+    })
+  })).filter(section => section.items.length > 0);
+
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="border-b border-sidebar-border px-3 py-3.5">
-        <Link to={basePath} className="flex min-w-0 items-center gap-2.5">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
-            <Trophy className="h-4 w-4" />
-          </span>
-          {!collapsed ? (
-            <span className="min-w-0">
-              <span className="text-display block truncate text-sm font-semibold leading-tight">
-                Ascent Platform
-              </span>
-              <span className="block truncate text-[11px] text-muted-foreground">
-                {roleName || "Events · Competitions"}
-              </span>
-            </span>
-          ) : null}
+        <Link to={basePath} className="flex min-w-0 items-center gap-2">
+          <ClienturaLogo size="md" showText={!collapsed} />
         </Link>
       </SidebarHeader>
 

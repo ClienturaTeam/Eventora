@@ -93,9 +93,23 @@ export class ParticipantController {
     }
   }
 
+  static async getAccessStatus(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const eventId = req.query.eventId as string;
+      if (!eventId) {
+        return res.status(400).json({ success: false, message: "eventId is required." });
+      }
+      const data = await ParticipantService.verifyParticipantRegistrationAndPayment(req.user!.id, eventId);
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async getMySubmissions(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const data = await ParticipantService.getMySubmissions(req.user!.id);
+      const eventId = req.query.eventId as string | undefined;
+      const data = await ParticipantService.getMySubmissions(req.user!.id, eventId);
       res.json({ success: true, data });
     } catch (error) {
       next(error);

@@ -1,7 +1,7 @@
 import { prisma } from "./server/src/utils/prisma";
 
 async function run() {
-  const actions = ["reports.read", "reports.export"];
+  const actions = ["reports.read", "reports.export", "organization.read", "organization.manage"];
   
   for (const action of actions) {
     await prisma.permission.upsert({

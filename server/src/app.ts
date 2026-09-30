@@ -33,9 +33,18 @@ app.post("/api/v1/payments/webhooks/stripe", express.raw({ type: "application/js
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging (simple)
+import { logger } from "./utils/logger";
+
+// Request logging middleware with performance duration tracking
 app.use((req: Request, res: Response, next: NextFunction) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  const startTime = Date.now();
+  res.on("finish", () => {
+    const duration = Date.now() - startTime;
+    logger.http(req.method, req.originalUrl || req.url, res.statusCode, duration, {
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+    });
+  });
   next();
 });
 
@@ -82,6 +91,9 @@ import securityRoutes from "./routes/security.routes";
 import managerRoutes from "./routes/manager.routes";
 import participantRoutes from "./routes/participant.routes";
 import { hackathonProposalRoutes } from "./routes/hackathon-proposals.routes";
+import platformAdminRoutes from "./routes/platform-admin.routes";
+
+import problemStatementRoutes from "./routes/problem-statements.routes";
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/events", eventRoutes);
@@ -103,6 +115,7 @@ app.use("/api/v1/communications", communicationRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/winners", winnersRoutes);
 app.use("/api/v1/badges", badgesRoutes);
+app.use("/api/v1/problem-statements", problemStatementRoutes);
 
 // Phase 4D
 app.use("/api/v1/learning", learningRoutes);
@@ -125,10 +138,11 @@ app.use("/api/v1/security", securityRoutes);
 app.use("/api/v1/manager", managerRoutes);
 app.use("/api/v1/participant", participantRoutes);
 app.use("/api/v1/hackathon-proposals", hackathonProposalRoutes);
+app.use("/api/v1/platform-admin", platformAdminRoutes);
 
 // Health check endpoint
 app.get("/api/v1/health", (req: Request, res: Response) => {
-  res.json({ success: true, message: "Ascent API is healthy" });
+  res.json({ success: true, message: "Eventora API is healthy" });
 });
 
 // 404 handler
@@ -145,8 +159,13 @@ app.use((req: Request, res: Response) => {
 
 // Global error handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  console.error("Unhandled Error:", err);
   const status = err.status || 500;
+  logger.error(`[API ERROR ${status}] ${req.method} ${req.originalUrl || req.url}`, err, {
+    code: err.code || "INTERNAL_SERVER_ERROR",
+    path: req.originalUrl || req.url,
+    method: req.method,
+  });
+
   res.status(status).json({
     success: false,
     error: {

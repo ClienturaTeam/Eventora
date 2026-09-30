@@ -11,8 +11,9 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
+import { reportAppError } from "@/lib/app-logger";
 import { AppShell } from "@/components/layout/app-shell";
+import { AppLoadingPage } from "@/components/layout/app-loading-page";
 import { ThemeProvider, useHydrated } from "@/components/theme/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider, useAuth } from "@/lib/auth";
@@ -43,7 +44,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    reportAppError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
   return (
@@ -82,11 +83,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Ascent · Event, Competition & Innovation Platform" },
+      { title: "Eventora powered by Clientura · Enterprise Event Management" },
       {
         name: "description",
         content:
-          "Enterprise console for running events, competitions, evaluations and innovation programs.",
+          "Enterprise console powered by Clientura for running events, competitions, evaluations and innovation programs.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -102,7 +103,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/clientura-logo.png", type: "image/png" },
+      { rel: "shortcut icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
   shellComponent: RootShell,
@@ -133,11 +135,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   const isPublic = pathname === "/" || pathname === "/login" || pathname === "/signup";
 
   if (!hydrated || (isLoading && !isPublic)) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
-      </div>
-    );
+    return <AppLoadingPage message="Authenticating & loading platform..." />;
   }
 
   if (!isAuthenticated && !isPublic) {

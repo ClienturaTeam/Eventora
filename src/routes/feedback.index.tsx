@@ -3,7 +3,7 @@ import { FeedbackDashboard } from "@/modules/feedback/pages/dashboard";
 
 export const Route = createFileRoute("/feedback/")({
   head: () => ({
-    meta: [{ title: "Feedback Dashboard · Ascent Platform" }],
+    meta: [{ title: "Feedback Dashboard · Eventora Platform" }],
   }),
   component: FeedbackDashboard,
 });

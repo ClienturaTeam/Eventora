@@ -7,7 +7,8 @@ export const participantKeys = {
   discoverEvents: () => [...participantKeys.all, 'discoverEvents'] as const,
   registrations: () => [...participantKeys.all, 'registrations'] as const,
   teams: () => [...participantKeys.all, 'teams'] as const,
-  submissions: () => [...participantKeys.all, 'submissions'] as const,
+  submissions: (eventId?: string) => [...participantKeys.all, 'submissions', eventId || 'all'] as const,
+  accessStatus: (eventId?: string) => [...participantKeys.all, 'accessStatus', eventId || 'none'] as const,
   certificates: () => [...participantKeys.all, 'certificates'] as const,
   achievements: () => [...participantKeys.all, 'achievements'] as const,
   notifications: () => [...participantKeys.all, 'notifications'] as const,
@@ -43,6 +44,18 @@ export const useMyRegistrations = () => {
   });
 };
 
+export const useEventAccessStatus = (eventId?: string) => {
+  return useQuery({
+    queryKey: participantKeys.accessStatus(eventId),
+    queryFn: async () => {
+      if (!eventId) return null;
+      const response = await fetchApi(`/participant/access-status?eventId=${eventId}`);
+      return response.data;
+    },
+    enabled: !!eventId,
+  });
+};
+
 export const useMyTeams = () => {
   return useQuery({
     queryKey: participantKeys.teams(),
@@ -53,11 +66,12 @@ export const useMyTeams = () => {
   });
 };
 
-export const useMySubmissions = () => {
+export const useMySubmissions = (eventId?: string) => {
   return useQuery({
-    queryKey: participantKeys.submissions(),
+    queryKey: participantKeys.submissions(eventId),
     queryFn: async () => {
-      const response = await fetchApi('/participant/submissions');
+      const url = `/participant/submissions${eventId ? `?eventId=${eventId}` : ''}`;
+      const response = await fetchApi(url);
       return response.data;
     },
   });
@@ -114,7 +128,12 @@ export const useRegisterForEvent = () => {
 export const useRegisterTeamForEvent = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { eventId: string; teamName: string; competitionId: string; members: string[] }) => {
+    mutationFn: async (data: {
+      eventId: string;
+      teamName: string;
+      competitionId?: string | undefined;
+      members?: Array<{ name?: string; email: string; contactNumber?: string; college?: string; department?: string; year?: string }> | string[] | undefined;
+    }) => {
       const response = await fetchApi('/participant/registrations/team', {
         method: 'POST',
         body: JSON.stringify(data),
@@ -125,6 +144,7 @@ export const useRegisterTeamForEvent = () => {
       queryClient.invalidateQueries({ queryKey: participantKeys.registrations() });
       queryClient.invalidateQueries({ queryKey: participantKeys.teams() });
       queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
+      queryClient.invalidateQueries({ queryKey: participantKeys.discoverEvents() });
     },
   });
 };
@@ -189,14 +209,18 @@ export const useAcceptTeamInvite = () => {
 export const useCreateParticipantSubmission = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { teamId: string; content: string; competitionId: string }) => {
+    mutationFn: async (data: { teamId: string; competitionId?: string; eventId?: string; roundId?: string; title?: string; content?: string }) => {
       const response = await fetchApi('/participant/submissions', {
         method: 'POST',
         body: JSON.stringify(data),
       });
       return response.data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: participantKeys.submissions() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: participantKeys.submissions() });
+      queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
   });
 };
 
@@ -210,7 +234,74 @@ export const useUpdateParticipantSubmission = () => {
       });
       return response.data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: participantKeys.submissions() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: participantKeys.submissions() });
+      queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
+  });
+};
+
+export const useProblemStatements = () => {
+  return useQuery({
+    queryKey: ['problem-statements'],
+    queryFn: async () => {
+      const response = await fetchApi('/problem-statements?mode=student');
+      return response.data;
+    },
+  });
+};
+
+export const useSelectProblemStatement = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (problemStatementId: string) => {
+      const response = await fetchApi('/problem-statements/select', {
+        method: 'POST',
+        body: JSON.stringify({ problemStatementId }),
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['problem-statements'] });
+      queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
+      queryClient.invalidateQueries({ queryKey: participantKeys.teams() });
+    },
+  });
+};
+
+export const useUploadSubmissionFile = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ submissionId, fileData }: { submissionId: string; fileData: { fileName: string; fileSize: number; fileType: string; fileUrl?: string; description?: string | undefined } }) => {
+      const response = await fetchApi(`/submissions/${submissionId}/upload`, {
+        method: 'POST',
+        body: JSON.stringify(fileData),
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: participantKeys.submissions() });
+      queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
+  });
+};
+
+export const useFinalSubmitSubmission = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (submissionId: string) => {
+      const response = await fetchApi(`/submissions/${submissionId}/final-submit`, {
+        method: 'POST',
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: participantKeys.submissions() });
+      queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
   });
 };
 
@@ -218,7 +309,7 @@ export const useMarkNotificationRead = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetchApi(`/participant/notifications/${id}/read`, {
+      const response = await fetchApi(`/notifications/${id}/read`, {
         method: 'PATCH',
       });
       return response.data;

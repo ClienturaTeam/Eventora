@@ -3,7 +3,7 @@ import { ResourcesPage } from "@/modules/learning/pages/resources";
 
 export const Route = createFileRoute("/learning/resources")({
   head: () => ({
-    meta: [{ title: "Resource Library · Ascent Platform" }],
+    meta: [{ title: "Resource Library · Eventora Platform" }],
   }),
   component: ResourcesPage,
 });

@@ -1,23 +1,1171 @@
-import { ListPageTemplate } from "@/components/templates/list-page";
-import { useMySubmissions } from "../hooks/participant.api";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearch } from "@tanstack/react-router";
+import {
+  useMySubmissions,
+  useUploadSubmissionFile,
+  useFinalSubmitSubmission,
+  useParticipantDashboard,
+  useMyTeams,
+  useMyRegistrations,
+  useCreateParticipantSubmission,
+  useEventAccessStatus,
+} from "../hooks/participant.api";
+import { useEventRounds } from "@/modules/events/services/events.api";
+import { useAskMentorQuestion, useMentorQuestions } from "@/modules/mentors/services/mentors.api";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Loader2, Upload, Lock, FileText, CheckCircle2, AlertCircle, AlertTriangle, Paperclip, MessageSquare, Award, Star, Plus, Eye, FileCode } from "lucide-react";
+import { toast } from "sonner";
+
+const ALLOWED_EXTENSIONS = ["png", "jpg", "jpeg", "pdf", "doc", "docx", "mp4", "mov", "avi"];
+const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 
 export function ParticipantSubmissionsPage() {
-  const { data = [], isLoading } = useMySubmissions();
+  const search = useSearch({ strict: false }) as { eventId?: string };
+  const navigate = useNavigate();
+
+  const { data: dashboardData, isLoading: loadingDashboard } = useParticipantDashboard();
+  const { data: myTeams = [], isLoading: loadingTeams } = useMyTeams();
+  const { data: registrations = [], isLoading: loadingRegistrations } = useMyRegistrations();
+  
+  const uploadFileMutation = useUploadSubmissionFile();
+  const finalSubmitMutation = useFinalSubmitSubmission();
+  const createSubmissionMutation = useCreateParticipantSubmission();
+  const askMentorMutation = useAskMentorQuestion();
+
+  // Aggregate real eligible events from participant registrations & teams
+  const eligibleEvents = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; status: string; event: any }>();
+
+    (registrations || []).forEach((reg: any) => {
+      const eventObj = reg.event;
+      if (eventObj && eventObj.id) {
+        map.set(eventObj.id, {
+          id: eventObj.id,
+          name: eventObj.name || eventObj.title || "Event",
+          status: reg.status || "PENDING",
+          event: eventObj
+        });
+      }
+    });
+
+    (myTeams || []).forEach((tMember: any) => {
+      const team = tMember.team;
+      const eventObj = team?.competition?.event;
+      if (eventObj && eventObj.id && !map.has(eventObj.id)) {
+        map.set(eventObj.id, {
+          id: eventObj.id,
+          name: eventObj.name || eventObj.title || "Event",
+          status: "REGISTERED",
+          event: eventObj
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [registrations, myTeams]);
+
+  // Determine active selected event ID
+  const activeEventId = useMemo(() => {
+    if (search.eventId && eligibleEvents.some(e => e.id === search.eventId)) {
+      return search.eventId;
+    }
+    return eligibleEvents[0]?.id || dashboardData?.event?.id || "";
+  }, [search.eventId, eligibleEvents, dashboardData]);
+
+  // Access status gate & submissions for activeEventId
+  const { data: accessStatus, isLoading: loadingAccess } = useEventAccessStatus(activeEventId);
+  const { data: submissions = [], isLoading: loadingSubmissions } = useMySubmissions(activeEventId);
+
+  // Find active team & event & selected Problem Statement for activeEventId
+  const activeTeamMember = useMemo(() => {
+    if (!activeEventId) return myTeams[0];
+    return myTeams.find((m: any) =>
+      m.team?.competition?.eventId === activeEventId ||
+      m.team?.competition?.event?.id === activeEventId
+    ) || myTeams[0];
+  }, [myTeams, activeEventId]);
+
+  const activeTeam = activeTeamMember?.team;
+  const activeCompetition = activeTeam?.competition;
+  const activeEvent = useMemo(() => {
+    const foundInEligible = eligibleEvents.find(e => e.id === activeEventId)?.event;
+    return activeCompetition?.event || foundInEligible || dashboardData?.event;
+  }, [activeCompetition, eligibleEvents, activeEventId, dashboardData]);
+
+  const selectedProblemStatement = activeTeam?.problemStatement;
+
+  const hasProblemStatements = useMemo(() => {
+    if (activeEvent?.problemStatements && activeEvent.problemStatements.length > 0) return true;
+    if (activeCompetition?.event?.problemStatements && activeCompetition.event.problemStatements.length > 0) return true;
+    return false;
+  }, [activeEvent, activeCompetition]);
+
+  // Fetch real rounds and mentor questions for activeEventId
+  const { data: rounds = [], isLoading: loadingRounds } = useEventRounds(activeEventId);
+  const { data: myQuestions = [] } = useMentorQuestions(activeEventId);
+
+  // Reset round selection and modals when active event changes
+  const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
+  const [viewSubmissionModalData, setViewSubmissionModalData] = useState<any | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [description, setDescription] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const [showFinalSubmitModal, setShowFinalSubmitModal] = useState(false);
+  const [showAskMentorModal, setShowAskMentorModal] = useState(false);
+  const [mentorQuestionText, setMentorQuestionText] = useState("");
+
+  useEffect(() => {
+    setSelectedRoundId(null);
+    setViewSubmissionModalData(null);
+    setSelectedFile(null);
+    setDescription("");
+  }, [activeEventId]);
+
+  // Filter submissions strictly for activeEventId
+  const eventSubmissions = useMemo(() => {
+    if (!activeEventId) return [];
+    return submissions.filter((s: any) =>
+      s.eventId === activeEventId ||
+      s.competition?.eventId === activeEventId ||
+      s.eventRound?.eventId === activeEventId
+    );
+  }, [submissions, activeEventId]);
+
+  // Filter rounds dynamically by selected Problem Statement's applicable rounds
+  const configuredRounds = useMemo(() => {
+    if (!rounds || rounds.length === 0) return [];
+    if (!selectedProblemStatement?.applicableRounds || selectedProblemStatement.applicableRounds.length === 0) {
+      return rounds;
+    }
+    return rounds.filter((r: any) =>
+      selectedProblemStatement.applicableRounds.some((appRound: any) => appRound.id === r.id)
+    );
+  }, [rounds, selectedProblemStatement]);
+
+  const formatScheduleDate = (dateVal: any) => {
+    if (!dateVal) return "Schedule not configured";
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return "Schedule not configured";
+    return d.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  };
+
+  // Determine active submission based on selected round or first available in this event
+  const submissionForSelectedRound = selectedRoundId
+    ? eventSubmissions.find((s: any) => s.roundId === selectedRoundId)
+    : eventSubmissions[0];
+
+  const activeSubmission = submissionForSelectedRound || null;
+  const isLocked = activeSubmission?.isLocked || false;
+  const filesList = activeSubmission?.files || [];
+  const evaluationsList = activeSubmission?.evaluations || [];
+
+  // Determine active round object from configured rounds
+  const currentRound = configuredRounds.find((r: any) => r.id === selectedRoundId) || activeSubmission?.eventRound || configuredRounds[0] || { roundNumber: 1, name: "Qualifier Round", maxMarks: 100 };
+
+  const currentRoundStartDate = currentRound.submissionStart ? new Date(currentRound.submissionStart) : currentRound.startDate ? new Date(currentRound.startDate) : null;
+  const currentRoundDeadlineDate = currentRound.submissionDeadline ? new Date(currentRound.submissionDeadline) : currentRound.endDate ? new Date(currentRound.endDate) : null;
+  const nowTime = new Date();
+  const currentRoundNotStarted = currentRoundStartDate ? nowTime < currentRoundStartDate : false;
+  const currentRoundExpired = currentRoundDeadlineDate ? nowTime > currentRoundDeadlineDate : false;
+  const currentRoundIsOpen = !currentRoundNotStarted && !currentRoundExpired;
+
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      toast.error(`Invalid file format .${ext}. Allowed formats: PNG, JPG, JPEG, PDF, DOC, DOCX, MP4, MOV, AVI`);
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      toast.error(`File size (${(file.size / (1024 * 1024)).toFixed(2)} MB) exceeds 20 MB limit!`);
+      e.target.value = "";
+      return;
+    }
+
+    setSelectedFile(file);
+  };
+
+  const handleStartRoundSubmission = async (round: any) => {
+    if (!activeTeam) {
+      toast.error("You are not part of an active team for this event.");
+      return;
+    }
+
+    const now = new Date();
+    const startDate = round.submissionStart ? new Date(round.submissionStart) : round.startDate ? new Date(round.startDate) : null;
+    const deadlineDate = round.submissionDeadline ? new Date(round.submissionDeadline) : round.endDate ? new Date(round.endDate) : null;
+
+    if (startDate && now < startDate) {
+      toast.error(`Submissions for ${round.name} have not opened yet.`);
+      return;
+    }
+    if (deadlineDate && now > deadlineDate) {
+      toast.error(`Submission deadline for ${round.name} has passed.`);
+      return;
+    }
+
+    // Check existing submission
+    const existing = submissions.find((s: any) => s.roundId === round.id);
+    if (existing) {
+      setSelectedRoundId(round.id);
+      toast.info(`Switched to ${round.name} submission.`);
+      return;
+    }
+
+    try {
+      const created = await createSubmissionMutation.mutateAsync({
+        teamId: activeTeam.id,
+        competitionId: activeCompetition?.id || activeTeam.competitionId,
+        eventId: activeEventId,
+        roundId: round.id,
+        title: `${activeTeam.name} - ${round.name} Submission`,
+      });
+      setSelectedRoundId(round.id);
+      toast.success(`Started submission for ${round.name}!`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to start round submission.");
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) return;
+    if (!activeSubmission) {
+      toast.error("Please click 'Submit for Round' first to create a submission record.");
+      return;
+    }
+    if (isLocked) {
+      toast.error("Submission is locked and cannot accept further uploads.");
+      return;
+    }
+
+    const now = new Date();
+    const startDate = currentRound.submissionStart ? new Date(currentRound.submissionStart) : currentRound.startDate ? new Date(currentRound.startDate) : null;
+    const deadlineDate = currentRound.submissionDeadline ? new Date(currentRound.submissionDeadline) : currentRound.endDate ? new Date(currentRound.endDate) : null;
+
+    if (startDate && now < startDate) {
+      toast.error(`Submissions for ${currentRound.name} have not opened yet.`);
+      return;
+    }
+    if (deadlineDate && now > deadlineDate) {
+      toast.error(`Submission deadline for ${currentRound.name} has passed.`);
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      const fileData = {
+        fileName: selectedFile.name,
+        fileSize: selectedFile.size,
+        fileType: selectedFile.type || selectedFile.name.split(".").pop() || "document",
+        fileUrl: `/uploads/${selectedFile.name}`,
+        ...(description.trim() ? { description: description.trim() } : {})
+      };
+
+      await uploadFileMutation.mutateAsync({
+        submissionId: activeSubmission.id,
+        fileData
+      });
+      toast.success(`Uploaded '${selectedFile.name}' successfully!`);
+      setSelectedFile(null);
+      setDescription("");
+    } catch (err: any) {
+      toast.error(err.message || "File upload failed.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleFinalSubmit = async () => {
+    if (!activeSubmission) return;
+    try {
+      await finalSubmitMutation.mutateAsync(activeSubmission.id);
+      toast.success("Project submission locked and finalized!");
+      setShowFinalSubmitModal(false);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to finalize submission.");
+    }
+  };
+
+  const handleAskMentor = async () => {
+    if (!mentorQuestionText.trim()) return;
+    try {
+      await askMentorMutation.mutateAsync({
+        eventId: activeEventId || "default-event",
+        roundId: currentRound.id,
+        question: mentorQuestionText.trim(),
+      });
+      toast.success("Question submitted to mentors!");
+      setMentorQuestionText("");
+      setShowAskMentorModal(false);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit question to mentor.");
+    }
+  };
+
+  if (loadingDashboard || loadingSubmissions || loadingRounds || loadingRegistrations || loadingTeams || loadingAccess) {
+    return (
+      <div className="flex h-[40vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
-    <ListPageTemplate<any>
-      title="My Submissions"
-      description="View your submissions."
-      crumbs={[{ label: "Participant" }, { label: "Submissions" }]}
-      columns={[
-        { key: "title", header: "Title", render: (row) => <span className="font-medium">{row.title || 'Untitled'}</span> },
-        { key: "team", header: "Team", render: (row) => <span>{row.team?.name || row.teamId}</span> },
-        { key: "status", header: "Status", render: (row) => <span>{row.status}</span> },
-        { key: "updatedAt", header: "Last Updated", render: (row) => <span>{new Date(row.updatedAt).toLocaleDateString()}</span> },
-      ]}
-      rows={data}
-      loading={isLoading}
-      searchKeys={["title", "teamId"]}
-    />
+    <div className="space-y-6">
+      {/* Event Selector Dropdown at the Top */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-card rounded-xl border shadow-sm">
+        <div className="flex items-center gap-3">
+          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
+            Select Event:
+          </label>
+          {eligibleEvents.length > 0 ? (
+            <Select
+              value={activeEventId}
+              onValueChange={(val) => {
+                setSelectedRoundId(null);
+                navigate({
+                  to: "/participant/submissions",
+                  search: { eventId: val },
+                  replace: true,
+                });
+              }}
+            >
+              <SelectTrigger className="w-[300px] text-xs font-semibold">
+                <SelectValue placeholder="Select an event..." />
+              </SelectTrigger>
+              <SelectContent>
+                {eligibleEvents.map((item) => (
+                  <SelectItem key={item.id} value={item.id} className="text-xs font-medium">
+                    {item.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Badge variant="outline" className="text-xs">
+              No Registered Events
+            </Badge>
+          )}
+        </div>
+
+        {activeTeam && (
+          <div className="text-xs font-medium text-muted-foreground">
+            Team: <span className="font-bold text-foreground">{activeTeam.name}</span>
+          </div>
+        )}
+      </div>
+
+      {/* ACCESS CONTROL GATE: Check Registration & Payment Status */}
+      {accessStatus && !accessStatus.allowed ? (
+        <Card className="p-6 border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 shadow-sm rounded-xl">
+          <div className="flex flex-col items-center justify-center text-center space-y-4 py-8">
+            <div className="p-4 bg-amber-100 dark:bg-amber-900/50 rounded-full">
+              <Lock className="h-10 w-10 text-amber-600 dark:text-amber-400" />
+            </div>
+            <h2 className="text-xl font-bold tracking-tight text-foreground">🔒 Submissions Locked</h2>
+            <p className="text-sm text-muted-foreground max-w-md">
+              Complete your event registration and payment to access problem statements and round submissions.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 py-2">
+              <Badge variant="outline" className="text-xs font-semibold px-3 py-1 bg-background">
+                Registration: {accessStatus.registrationStatus === "PENDING_PAYMENT" ? "Pending Payment ⚠️" : (accessStatus.registrationStatus === "APPROVED" || accessStatus.registrationStatus === "CONFIRMED" || accessStatus.registrationStatus === "PAID" ? "Confirmed ✓" : (accessStatus.registrationStatus || "Pending"))}
+              </Badge>
+              {accessStatus.isPaidEvent && (
+                <Badge variant="outline" className="text-xs font-semibold px-3 py-1 bg-background">
+                  Payment: {accessStatus.paymentStatus === "SUCCEEDED" || accessStatus.paymentStatus === "PAID" ? "Paid ✓" : (accessStatus.paymentStatus || "Pending")}
+                </Badge>
+              )}
+            </div>
+            <Button
+              className="gap-2 text-xs font-semibold"
+              onClick={() => navigate({ to: "/participant/discover-events" })}
+            >
+              Complete Registration
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <>
+          {/* Header with Event Title and Confirmed Status Badges */}
+          <div className="flex flex-col gap-1 border-b pb-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Upload className="h-6 w-6 text-primary" />
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                  {activeEvent?.name || activeEvent?.title || "Event Submissions"}
+                </h1>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-xs font-semibold gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Registration: Confirmed ✓
+                </Badge>
+                {accessStatus?.isPaidEvent ? (
+                  <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-xs font-semibold gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Payment: Paid ✓
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 text-xs font-semibold gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Free Event ✓
+                  </Badge>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAskMentorModal(true)}
+                  className="gap-1.5 text-xs ml-2"
+                >
+                  <MessageSquare className="h-4 w-4 text-primary" />
+                  Ask Mentor / Doubt
+                </Button>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              View event rounds, manage round-wise project submissions, and upload project files.
+            </p>
+          </div>
+
+          {/* PROBLEM STATEMENT SELECTION CHECK */}
+          {hasProblemStatements && !selectedProblemStatement ? (
+            <Card className="border-amber-500/30 bg-amber-500/5 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" /> Problem Statement Selection Required
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-xs text-muted-foreground space-y-3">
+                <p>
+                  Your team has not permanently selected a Problem Statement for <strong>{activeEvent?.name || activeEvent?.title || "this event"}</strong> yet. Please select a problem statement to access your round submissions.
+                </p>
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="text-xs gap-1.5"
+                  onClick={() => navigate({ to: "/participant/problem-statements", search: { eventId: activeEventId } })}
+                >
+                  <FileCode className="h-3.5 w-3.5" /> Go to Problem Statements
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Selected Problem Statement Banner */}
+              {selectedProblemStatement && (
+                <Card className="border-emerald-500/40 bg-emerald-500/5 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
+                        <CheckCircle2 className="h-5 w-5" /> Selected Problem Statement
+                      </div>
+                      <Badge variant="outline" className="bg-emerald-600/10 text-emerald-600 border-emerald-600/30 text-xs font-semibold gap-1">
+                        <Lock className="h-3.5 w-3.5" /> 🔒 Permanently Selected
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-xs text-foreground">
+                    <div className="flex items-center gap-2 font-mono font-bold text-base text-primary">
+                      <span>{selectedProblemStatement.code}</span>
+                      <span>•</span>
+                      <span>{selectedProblemStatement.title}</span>
+                    </div>
+                    <p className="text-muted-foreground leading-relaxed">{selectedProblemStatement.description}</p>
+                  </CardContent>
+                </Card>
+              )}
+
+      {/* Backend-Driven Configured Round Roster & Timeline */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <Award className="h-4 w-4 text-primary" /> Configured Round-Wise Submissions ({configuredRounds.length})
+          </h3>
+          {activeTeam && (
+            <span className="text-xs text-muted-foreground font-medium">
+              Team: <span className="font-semibold text-foreground">{activeTeam.name}</span>
+            </span>
+          )}
+        </div>
+
+        {!selectedProblemStatement ? (
+          <div className="p-6 rounded-lg border bg-card text-center text-xs text-muted-foreground space-y-2">
+            <p className="font-medium text-foreground">Please select a problem statement to view your configured rounds.</p>
+            <p className="text-[11px] text-muted-foreground">Rounds are dynamically scoped to your team's selected problem statement for this event.</p>
+          </div>
+        ) : configuredRounds.length === 0 ? (
+          <div className="p-6 rounded-lg border bg-card text-center text-xs text-muted-foreground">
+            No rounds configured for your selected problem statement yet.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {configuredRounds.map((r: any) => {
+              const existingSub = eventSubmissions.find((s: any) => s.roundId === r.id);
+              const isSelected = selectedRoundId === r.id || (!selectedRoundId && activeSubmission?.roundId === r.id);
+
+              const now = new Date();
+              const startDate = r.submissionStart
+                ? new Date(r.submissionStart)
+                : r.startDate
+                ? new Date(r.startDate)
+                : null;
+              const deadlineDate = r.submissionDeadline
+                ? new Date(r.submissionDeadline)
+                : r.endDate
+                ? new Date(r.endDate)
+                : null;
+
+              const isNotStarted = startDate ? now < startDate : false;
+              const isExpired = deadlineDate ? now > deadlineDate : false;
+              const isOpen = !isNotStarted && !isExpired;
+
+              let roundStatusLabel = "OPEN";
+              let badgeVariant: "default" | "outline" | "secondary" | "destructive" = "default";
+              let badgeClass = "bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-bold";
+
+              if (existingSub?.isLocked) {
+                roundStatusLabel = "SUBMITTED";
+                badgeVariant = "default";
+                badgeClass = "bg-emerald-600 text-white font-bold";
+              } else if (existingSub) {
+                roundStatusLabel = "DRAFT";
+                badgeVariant = "outline";
+                badgeClass = "bg-amber-500/10 text-amber-600 border-amber-500/30 font-bold";
+              } else if (isExpired) {
+                roundStatusLabel = "CLOSED";
+                badgeVariant = "destructive";
+                badgeClass = "bg-destructive/10 text-destructive border-destructive/30 font-bold";
+              } else if (isNotStarted) {
+                roundStatusLabel = "UPCOMING";
+                badgeVariant = "secondary";
+                badgeClass = "bg-blue-500/10 text-blue-600 border-blue-500/30 font-bold";
+              }
+
+              return (
+                <div
+                  key={r.id}
+                  className={`p-4 rounded-xl border transition-all space-y-3 flex flex-col justify-between ${
+                    isSelected ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-card/60 hover:border-border/80"
+                  }`}
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Badge variant={badgeVariant} className={`text-[10px] px-2 py-0.5 ${badgeClass}`}>
+                        Round {r.roundNumber}: {roundStatusLabel}
+                      </Badge>
+                      <span className="font-mono text-xs font-bold text-foreground">
+                        {r.maxMarks} Marks
+                      </span>
+                    </div>
+
+                    <div>
+                      <h4 className="font-bold text-sm text-foreground">{r.name}</h4>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                        {r.description || "No specific instructions provided."}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 text-[11px] text-muted-foreground font-mono bg-muted/30 p-2.5 rounded-md border">
+                      <div>
+                        <span className="text-[10px] text-muted-foreground font-semibold uppercase block">Opens:</span>
+                        {formatScheduleDate(startDate)}
+                      </div>
+                      <div className="pt-0.5 border-t border-border/40">
+                        <span className="text-[10px] text-muted-foreground font-semibold uppercase block">Deadline:</span>
+                        {formatScheduleDate(deadlineDate)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t flex flex-col gap-2">
+                    {existingSub ? (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="w-full text-xs bg-primary text-primary-foreground font-semibold gap-1.5"
+                        onClick={() => setViewSubmissionModalData(existingSub)}
+                      >
+                        <Eye className="h-3.5 w-3.5" /> View Submission
+                      </Button>
+                    ) : (
+                      <div>
+                        {isOpen ? (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            disabled={createSubmissionMutation.isPending || !selectedProblemStatement}
+                            className="w-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5"
+                            onClick={() => handleStartRoundSubmission(r)}
+                          >
+                            <Plus className="h-3.5 w-3.5" /> Submit for Round {r.roundNumber}
+                          </Button>
+                        ) : isNotStarted ? (
+                          <div className="text-center p-2 rounded bg-muted/30 text-xs text-muted-foreground font-medium">
+                            Upcoming (Opens {startDate ? startDate.toLocaleDateString() : 'soon'})
+                          </div>
+                        ) : (
+                          <div className="text-center p-2 rounded bg-destructive/10 text-xs text-destructive font-semibold">
+                            Submission Closed
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
+        {/* Upload Form Card */}
+        <Card className="lg:col-span-2 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base font-bold flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Paperclip className="h-4 w-4 text-primary" /> Round {currentRound.roundNumber}: {currentRound.name} Submission
+              </span>
+              {activeSubmission && (
+                <Badge variant="outline" className="text-[10px] font-mono">
+                  ID: {activeSubmission.id.slice(0, 8)}
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Upload project documentation, source code archives, or demo videos (Max 20 MB per file).
+            </CardDescription>
+
+            {/* Display Selected Problem Statement Details inside Submission Form */}
+            {selectedProblemStatement && (
+              <div className="p-2.5 mt-2 bg-muted/40 border rounded-md text-xs space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-muted-foreground uppercase text-[10px]">Problem Statement:</span>
+                  <Badge variant="secondary" className="font-mono text-[10px] font-bold">
+                    {selectedProblemStatement.code}
+                  </Badge>
+                </div>
+                <p className="font-bold text-foreground text-xs">{selectedProblemStatement.title}</p>
+              </div>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!activeSubmission ? (
+              currentRoundNotStarted ? (
+                <div className="p-6 border rounded-lg bg-blue-500/5 border-blue-500/20 text-center space-y-2">
+                  <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 flex items-center justify-center gap-1.5">
+                    <AlertCircle className="h-4 w-4" /> Submissions Upcoming
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Submissions for <strong>Round {currentRound.roundNumber}: {currentRound.name}</strong> will open on {formatScheduleDate(currentRoundStartDate)}.
+                  </p>
+                </div>
+              ) : currentRoundExpired ? (
+                <div className="p-6 border rounded-lg bg-destructive/5 border-destructive/20 text-center space-y-2">
+                  <p className="text-xs font-semibold text-destructive flex items-center justify-center gap-1.5">
+                    <AlertCircle className="h-4 w-4" /> Submissions Closed
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    The submission deadline for <strong>Round {currentRound.roundNumber}: {currentRound.name}</strong> passed on {formatScheduleDate(currentRoundDeadlineDate)}.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-6 border border-dashed rounded-lg text-center space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium">
+                    No submission initiated for Round {currentRound.roundNumber}: {currentRound.name} yet.
+                  </p>
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5 text-xs"
+                    onClick={() => handleStartRoundSubmission(currentRound)}
+                    disabled={createSubmissionMutation.isPending || !selectedProblemStatement}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Start Round {currentRound.roundNumber} Submission
+                  </Button>
+                </div>
+              )
+            ) : isLocked ? (
+              <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-700 dark:text-emerald-400 space-y-1">
+                <p className="font-semibold flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="h-5 w-5" /> Submission Finalized & Locked
+                </p>
+                <p className="text-xs">
+                  Your team project has been finalized for Round {currentRound.roundNumber}: {currentRound.name}. No further edits permitted.
+                </p>
+              </div>
+            ) : !currentRoundIsOpen ? (
+              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-700 dark:text-amber-400 space-y-1">
+                <p className="font-semibold flex items-center gap-2 text-sm">
+                  <AlertCircle className="h-5 w-5" /> Submissions Not Open
+                </p>
+                <p className="text-xs">
+                  Submissions for Round {currentRound.roundNumber}: {currentRound.name} are currently {currentRoundNotStarted ? "upcoming" : "closed"}. File uploads are disabled outside the submission schedule window.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="submissionFile">Select File to Upload</Label>
+                  <Input
+                    id="submissionFile"
+                    type="file"
+                    accept=".png,.jpg,.jpeg,.pdf,.doc,.docx,.mp4,.mov,.avi"
+                    onChange={handleFileChange}
+                    disabled={isUploading}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Supported: PNG, JPG, JPEG, PDF, DOC, DOCX, MP4, MOV, AVI (Max 20MB)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="submissionDescription">File / Project Description</Label>
+                  <Textarea
+                    id="submissionDescription"
+                    placeholder="Enter project description, repository links, architecture summary, or notes for judges..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    disabled={isUploading}
+                    className="min-h-[90px] text-xs resize-y"
+                  />
+                </div>
+
+                {selectedFile && (
+                  <div className="p-3 border rounded-md bg-muted/30 flex items-center justify-between text-xs">
+                    <div>
+                      <p className="font-semibold">{selectedFile.name}</p>
+                      <p className="text-muted-foreground">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                    </div>
+                    <Button size="sm" onClick={handleUpload} disabled={isUploading}>
+                      {isUploading ? "Uploading..." : "Upload File"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Uploaded Files Roster */}
+            <div className="space-y-2 pt-4 border-t">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Uploaded Files ({filesList.length})
+              </h4>
+
+              {filesList.length > 0 ? (
+                <div className="divide-y border rounded-md">
+                  {filesList.map((file: any, idx: number) => (
+                    <div key={file.id || idx} className="p-3 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-primary shrink-0" />
+                        <div>
+                          <p className="font-medium text-foreground">{file.fileName}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {(file.fileSize / (1024 * 1024)).toFixed(2)} MB • {file.fileType}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[10px]">
+                        Uploaded
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic py-2">No files uploaded for this round yet.</p>
+              )}
+            </div>
+          </CardContent>
+
+          <CardFooter className="bg-muted/20 border-t flex justify-between items-center">
+            <span className="text-xs text-muted-foreground">
+              Status: <span className="font-semibold text-foreground">{isLocked ? "SUBMITTED" : activeSubmission ? "DRAFT" : "NOT STARTED"}</span>
+            </span>
+
+            {activeSubmission && !isLocked && currentRoundIsOpen && (
+              <Button
+                variant="default"
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-xs"
+                onClick={() => setShowFinalSubmitModal(true)}
+              >
+                <Lock className="h-3.5 w-3.5" /> Final Submit & Lock Round
+              </Button>
+            )}
+          </CardFooter>
+        </Card>
+
+        {/* Guidelines & Evaluation Feedback Card */}
+        <div className="space-y-6">
+          {evaluationsList.length > 0 && (
+            <Card className="shadow-sm border-primary/30 bg-primary/5">
+              <CardHeader>
+                <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Star className="h-4 w-4 text-amber-500 fill-amber-500" /> Round Evaluation Results
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-xs">
+                {evaluationsList.map((ev: any, idx: number) => (
+                  <div key={ev.id || idx} className="p-3 rounded-lg border bg-card space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-foreground">Judge Score</span>
+                      <span className="font-mono text-base font-bold text-primary">
+                        {ev.score ?? "—"} / {currentRound.maxMarks || 100}
+                      </span>
+                    </div>
+                    {ev.feedback && (
+                      <div className="text-muted-foreground border-t pt-2 space-y-0.5">
+                        <span className="font-medium text-[11px] text-foreground">Judge Feedback:</span>
+                        <p className="italic">{ev.feedback}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* My Doubts & Mentor Answers Card */}
+          <Card className="shadow-sm border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-bold text-foreground flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-primary" /> My Doubts & Answers ({myQuestions.length})
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-primary font-medium hover:bg-primary/10"
+                  onClick={() => setShowAskMentorModal(true)}
+                >
+                  + Ask Doubt
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs">
+              {myQuestions.length === 0 ? (
+                <p className="text-muted-foreground italic py-2 text-center">No doubts submitted yet.</p>
+              ) : (
+                myQuestions.map((q: any) => {
+                  const isAnswered = q.status === "ANSWERED" || (q.replies && q.replies.length > 0);
+                  const mentorName = q.mentor
+                    ? `${q.mentor.firstName || ''} ${q.mentor.lastName || ''}`.trim() || q.mentor.email
+                    : q.replies?.[0]?.sender
+                    ? `${q.replies[0].sender.firstName || ''} ${q.replies[0].sender.lastName || ''}`.trim()
+                    : "Mentor";
+                  const answerMessage = q.replies?.[0]?.message || q.replies?.[0]?.reply;
+
+                  return (
+                    <div key={q.id} className="p-3 rounded-lg border bg-muted/20 space-y-2">
+                      <div className="flex items-center justify-between">
+                        {q.round ? (
+                          <Badge variant="outline" className="text-[10px]">
+                            Round {q.round.roundNumber}: {q.round.name}
+                          </Badge>
+                        ) : (
+                          <span className="font-semibold text-muted-foreground">General Question</span>
+                        )}
+                        <Badge variant={isAnswered ? "default" : "secondary"} className="text-[10px]">
+                          {isAnswered ? "ANSWERED" : "PENDING"}
+                        </Badge>
+                      </div>
+                      <p className="text-foreground font-medium">{q.question}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Asked: {new Date(q.createdAt).toLocaleString()}
+                      </p>
+
+                      {isAnswered && (
+                        <div className="border-t pt-2 space-y-1 bg-card p-2 rounded-md border-primary/20 mt-1">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-semibold text-primary">Mentor: {mentorName}</span>
+                            {q.replies?.[0] && (
+                              <span className="text-[10px] text-muted-foreground">
+                                {new Date(q.replies[0].createdAt).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-foreground italic text-xs">
+                            "{answerMessage || "Answer provided by mentor."}"
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-amber-500/30 bg-amber-500/5">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" /> Submission Guidelines
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs text-muted-foreground">
+              <p>1. Make sure to submit your files before the specified round submission deadline.</p>
+              <p>2. Maximum file size allowed is <strong>20 MB per file</strong>.</p>
+              <p>3. Supported formats: PNG, JPG, JPEG, PDF, DOC, DOCX, MP4, MOV, AVI.</p>
+              <p>4. Clicking <strong>Final Submit & Lock</strong> permanently locks your round submission.</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+          </>
+        )}
+      </>
+    )}
+
+      {/* Final Submit Confirmation Modal */}
+      <Dialog open={showFinalSubmitModal} onOpenChange={setShowFinalSubmitModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-emerald-600">
+              <AlertTriangle className="h-5 w-5" /> Confirm Final Submission
+            </DialogTitle>
+            <DialogDescription className="pt-2 text-sm text-foreground">
+              Are you sure you want to finalize and lock your submission for Round {currentRound.roundNumber}: {currentRound.name}?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-3 bg-amber-500/10 rounded-md border border-amber-500/20 text-xs text-amber-700 dark:text-amber-400 space-y-1">
+            <p className="font-semibold">⚠️ Submission Locking Notice</p>
+            <p>Once finalized, your submission becomes locked. You will not be able to upload additional files.</p>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setShowFinalSubmitModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              disabled={finalSubmitMutation.isPending}
+              onClick={handleFinalSubmit}
+            >
+              {finalSubmitMutation.isPending ? "Finalizing..." : "Confirm & Lock Submission"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ask Mentor Modal */}
+      <Dialog open={showAskMentorModal} onOpenChange={setShowAskMentorModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-primary" /> Ask Mentor a Doubt
+            </DialogTitle>
+            <DialogDescription className="pt-1 text-xs text-muted-foreground">
+              Submit your question for Round {currentRound.roundNumber}: {currentRound.name}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Your Question / Doubt</Label>
+              <Textarea
+                rows={4}
+                placeholder="Describe your technical issue, question regarding problem statement, or round guidelines..."
+                value={mentorQuestionText}
+                onChange={(e) => setMentorQuestionText(e.target.value)}
+                className="text-xs"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setShowAskMentorModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={!mentorQuestionText.trim() || askMentorMutation.isPending}
+              onClick={handleAskMentor}
+            >
+              {askMentorMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+              Submit Question
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Submission Details Modal */}
+      <Dialog open={!!viewSubmissionModalData} onOpenChange={(open) => !open && setViewSubmissionModalData(null)}>
+        {viewSubmissionModalData && (
+          <DialogContent className="sm:max-w-[650px] w-[calc(100vw-24px)] max-h-[90vh] flex flex-col p-0 overflow-hidden border-border bg-card shadow-2xl">
+            {/* Modal Header */}
+            <div className="p-5 sm:p-6 pb-4 border-b border-border flex items-center justify-between shrink-0 bg-muted/10">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold tracking-tight text-foreground leading-tight">
+                    {viewSubmissionModalData.title || "Round Submission Details"}
+                  </h2>
+                  <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                    ID: {viewSubmissionModalData.id}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Body - Scrollable */}
+            <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1 text-xs">
+              {/* Summary Grid */}
+              <div className="p-4 rounded-xl border bg-muted/20 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Event</span>
+                    <p className="font-semibold text-foreground mt-0.5">{activeEvent?.name || "Event"}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Team</span>
+                    <p className="font-semibold text-foreground mt-0.5">{activeTeam?.name || "Team"}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Problem Statement</span>
+                    <p className="font-semibold text-primary mt-0.5">
+                      {selectedProblemStatement ? `${selectedProblemStatement.code} — ${selectedProblemStatement.title}` : "General Submission"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Status / Lock State</span>
+                    <div className="mt-0.5">
+                      {viewSubmissionModalData.isLocked ? (
+                        <Badge variant="default" className="bg-emerald-600 text-white text-[10px] gap-1">
+                          <Lock className="h-3 w-3" /> ✓ SUBMITTED & LOCKED
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-[10px]">
+                          DRAFT / EDITABLE
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Submitted Date</span>
+                    <p className="font-mono text-muted-foreground mt-0.5">
+                      {new Date(viewSubmissionModalData.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Submitted By</span>
+                    <p className="font-semibold text-foreground mt-0.5">
+                      {viewSubmissionModalData.submittedBy
+                        ? `${viewSubmissionModalData.submittedBy.firstName || ''} ${viewSubmissionModalData.submittedBy.lastName || ''}`.trim() || viewSubmissionModalData.submittedBy.email
+                        : "Team Member"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Submission Description */}
+              <div className="space-y-1.5">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5 text-primary" /> SUBMISSION DESCRIPTION
+                </h4>
+                <div className="p-3.5 rounded-lg border bg-card text-foreground text-xs leading-relaxed whitespace-pre-line">
+                  {viewSubmissionModalData.description || viewSubmissionModalData.content || "No project description provided for this submission."}
+                </div>
+              </div>
+
+              {/* Uploaded Files Roster */}
+              <div className="space-y-2">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Paperclip className="h-3.5 w-3.5 text-primary" /> UPLOADED FILES ({viewSubmissionModalData.files?.length || 0})
+                  </span>
+                </h4>
+
+                {viewSubmissionModalData.files && viewSubmissionModalData.files.length > 0 ? (
+                  <div className="divide-y border rounded-lg overflow-hidden bg-card">
+                    {viewSubmissionModalData.files.map((file: any, idx: number) => (
+                      <div key={file.id || idx} className="p-3 flex items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-2.5 overflow-hidden">
+                          <FileText className="h-4 w-4 text-primary shrink-0" />
+                          <div className="truncate">
+                            <p className="font-semibold text-foreground truncate">{file.fileName}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {(file.fileSize / (1024 * 1024)).toFixed(2)} MB • {file.fileType}
+                            </p>
+                          </div>
+                        </div>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[11px] shrink-0 gap-1 font-medium"
+                          onClick={() => window.open(file.fileUrl || `/uploads/${file.fileName}`, "_blank")}
+                        >
+                          <Eye className="h-3 w-3" /> View / Download
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 border rounded-lg bg-card text-center text-xs text-muted-foreground italic">
+                    No files uploaded for this submission yet.
+                  </div>
+                )}
+              </div>
+
+              {/* Evaluation Progress */}
+              <div className="space-y-2">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Star className="h-3.5 w-3.5 text-amber-500" /> EVALUATION PROGRESS
+                </h4>
+
+                {viewSubmissionModalData.evaluations && viewSubmissionModalData.evaluations.length > 0 ? (
+                  <div className="space-y-2">
+                    {viewSubmissionModalData.evaluations.map((ev: any, idx: number) => (
+                      <div key={ev.id || idx} className="p-3 rounded-lg border bg-card space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-foreground">
+                            Judge: {ev.user ? `${ev.user.firstName || ''} ${ev.user.lastName || ''}`.trim() || ev.user.email : "Assigned Judge"}
+                          </span>
+                          <span className="font-mono text-sm font-bold text-primary">
+                            {ev.score ?? "—"} / {currentRound.maxMarks || 100}
+                          </span>
+                        </div>
+                        {ev.feedback && (
+                          <div className="text-muted-foreground border-t pt-2 space-y-0.5">
+                            <span className="font-medium text-[10px] uppercase tracking-wider text-foreground">Judge Feedback:</span>
+                            <p className="italic text-xs leading-relaxed">{ev.feedback}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3 border rounded-lg bg-card text-xs text-muted-foreground flex items-center justify-between">
+                    <span>Status: <strong className="text-amber-600">Pending Evaluation</strong></span>
+                    <span className="text-[11px] font-mono">No score assigned yet</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-border shrink-0 bg-muted/20 flex justify-end">
+              <Button size="sm" variant="outline" onClick={() => setViewSubmissionModalData(null)}>
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
+    </div>
   );
 }
+

@@ -70,15 +70,39 @@ function PrivilegedAccountsPage() {
     createMutation.mutate(formData);
   };
 
-  if (isLoading) return <div className="p-6">Loading...</div>;
-
   // Filter users based on search and role filter
   const users = (response || []).filter((u: any) => {
-    const roleName = u.memberships?.[0]?.role?.name || 'Participant';
-    const matchesRole = roleFilter === 'All' || roleName === roleFilter;
-    const matchesSearch = `${u.firstName} ${u.lastName} ${u.email}`.toLowerCase().includes(searchQuery.toLowerCase());
+    const roleName = (u.memberships?.[0]?.role?.name || 'Participant').trim();
+    const email = (u.email || '').toLowerCase();
+    const name = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+
+    let matchesRole = roleFilter === 'All';
+    if (roleFilter === 'Manager') {
+      matchesRole = roleName === 'Manager' || roleName === 'Admin' || roleName === 'Organization Admin' || roleName === 'Sudo Admin' || roleName === 'Platform Admin' || email.includes('manager') || email.includes('admin');
+    } else if (roleFilter === 'Principal') {
+      matchesRole = roleName === 'Principal' || name.includes('principal') || email.includes('principal');
+    } else if (roleFilter === 'Student Coordinator') {
+      matchesRole = roleName === 'Student Coordinator' || roleName.includes('Coordinator') || email.includes('coordinator');
+    } else if (roleFilter === 'Faculty Coordinator') {
+      matchesRole = roleName === 'Faculty Coordinator' || name.includes('faculty') || email.includes('faculty');
+    } else if (roleFilter === 'Participant') {
+      matchesRole = roleName === 'Participant' || email.includes('participant') || name.includes('participant');
+    } else if (roleFilter !== 'All') {
+      matchesRole = roleName.toLowerCase() === roleFilter.toLowerCase();
+    }
+
+    const matchesSearch = `${u.firstName || ''} ${u.lastName || ''} ${u.email || ''} ${roleName}`.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesRole && matchesSearch;
   });
+
+  const filterTabs = [
+    { label: 'All', value: 'All' },
+    { label: 'Managers', value: 'Manager' },
+    { label: 'Principals', value: 'Principal' },
+    { label: 'Student Coordinators', value: 'Student Coordinator' },
+    { label: 'Faculty Coordinators', value: 'Faculty Coordinator' },
+    { label: 'Participants', value: 'Participant' },
+  ];
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -180,24 +204,17 @@ function PrivilegedAccountsPage() {
           className="max-w-sm"
         />
         <div className="flex bg-muted p-1 rounded-md">
-          {['All', 'Managers', 'Principals', 'Student Coordinators', 'Faculty Coordinators', 'Participants'].map(filter => (
+          {filterTabs.map(tab => (
             <button
-              key={filter}
-              onClick={() => setRoleFilter(filter === 'Managers' ? 'Manager' : 
-                                          filter === 'Principals' ? 'Principal' : 
-                                          filter === 'Student Coordinators' ? 'Student Coordinator' : 
-                                          filter === 'Faculty Coordinators' ? 'Faculty Coordinator' : 
-                                          filter === 'Participants' ? 'Participant' : 'All')}
+              key={tab.value}
+              onClick={() => setRoleFilter(tab.value)}
               className={`px-3 py-1 text-sm rounded-sm transition-colors ${
-                (roleFilter === filter.replace(/s$/, '') || 
-                 (roleFilter === 'All' && filter === 'All') ||
-                 (roleFilter === 'Faculty Coordinator' && filter === 'Faculty Coordinators') ||
-                 (roleFilter === 'Student Coordinator' && filter === 'Student Coordinators'))
-                  ? 'bg-background shadow-sm font-medium' 
+                roleFilter === tab.value
+                  ? 'bg-background shadow-sm font-medium text-foreground' 
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              {filter}
+              {tab.label}
             </button>
           ))}
         </div>

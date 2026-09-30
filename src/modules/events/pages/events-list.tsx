@@ -4,42 +4,16 @@ import { StatusChip } from "@/components/ds/status-chip";
 import type { Column } from "@/components/ds/data-table";
 import { useEvents, useDeleteEvent, ApiEvent } from "../services/events.api";
 import { EventDialog } from "../components/event-dialog";
+import { EventDetailsDialog } from "../components/EventDetailsDialog";
 import { toast } from "sonner";
 
 const statusLabel: Record<string, string> = {
   DRAFT: "draft",
   PUBLISHED: "published",
-  LIVE: "active",
-  COMPLETED: "closed",
+  LIVE: "live",
+  COMPLETED: "completed",
   CANCELLED: "cancelled",
 };
-
-const columns: Column<ApiEvent>[] = [
-  {
-    key: "name",
-    header: "Event",
-    sortable: true,
-    render: (row) => <span className="font-medium">{row.name}</span>,
-  },
-  {
-    key: "status",
-    header: "Status",
-    sortable: true,
-    render: (row) => <StatusChip status={statusLabel[row.status] ?? row.status} />,
-  },
-  {
-    key: "startTime",
-    header: "Starts",
-    sortable: true,
-    render: (row) => <span>{new Date(row.startTime).toLocaleDateString()}</span>,
-  },
-  {
-    key: "endTime",
-    header: "Ends",
-    sortable: true,
-    render: (row) => <span>{new Date(row.endTime).toLocaleDateString()}</span>,
-  },
-];
 
 export function EventsListPage() {
   const { data: events = [], isLoading } = useEvents();
@@ -47,6 +21,7 @@ export function EventsListPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<ApiEvent | null>(null);
+  const [selectedDetailEvent, setSelectedDetailEvent] = useState<ApiEvent | null>(null);
 
   const handleEdit = (row: ApiEvent) => {
     setEditingEvent(row);
@@ -63,6 +38,44 @@ export function EventsListPage() {
     }
   };
 
+  const columns: Column<ApiEvent>[] = [
+    {
+      key: "name",
+      header: "Event",
+      sortable: true,
+      render: (row) => (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedDetailEvent(row);
+          }}
+          className="font-medium text-primary hover:underline text-left"
+        >
+          {row.name}
+        </button>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      sortable: true,
+      render: (row) => <StatusChip status={statusLabel[row.status] ?? row.status} />,
+    },
+    {
+      key: "startTime",
+      header: "Starts",
+      sortable: true,
+      render: (row) => <span>{new Date(row.startTime).toLocaleDateString()}</span>,
+    },
+    {
+      key: "endTime",
+      header: "Ends",
+      sortable: true,
+      render: (row) => <span>{new Date(row.endTime).toLocaleDateString()}</span>,
+    },
+  ];
+
   return (
     <>
       <ListPageTemplate<ApiEvent>
@@ -73,6 +86,8 @@ export function EventsListPage() {
         rows={events}
         loading={isLoading}
         searchKeys={["name"]}
+        selectable={false}
+        onRowClick={(row) => setSelectedDetailEvent(row)}
         stats={[
           { label: "Total events", value: String(events.length) },
           {
@@ -101,6 +116,12 @@ export function EventsListPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         event={editingEvent}
+      />
+      <EventDetailsDialog
+        event={selectedDetailEvent}
+        open={!!selectedDetailEvent}
+        onOpenChange={(open) => !open && setSelectedDetailEvent(null)}
+        mode="admin"
       />
     </>
   );

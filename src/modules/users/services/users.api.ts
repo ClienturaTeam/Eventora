@@ -15,10 +15,10 @@ export function useUsers() {
 export function useUpdateUser() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, firstName, lastName }: { id: string; firstName?: string; lastName?: string }) => {
+    mutationFn: async ({ id, firstName, lastName, roleId }: { id: string; firstName?: string; lastName?: string; roleId?: string }) => {
       const res = await fetchApi(`/users/${id}`, {
         method: "PATCH",
-        body: JSON.stringify({ firstName, lastName }),
+        body: JSON.stringify({ firstName, lastName, roleId }),
       });
       return res.data;
     },

@@ -10,12 +10,12 @@ import { format } from "date-fns";
 export const Route = createFileRoute("/notifications")({
   head: () => ({
     meta: [
-      { title: "Notifications · Ascent Platform" },
+      { title: "Notifications · Eventora Platform" },
       {
         name: "description",
         content: "Platform alerts, approvals and operational notices in one inbox.",
       },
-      { property: "og:title", content: "Notifications · Ascent Platform" },
+      { property: "og:title", content: "Notifications · Eventora Platform" },
       {
         property: "og:description",
         content: "Platform alerts, approvals and operational notices in one inbox.",
@@ -25,7 +25,7 @@ export const Route = createFileRoute("/notifications")({
   component: NotificationsPage,
 });
 
-function NotificationsPage() {
+export function NotificationsPage() {
   const { data, isLoading } = useNotifications();
   const markAllAsRead = useMarkAllNotificationsAsRead();
 

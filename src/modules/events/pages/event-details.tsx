@@ -222,11 +222,53 @@ export function EventDetailsPage() {
         </>
       }
       customTabs={[
+        { value: "rounds", label: `Rounds (${event.rounds?.length || 0})` },
         { value: "registrations", label: "Registrations" },
         { value: "team", label: "Team" },
         ...(hasPermission("events.update") ? [{ value: "execution", label: "Admin Data Injection" }] : [])
       ]}
       customTabContents={[
+        {
+          value: "rounds",
+          content: (
+            <SectionCard title="Configured Event Rounds" description="Round structure, max marks, and submission parameters">
+              <div className="space-y-4">
+                {(!event.rounds || event.rounds.length === 0) ? (
+                  <div className="text-center py-6 text-sm text-muted-foreground">
+                    No rounds configured for this event.
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {event.rounds.map((round: any) => (
+                      <div key={round.id || round.roundNumber} className="p-4 rounded-lg border border-border bg-surface/60 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                            Round {round.roundNumber}
+                          </span>
+                          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${round.status === 'ACTIVE' ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground'}`}>
+                            {round.status || 'ACTIVE'}
+                          </span>
+                        </div>
+                        <h4 className="font-semibold text-sm">{round.name}</h4>
+                        <p className="text-xs text-muted-foreground">{round.description || "No description provided."}</p>
+                        <div className="pt-2 border-t border-border/40 grid grid-cols-2 text-xs">
+                          <div>
+                            <span className="text-muted-foreground block text-[10px] uppercase">Max Marks</span>
+                            <span className="font-semibold">{round.maxMarks} Marks</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground block text-[10px] uppercase">Type</span>
+                            <span className="font-medium">{round.submissionType || "FILE"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </SectionCard>
+          )
+        },
         { value: "registrations", content: <EventRegistrationsList eventId={id} /> },
         { value: "team", content: <EventTeamList eventId={id} /> },
         ...(hasPermission("events.update") ? [{ value: "execution", content: <AdminExecutionDataTool eventId={id} /> }] : [])

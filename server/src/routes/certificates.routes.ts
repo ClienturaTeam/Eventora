@@ -15,6 +15,9 @@ router.get("/verify/:code", CertificateController.verify);
 router.use(requireAuth);
 router.use(requireTenant);
 
+router.get("/team/download", CertificateController.downloadTeam);
+router.get("/:id/download", CertificateController.download);
+
 router.get("/", requirePermission("certificates.read"), CertificateController.getAll);
 router.get("/:id", requirePermission("certificates.read"), CertificateController.getById);
 
@@ -24,6 +27,5 @@ router.delete("/:id", requirePermission("certificates.delete"), CertificateContr
 
 router.post("/bulk-issue", requirePermission("certificates.issue"), validateRequest(bulkIssueSchema), CertificateController.bulkIssue);
 router.post("/:id/revoke", requirePermission("certificates.revoke"), CertificateController.revoke);
-router.get("/:id/download", requirePermission("certificates.read"), CertificateController.download);
 
 export const certificatesRouter = router;

@@ -7,17 +7,27 @@ export type ApiSubmission = {
   payload: Record<string, unknown> | null;
   teamId: string;
   competitionId: string;
+  eventId?: string;
+  roundId?: string;
+  roundNumber?: number;
+  problemStatementId?: string;
   status: "DRAFT" | "SUBMITTED" | "IN_REVIEW" | "EVALUATED" | "DISQUALIFIED";
   createdAt: string;
   updatedAt: string;
-  competition?: { name: string; event?: { name: string } };
-  team?: { name: string; members?: { user: { firstName: string; lastName: string } }[] };
+  competition?: { name: string; event?: { id: string; name: string } };
+  event?: { id: string; name: string };
+  eventRound?: { id: string; roundNumber: number; name: string; maxMarks: number };
+  problemStatement?: { id: string; code: string; title: string; description: string; category?: string };
+  team?: { name: string; members?: { user: { id: string; firstName: string; lastName: string } }[] };
+  submittedBy?: { id: string; firstName: string; lastName: string; email: string };
+  files?: { id: string; fileName: string; fileSize: number; fileType: string; fileUrl: string }[];
+  judgeAssignments?: { id: string; judge: { id: string; firstName: string; lastName: string; email: string } }[];
   _count?: { evaluations: number };
   evaluations?: {
     id: string;
     score: number | null;
     feedback: string | null;
-    judge: { firstName: string; lastName: string };
+    judge: { id: string; firstName: string; lastName: string };
   }[];
 };
 
@@ -26,16 +36,72 @@ export type CreateSubmissionInput = {
   payload?: Record<string, unknown>;
   teamId: string;
   competitionId: string;
+  eventId?: string;
+  roundId?: string;
+  roundNumber?: number;
+  problemStatementId?: string;
   status?: string;
 };
 
-
-export function useSubmissions() {
+export function useSubmissions(filters?: {
+  eventId?: string | undefined;
+  roundId?: string | undefined;
+  roundNumber?: number | string | undefined;
+  problemStatementId?: string | undefined;
+  status?: string | undefined;
+  judgeId?: string | undefined;
+  userId?: string | undefined;
+}) {
   return useQuery({
-    queryKey: ["submissions"],
+    queryKey: ["submissions", filters],
     queryFn: async () => {
-      const res = await fetchApi("/submissions");
+      const params = new URLSearchParams();
+      if (filters?.eventId) params.set("eventId", filters.eventId);
+      if (filters?.roundId) params.set("roundId", filters.roundId);
+      if (filters?.roundNumber !== undefined && filters?.roundNumber !== null) {
+        params.set("roundNumber", String(filters.roundNumber));
+      }
+      if (filters?.problemStatementId) params.set("problemStatementId", filters.problemStatementId);
+      if (filters?.status) params.set("status", filters.status);
+      if (filters?.judgeId) params.set("judgeId", filters.judgeId);
+      if (filters?.userId) params.set("userId", filters.userId);
+
+      const queryString = params.toString();
+      const res = await fetchApi(`/submissions${queryString ? `?${queryString}` : ""}`);
       return res.data as ApiSubmission[];
+    },
+  });
+}
+
+export function useAssignJudge() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ submissionId, judgeId }: { submissionId: string; judgeId: string }) => {
+      const res = await fetchApi(`/submissions/${submissionId}/assign-judge`, {
+        method: "POST",
+        body: JSON.stringify({ judgeId }),
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["submissions"] });
+      queryClient.invalidateQueries({ queryKey: ["evaluations"] });
+    },
+  });
+}
+
+export function useUnassignJudge() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ submissionId, judgeId }: { submissionId: string; judgeId: string }) => {
+      const res = await fetchApi(`/submissions/${submissionId}/assign-judge/${judgeId}`, {
+        method: "DELETE",
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["submissions"] });
+      queryClient.invalidateQueries({ queryKey: ["evaluations"] });
     },
   });
 }

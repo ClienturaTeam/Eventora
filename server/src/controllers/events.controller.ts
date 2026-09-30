@@ -65,6 +65,46 @@ export class EventController {
     }
   }
 
+  static async getRounds(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.tenantId as string;
+      const rounds = await EventService.getRounds(tenantId, req.params.id);
+      res.json({ success: true, data: rounds });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async createRound(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.tenantId as string;
+      const round = await EventService.createRound(tenantId, req.params.id, req.body);
+      res.status(201).json({ success: true, data: round });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateRound(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.tenantId as string;
+      const round = await EventService.updateRound(tenantId, req.params.id, req.params.roundId, req.body);
+      res.json({ success: true, data: round });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deleteRound(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.tenantId as string;
+      await EventService.deleteRound(tenantId, req.params.id, req.params.roundId);
+      res.json({ success: true, data: { deleted: true } });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async getEventDashboard(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const tenantId = req.tenantId as string;

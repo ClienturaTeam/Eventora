@@ -12,7 +12,7 @@ import { useAuth } from "@/lib/auth";
 
 export function EventAssignment({ eventId }: { eventId: string }) {
   const { data: team = [], isLoading: isTeamLoading } = useEventTeam(eventId);
-  const { hasPermission, user } = useAuth();
+  const { hasPermission, user, activeOrganization } = useAuth();
   
   const assignFacultyCoordinator = useAssignFacultyCoordinator();
   const assignStudentCoordinator = useAssignStudentCoordinator();
@@ -26,7 +26,7 @@ export function EventAssignment({ eventId }: { eventId: string }) {
   const { data: members = [] } = useQuery({
     queryKey: ["organization", "members"],
     queryFn: async () => {
-      const orgId = user?.memberships?.[0]?.organization?.id;
+      const orgId = activeOrganization || user?.memberships?.[0]?.organization?.id;
       if (!orgId) return [];
       const res = await fetchApi(`/organizations/${orgId}/members`);
       return res.data as any[];
@@ -38,7 +38,7 @@ export function EventAssignment({ eventId }: { eventId: string }) {
   const studentCoordinators = members.filter((m: any) => m.role.name === "Student Coordinator");
   
   const assignedFacultyCoordinator = team.find((m) => m.responsibility === "Faculty Coordinator");
-  const assignedStudentCoordinator = team.find((m) => m.responsibility === "Primary Student Coordinator");
+  const assignedStudentCoordinator = team.find((m) => m.responsibility === "Primary Student Coordinator" || m.responsibility === "Student Coordinator");
 
   const handleAssignFaculty = async () => {
     if (!selectedFacultyId) {
