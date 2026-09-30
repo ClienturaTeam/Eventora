@@ -184,7 +184,6 @@ export function Topbar() {
         >
           <CircleHelp className="h-[1.1rem] w-[1.1rem]" />
         </Button>
-        
         {/* Dev Role Switcher */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

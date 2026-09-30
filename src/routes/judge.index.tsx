@@ -6,6 +6,7 @@ import { fetchApi } from "@/lib/api-client";
 import { CalendarDays, FileCheck2, ClipboardCheck } from "lucide-react";
 import { useJudgeProfile } from "@/modules/judges/hooks/use-judge-profile";
 import { useMyEvaluations, useJudgeProfiles } from "@/modules/judges/services/judges.api";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/judge/")({
   component: JudgeDashboardPage,

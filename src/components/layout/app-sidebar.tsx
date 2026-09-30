@@ -47,9 +47,9 @@ const managerSections = [
       { title: "Teams", url: "/manager/teams", icon: UsersRound },
       { title: "Submissions", url: "/manager/submissions", icon: Sparkles },
       { title: "Evaluations", url: "/manager/evaluations", icon: FileCheck2 },
+      { title: "Judges", url: "/manager/judges", icon: Gavel },
       { title: "Results", url: "/winners", icon: Trophy },
       { title: "Live Leaderboard", url: "/leaderboard", icon: Trophy },
-      { title: "Judges", url: "/manager/judges", icon: Gavel },
       { title: "Reports", url: "/manager/reports", icon: FileBarChart },
       { title: "Notifications", url: "/notifications", icon: Bell },
     ],
@@ -85,9 +85,9 @@ const judgeSections = [
   {
     label: "Evaluation Space",
     items: [
-      { title: "Dashboard & Mine", url: "/evaluations", icon: LayoutDashboard },
-      { title: "Submissions", url: "/submissions", icon: Sparkles },
-      { title: "Competitions", url: "/competitions", icon: Gavel },
+      { title: "Dashboard", url: "/judge", icon: LayoutDashboard },
+      { title: "Events & Competitions", url: "/judge/events", icon: CalendarDays },
+      { title: "Submissions & Grading", url: "/judge/submissions", icon: FileCheck2 },
       { title: "Live Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Notifications", url: "/notifications", icon: Bell },
     ],
@@ -198,7 +198,7 @@ export function AppSidebar() {
     basePath = "/coordinator";
   } else if (roleName === "Judge" || roleName === "Evaluator") {
     sections = judgeSections;
-    basePath = "/evaluations";
+    basePath = "/judge";
   } else if (roleName === "Mentor") {
     sections = mentorSections;
     basePath = "/teams";

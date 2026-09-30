@@ -64,10 +64,8 @@ export function ManagerJudgesPage() {
         title="Managed Judges"
         description="View judge profiles and assign them to competitions."
         crumbs={[{ label: "Manager" }, { label: "Judges" }]}
-        primaryAction={{
-          label: "Create Judge Profile",
-          onClick: () => setIsCreateModalOpen(true)
-        }}
+        createLabel="Create Judge Profile"
+        onCreate={() => setIsCreateModalOpen(true)}
         columns={[
           { 
             key: "user", 

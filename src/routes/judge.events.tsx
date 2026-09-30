@@ -20,6 +20,7 @@ function JudgeEventsPage() {
       <ListPageTemplate<any>
         title="Assigned Competitions"
         description="View the events and competitions you have been assigned to judge."
+        crumbs={[{ label: "Judge" }, { label: "Events" }]}
         columns={[
           { key: "competition.name", header: "Competition", render: (row) => <span className="font-medium">{row.competition?.name}</span> },
           { key: "id", header: "Assignment ID", render: (row) => <span className="text-xs text-muted-foreground">{row.id}</span> },

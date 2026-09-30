@@ -1,32 +1,49 @@
 import { useState } from "react";
-import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
-import { z } from "zod";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { fetchApi, ApiError } from "@/lib/api-client";
-import { toast } from "sonner";
-import { UserPlus, Eye, EyeOff } from "lucide-react";
-
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
+import { fetchApi, ApiError } from "@/lib/api-client";
+import { UserPlus, Eye, EyeOff } from "lucide-react";
 import { ClienturaLogo } from "@/components/ds/clientura-logo";
 
 export const Route = createFileRoute("/signup")({
+  head: () => ({
+    meta: [
+      { title: "Sign Up · Eventora" },
+      { name: "description", content: "Create an account on Eventora." },
+    ],
+  }),
   component: SignupPage,
 });
 
 const signupSchema = z
   .object({
-    fullName: z.string().min(2, "Full name must be at least 2 characters"),
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
     email: z.string().trim().toLowerCase().email("Please enter a valid email address"),
     mobileNumber: z
       .string()
-      .min(10, "Mobile number must be at least 10 digits")
-      .regex(/^[0-9+\s-]{10,15}$/, "Please enter a valid mobile number"),
+      .optional()
+      .refine(
+        (val) => !val || /^[0-9+\s-]{10,15}$/.test(val),
+        "Please enter a valid mobile number (10-15 digits)"
+      ),
     password: z.string().min(8, "Password must be at least 8 characters long"),
     confirmPassword: z.string().min(8, "Password confirmation is required"),
+    role: z.enum(["Participant", "Student Coordinator", "Faculty Coordinator", "Judge"]),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -48,11 +65,13 @@ function SignupPage() {
   } = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
-      fullName: "",
+      firstName: "",
+      lastName: "",
       email: "",
       mobileNumber: "",
       password: "",
       confirmPassword: "",
+      role: "Participant",
     },
   });
 
@@ -60,24 +79,26 @@ function SignupPage() {
     try {
       setIsLoading(true);
 
-      const nameParts = data.fullName.trim().split(/\s+/);
-      const firstName = nameParts[0] || data.fullName.trim();
-      const lastName = nameParts.slice(1).join(" ") || "";
-
       const res = await fetchApi("/auth/register", {
         method: "POST",
         body: JSON.stringify({
           email: data.email.trim().toLowerCase(),
           password: data.password,
-          firstName,
-          lastName,
-          mobileNumber: data.mobileNumber,
-          role: "Participant",
+          firstName: data.firstName.trim(),
+          lastName: data.lastName.trim(),
+          mobileNumber: data.mobileNumber?.trim() || undefined,
+          role: data.role || "Participant",
         }),
       });
 
       if (res.success) {
-        toast.success("Account created successfully! Please sign in.");
+        if (data.role === "Faculty Coordinator") {
+          toast.success(
+            "Your Faculty Coordinator request has been submitted. A Manager will review your request."
+          );
+        } else {
+          toast.success("Account created successfully! Please sign in.");
+        }
         router.navigate({ to: "/login" });
       } else {
         toast.error(res.error?.message || "Failed to create account. Please try again.");
@@ -108,24 +129,37 @@ function SignupPage() {
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">Create an Account</CardTitle>
           <CardDescription>
-            Enter your details below to register as a participant
+            Enter your details below to register for an account
           </CardDescription>
         </CardHeader>
 
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name *</Label>
-              <Input
-                id="fullName"
-                type="text"
-                placeholder="John Doe"
-                {...register("fullName")}
-                disabled={isLoading}
-              />
-              {errors.fullName && (
-                <p className="text-xs text-destructive">{errors.fullName.message}</p>
-              )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name *</Label>
+                <Input
+                  id="firstName"
+                  placeholder="John"
+                  {...register("firstName")}
+                  disabled={isLoading}
+                />
+                {errors.firstName && (
+                  <p className="text-xs text-destructive">{errors.firstName.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name *</Label>
+                <Input
+                  id="lastName"
+                  placeholder="Doe"
+                  {...register("lastName")}
+                  disabled={isLoading}
+                />
+                {errors.lastName && (
+                  <p className="text-xs text-destructive">{errors.lastName.message}</p>
+                )}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -143,7 +177,7 @@ function SignupPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="mobileNumber">Mobile Number *</Label>
+              <Label htmlFor="mobileNumber">Mobile Number (Optional)</Label>
               <Input
                 id="mobileNumber"
                 type="tel"
@@ -228,13 +262,76 @@ function SignupPage() {
               )}
             </div>
 
+            <div className="space-y-3 pt-2">
+              <Label>Choose Account Type</Label>
+              <div className="grid gap-3">
+                <label className="flex items-start space-x-3 space-y-0 rounded-md border p-3 cursor-pointer hover:bg-muted/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5 transition-colors">
+                  <input
+                    type="radio"
+                    value="Participant"
+                    className="mt-1"
+                    {...register("role")}
+                  />
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-semibold leading-none">Participant</p>
+                    <p className="text-xs text-muted-foreground">
+                      Register for events and participate in approved hackathons.
+                    </p>
+                  </div>
+                </label>
+                <label className="flex items-start space-x-3 space-y-0 rounded-md border p-3 cursor-pointer hover:bg-muted/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5 transition-colors">
+                  <input
+                    type="radio"
+                    value="Student Coordinator"
+                    className="mt-1"
+                    {...register("role")}
+                  />
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-semibold leading-none">Student Coordinator</p>
+                    <p className="text-xs text-muted-foreground">
+                      Coordinate events when assigned by a Faculty Coordinator.
+                    </p>
+                  </div>
+                </label>
+                <label className="flex items-start space-x-3 space-y-0 rounded-md border p-3 cursor-pointer hover:bg-muted/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5 transition-colors">
+                  <input
+                    type="radio"
+                    value="Faculty Coordinator"
+                    className="mt-1"
+                    {...register("role")}
+                  />
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-semibold leading-none">Faculty Coordinator</p>
+                    <p className="text-xs text-muted-foreground">
+                      Manage Student Coordinators and coordinate assigned events. Requires Manager approval.
+                    </p>
+                  </div>
+                </label>
+                <label className="flex items-start space-x-3 space-y-0 rounded-md border p-3 cursor-pointer hover:bg-muted/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5 transition-colors">
+                  <input
+                    type="radio"
+                    value="Judge"
+                    className="mt-1"
+                    {...register("role")}
+                  />
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-semibold leading-none">Judge</p>
+                    <p className="text-xs text-muted-foreground">
+                      Access the grading and evaluation portal for assigned competitions.
+                    </p>
+                  </div>
+                </label>
+              </div>
+              {errors.role && <p className="text-xs text-destructive">{errors.role.message}</p>}
+            </div>
+
             <Button type="submit" className="w-full mt-2" disabled={isLoading}>
               {isLoading ? "Creating Account..." : "Create Account"}
             </Button>
           </form>
         </CardContent>
 
-        <CardFooter className="flex flex-col gap-4 text-center text-sm text-muted-foreground border-t pt-4">
+        <CardFooter className="flex flex-col gap-4 text-center text-sm text-muted-foreground">
           <p>
             Already have an account?{" "}
             <Link
@@ -243,6 +340,17 @@ function SignupPage() {
             >
               Sign in
             </Link>
+          </p>
+          <p className="text-xs">
+            By registering, you agree to our{" "}
+            <a href="#" className="underline hover:text-foreground">
+              Terms of Service
+            </a>{" "}
+            and{" "}
+            <a href="#" className="underline hover:text-foreground">
+              Privacy Policy
+            </a>
+            .
           </p>
         </CardFooter>
       </Card>

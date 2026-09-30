@@ -59,6 +59,7 @@ function JudgeSubmissionsPage() {
       <ListPageTemplate<any>
         title="Submissions & Grading"
         description="Review submissions assigned to you and provide grades and feedback."
+        crumbs={[{ label: "Judge" }, { label: "Submissions" }]}
         columns={[
           { key: "submission.title", header: "Submission Title", render: (row) => <span className="font-medium">{row.submission?.title}</span> },
           { key: "submission.team", header: "Team", render: (row) => <span>{row.submission?.team?.name || 'N/A'}</span> },

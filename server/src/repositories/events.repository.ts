@@ -15,9 +15,9 @@ export class EventRepository {
       where: whereClause,
       include: {
         teamMembers: { include: { user: true } },
+        competitions: true,
         rounds: { orderBy: { roundNumber: 'asc' } },
         problemStatements: true,
-        competitions: true,
         payments: {
           where: {
             status: 'SUCCEEDED',
