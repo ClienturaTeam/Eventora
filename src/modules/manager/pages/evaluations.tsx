@@ -156,6 +156,9 @@ export function ManagerEvaluationsPage() {
             {activeEventId && eventRounds.length > 0 ? (
               eventRounds.map((round) => {
                 const isSelected = selectedRoundFilter === round.id;
+                const hasCustomName = round.name && round.name.trim() !== "" && round.name.trim().toLowerCase() !== `round ${round.roundNumber}`;
+                const roundLabel = hasCustomName ? `Round ${round.roundNumber} — ${round.name}` : `Round ${round.roundNumber}`;
+
                 return (
                   <Button
                     key={round.id}
@@ -163,15 +166,12 @@ export function ManagerEvaluationsPage() {
                     size="sm"
                     className="h-7 text-xs px-3"
                     onClick={() => setSelectedRoundFilter(round.id)}
+                    title={round.description || round.name}
                   >
-                    Round {round.roundNumber}{round.name ? ` — ${round.name}` : ""}
+                    {roundLabel}
                   </Button>
                 );
               })
-            ) : !activeEventId ? (
-              <span className="text-[11px] text-muted-foreground italic ml-1">
-                Select an event to filter by configured rounds
-              </span>
             ) : null}
           </div>
         </div>
@@ -181,6 +181,22 @@ export function ManagerEvaluationsPage() {
           description="Review round evaluation scores, request score corrections from judges, and record final hackathon results."
           crumbs={[{ label: "Manager" }, { label: "Evaluations" }]}
           stats={statsList}
+          emptyTitle={
+            selectedRoundFilter !== "ALL"
+              ? `No Round ${selectedEventRound ? selectedEventRound.roundNumber : selectedRoundFilter} evaluations found.`
+              : selectedEventId !== "ALL"
+              ? "No evaluations found for this event."
+              : undefined
+          }
+          emptyDescription={
+            selectedRoundFilter !== "ALL"
+              ? selectedEventRound?.name
+                ? `There are no evaluations recorded for Round ${selectedEventRound.roundNumber} (${selectedEventRound.name}).`
+                : "There are no evaluations recorded for this round."
+              : selectedEventId !== "ALL"
+              ? "There are no evaluations recorded for the selected event."
+              : undefined
+          }
           columns={[
             {
               key: "team",

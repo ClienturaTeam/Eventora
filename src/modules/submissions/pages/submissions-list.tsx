@@ -244,6 +244,9 @@ export function SubmissionsListPage() {
             {activeEventId && eventRounds.length > 0 ? (
               eventRounds.map((round) => {
                 const isSelected = selectedRoundFilter === round.id;
+                const hasCustomName = round.name && round.name.trim() !== "" && round.name.trim().toLowerCase() !== `round ${round.roundNumber}`;
+                const roundLabel = hasCustomName ? `Round ${round.roundNumber} — ${round.name}` : `Round ${round.roundNumber}`;
+
                 return (
                   <Button
                     key={round.id}
@@ -251,15 +254,12 @@ export function SubmissionsListPage() {
                     size="sm"
                     className="h-7 text-xs px-3"
                     onClick={() => setSelectedRoundFilter(round.id)}
+                    title={round.description || round.name}
                   >
-                    Round {round.roundNumber}{round.name ? ` — ${round.name}` : ""}
+                    {roundLabel}
                   </Button>
                 );
               })
-            ) : !activeEventId ? (
-              <span className="text-[11px] text-muted-foreground italic ml-1">
-                Select an event to filter by configured rounds
-              </span>
             ) : null}
           </div>
         </div>
@@ -276,6 +276,22 @@ export function SubmissionsListPage() {
           dateKey="createdAt"
           selectable={false}
           stats={statsList}
+          emptyTitle={
+            selectedRoundFilter !== "ALL"
+              ? `No Round ${selectedEventRound ? selectedEventRound.roundNumber : selectedRoundFilter} submissions found.`
+              : selectedEventId !== "ALL"
+              ? "No submissions found for this event."
+              : undefined
+          }
+          emptyDescription={
+            selectedRoundFilter !== "ALL"
+              ? selectedEventRound?.name
+                ? `There are no submissions recorded for Round ${selectedEventRound.roundNumber} (${selectedEventRound.name}).`
+                : "There are no submissions recorded for this round."
+              : selectedEventId !== "ALL"
+              ? "There are no submissions recorded for the selected event."
+              : undefined
+          }
           facet={{
             label: "Status",
             key: "status",

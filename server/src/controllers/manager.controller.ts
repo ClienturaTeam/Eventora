@@ -113,7 +113,16 @@ export class ManagerController {
 
   static async getSubmissions(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const data = await SubmissionService.getSubmissions(req.tenantId!);
+      const filters = {
+        eventId: req.query.eventId as string,
+        roundId: req.query.roundId as string,
+        roundNumber: req.query.roundNumber ? Number(req.query.roundNumber) : undefined,
+        problemStatementId: req.query.problemStatementId as string,
+        status: req.query.status as string,
+        judgeId: req.query.judgeId as string,
+        userId: req.query.userId as string,
+      };
+      const data = await SubmissionService.getSubmissions(req.tenantId!, filters);
       res.json({ success: true, data });
     } catch (error) {
       next(error);

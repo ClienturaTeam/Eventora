@@ -301,6 +301,58 @@ async function main() {
     },
   });
 
+  await prisma.eventRound.create({
+    data: {
+      eventId: event1.id,
+      roundNumber: 1,
+      name: 'Qualifier Round',
+      description: 'Initial screening round',
+      maxMarks: 100,
+      status: 'ACTIVE',
+    },
+  });
+  await prisma.eventRound.create({
+    data: {
+      eventId: event1.id,
+      roundNumber: 2,
+      name: 'Demo Round',
+      description: 'Prototype demonstration',
+      maxMarks: 100,
+      status: 'ACTIVE',
+    },
+  });
+  await prisma.eventRound.create({
+    data: {
+      eventId: event1.id,
+      roundNumber: 3,
+      name: 'Final Presentation',
+      description: 'Grand finale presentation',
+      maxMarks: 100,
+      status: 'ACTIVE',
+    },
+  });
+
+  await prisma.eventRound.create({
+    data: {
+      eventId: event2.id,
+      roundNumber: 1,
+      name: 'Design Wireframes',
+      description: 'UI/UX wireframes submission',
+      maxMarks: 100,
+      status: 'ACTIVE',
+    },
+  });
+  await prisma.eventRound.create({
+    data: {
+      eventId: event2.id,
+      roundNumber: 2,
+      name: 'Interactive Prototype',
+      description: 'Interactive prototype submission',
+      maxMarks: 100,
+      status: 'ACTIVE',
+    },
+  });
+
   // 8. Competitions
   const comp1 = await prisma.competition.create({
     data: {
