@@ -5,7 +5,7 @@ import {
   HeartHandshake, LayoutDashboard,
   Sparkles, Trophy, Users, UsersRound,
   ClipboardList, Compass, Wallet, Award, Medal,
-  FilePlus2, Shield, FileCode
+  FilePlus2, Shield, FileCode, UserCheck
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
@@ -48,6 +48,7 @@ const managerSections = [
       { title: "Submissions", url: "/manager/submissions", icon: Sparkles },
       { title: "Evaluations", url: "/manager/evaluations", icon: FileCheck2 },
       { title: "Judges", url: "/manager/judges", icon: Gavel },
+      { title: "Mentors", url: "/manager/mentors", icon: UserCheck },
       { title: "Results", url: "/winners", icon: Trophy },
       { title: "Live Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Reports", url: "/manager/reports", icon: FileBarChart },

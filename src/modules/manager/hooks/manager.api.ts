@@ -10,6 +10,7 @@ export const managerKeys = {
   submissions: () => [...managerKeys.all, 'submissions'] as const,
   evaluations: () => [...managerKeys.all, 'evaluations'] as const,
   judges: () => [...managerKeys.all, 'judges'] as const,
+  mentors: () => [...managerKeys.all, 'mentors'] as const,
   volunteers: () => [...managerKeys.all, 'volunteers'] as const,
   attendance: () => [...managerKeys.all, 'attendance'] as const,
   certificates: () => [...managerKeys.all, 'certificates'] as const,
@@ -86,6 +87,16 @@ export const useManagerJudges = () => {
     queryKey: managerKeys.judges(),
     queryFn: async () => {
       const response = await fetchApi('/manager/judges');
+      return response.data;
+    },
+  });
+};
+
+export const useManagerMentors = () => {
+  return useQuery({
+    queryKey: managerKeys.mentors(),
+    queryFn: async () => {
+      const response = await fetchApi('/manager/mentors');
       return response.data;
     },
   });
@@ -308,6 +319,33 @@ export const useRemoveManagerJudge = () => {
       return response.data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: managerKeys.judges() }),
+  });
+};
+
+export const useAssignManagerMentor = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: any) => {
+      const response = await fetchApi('/manager/mentors', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      return response.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: managerKeys.mentors() }),
+  });
+};
+
+export const useRemoveManagerMentor = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetchApi(`/manager/mentors/${id}`, {
+        method: 'DELETE',
+      });
+      return response.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: managerKeys.mentors() }),
   });
 };
 

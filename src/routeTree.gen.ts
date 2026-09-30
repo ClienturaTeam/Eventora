@@ -84,6 +84,7 @@ import { Route as ManagerCoordinatorsRouteImport } from './routes/manager.coordi
 import { Route as ManagerEvaluationsRouteImport } from './routes/manager.evaluations'
 import { Route as ManagerEventsRouteImport } from './routes/manager.events'
 import { Route as ManagerJudgesRouteImport } from './routes/manager.judges'
+import { Route as ManagerMentorsRouteImport } from './routes/manager.mentors'
 import { Route as ManagerProblemStatementsRouteImport } from './routes/manager.problem-statements'
 import { Route as ManagerProposalsRouteImport } from './routes/manager.proposals'
 import { Route as ManagerRegistrationsRouteImport } from './routes/manager.registrations'
@@ -513,6 +514,11 @@ const ManagerJudgesRoute = ManagerJudgesRouteImport.update({
   path: '/judges',
   getParentRoute: () => ManagerRoute,
 } as any)
+const ManagerMentorsRoute = ManagerMentorsRouteImport.update({
+  id: '/mentors',
+  path: '/mentors',
+  getParentRoute: () => ManagerRoute,
+} as any)
 const ManagerProblemStatementsRoute =
   ManagerProblemStatementsRouteImport.update({
     id: '/problem-statements',
@@ -834,6 +840,7 @@ export interface FileRoutesByFullPath {
   '/manager/evaluations': typeof ManagerEvaluationsRoute
   '/manager/events': typeof ManagerEventsRouteWithChildren
   '/manager/judges': typeof ManagerJudgesRoute
+  '/manager/mentors': typeof ManagerMentorsRoute
   '/manager/problem-statements': typeof ManagerProblemStatementsRoute
   '/manager/proposals': typeof ManagerProposalsRoute
   '/manager/registrations': typeof ManagerRegistrationsRoute
@@ -955,6 +962,7 @@ export interface FileRoutesByTo {
   '/manager/evaluations': typeof ManagerEvaluationsRoute
   '/manager/events': typeof ManagerEventsRouteWithChildren
   '/manager/judges': typeof ManagerJudgesRoute
+  '/manager/mentors': typeof ManagerMentorsRoute
   '/manager/problem-statements': typeof ManagerProblemStatementsRoute
   '/manager/proposals': typeof ManagerProposalsRoute
   '/manager/registrations': typeof ManagerRegistrationsRoute
@@ -1082,6 +1090,7 @@ export interface FileRoutesById {
   '/manager/evaluations': typeof ManagerEvaluationsRoute
   '/manager/events': typeof ManagerEventsRouteWithChildren
   '/manager/judges': typeof ManagerJudgesRoute
+  '/manager/mentors': typeof ManagerMentorsRoute
   '/manager/problem-statements': typeof ManagerProblemStatementsRoute
   '/manager/proposals': typeof ManagerProposalsRoute
   '/manager/registrations': typeof ManagerRegistrationsRoute
@@ -1210,6 +1219,7 @@ export interface FileRouteTypes {
     | '/manager/evaluations'
     | '/manager/events'
     | '/manager/judges'
+    | '/manager/mentors'
     | '/manager/problem-statements'
     | '/manager/proposals'
     | '/manager/registrations'
@@ -1331,6 +1341,7 @@ export interface FileRouteTypes {
     | '/manager/evaluations'
     | '/manager/events'
     | '/manager/judges'
+    | '/manager/mentors'
     | '/manager/problem-statements'
     | '/manager/proposals'
     | '/manager/registrations'
@@ -1457,6 +1468,7 @@ export interface FileRouteTypes {
     | '/manager/evaluations'
     | '/manager/events'
     | '/manager/judges'
+    | '/manager/mentors'
     | '/manager/problem-statements'
     | '/manager/proposals'
     | '/manager/registrations'
@@ -2137,6 +2149,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ManagerJudgesRouteImport
       parentRoute: typeof ManagerRoute
     }
+    '/manager/mentors': {
+      id: '/manager/mentors'
+      path: '/mentors'
+      fullPath: '/manager/mentors'
+      preLoaderRoute: typeof ManagerMentorsRouteImport
+      parentRoute: typeof ManagerRoute
+    }
     '/manager/problem-statements': {
       id: '/manager/problem-statements'
       path: '/problem-statements'
@@ -2550,6 +2569,7 @@ interface ManagerRouteChildren {
   ManagerEvaluationsRoute: typeof ManagerEvaluationsRoute
   ManagerEventsRoute: typeof ManagerEventsRouteWithChildren
   ManagerJudgesRoute: typeof ManagerJudgesRoute
+  ManagerMentorsRoute: typeof ManagerMentorsRoute
   ManagerProblemStatementsRoute: typeof ManagerProblemStatementsRoute
   ManagerProposalsRoute: typeof ManagerProposalsRoute
   ManagerRegistrationsRoute: typeof ManagerRegistrationsRoute
@@ -2572,6 +2592,7 @@ const ManagerRouteChildren: ManagerRouteChildren = {
   ManagerEvaluationsRoute: ManagerEvaluationsRoute,
   ManagerEventsRoute: ManagerEventsRouteWithChildren,
   ManagerJudgesRoute: ManagerJudgesRoute,
+  ManagerMentorsRoute: ManagerMentorsRoute,
   ManagerProblemStatementsRoute: ManagerProblemStatementsRoute,
   ManagerProposalsRoute: ManagerProposalsRoute,
   ManagerRegistrationsRoute: ManagerRegistrationsRoute,
