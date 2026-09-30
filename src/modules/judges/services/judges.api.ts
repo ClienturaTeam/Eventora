@@ -5,7 +5,9 @@ import { fetchApi } from "@/lib/api-client";
 
 export interface ApiJudge {
   id: string;
-  userId: string;
+  userId?: string;
+  name: string;
+  email: string;
   organizationId: string;
   expertise: string | null;
   bio: string | null;
@@ -54,6 +56,27 @@ export function useJudge(id: string) {
       return res.data as ApiJudge;
     },
     enabled: !!id,
+  });
+}
+
+export function useJudgeProfiles() {
+  return useQuery({
+    queryKey: ["judges", "profiles"],
+    queryFn: async () => {
+      const res = await fetchApi(`/judges/me`);
+      return res.data as ApiJudge[];
+    },
+  });
+}
+
+export function useMyEvaluations(profileId: string | null) {
+  return useQuery({
+    queryKey: ["evaluations", "my", profileId],
+    queryFn: async () => {
+      const res = await fetchApi(`/evaluations/my?profileId=${profileId}`);
+      return res.data;
+    },
+    enabled: !!profileId,
   });
 }
 
@@ -110,6 +133,19 @@ export function useAssignJudgeCompetition() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["judges"] });
+    },
+  });
+}
+
+export function useUpdateEvaluation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: any) => {
+      const res = await fetchApi(`/evaluations/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["evaluations"] });
     },
   });
 }

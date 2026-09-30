@@ -10,6 +10,14 @@ export class JudgeController {
     } catch (error) { next(error); }
   }
 
+  static async findMe(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      // Return all judge profiles for the tenant, so the shared login user can select their profile
+      const data = await JudgeService.getJudges(req.tenantId as string);
+      res.json({ success: true, data });
+    } catch (error) { next(error); }
+  }
+
   static async findById(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const data = await JudgeService.getJudge(req.tenantId as string, req.params.id);

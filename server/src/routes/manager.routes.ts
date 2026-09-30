@@ -22,7 +22,6 @@ router.get("/teams", requirePermission("teams.read"), ManagerController.getTeams
 router.get("/submissions", requirePermission("submissions.read"), ManagerController.getSubmissions);
 router.get("/evaluations", requirePermission("evaluations.read"), ManagerController.getEvaluations);
 router.get("/judges", requirePermission("events.read"), ManagerController.getJudges);
-router.get("/mentors", requirePermission("events.read"), ManagerController.getMentors);
 router.get("/volunteers", requirePermission("events.read"), ManagerController.getVolunteers);
 router.get("/certificates", requirePermission("certificates.read"), ManagerController.getCertificates);
 
@@ -49,10 +48,6 @@ router.patch("/evaluations/:id", requirePermission("evaluations.manage"), Manage
 // Judges
 router.post("/judges", requirePermission("events.update"), ManagerController.assignJudge);
 router.delete("/judges/:id", requirePermission("events.update"), ManagerController.removeJudge);
-
-// Mentors
-router.post("/mentors", requirePermission("events.update"), ManagerController.assignMentor);
-router.delete("/mentors/:id", requirePermission("events.update"), ManagerController.removeMentor);
 
 // Volunteers
 router.post("/volunteers", requirePermission("events.update"), ManagerController.assignVolunteer);

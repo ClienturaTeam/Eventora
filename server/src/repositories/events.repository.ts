@@ -17,6 +17,7 @@ export class EventRepository {
         teamMembers: { include: { user: true } },
         rounds: { orderBy: { roundNumber: 'asc' } },
         problemStatements: true,
+        competitions: true,
         payments: {
           where: {
             status: 'SUCCEEDED',

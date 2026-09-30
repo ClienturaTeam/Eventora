@@ -28,7 +28,6 @@ model User {
   courseEnrollments     CourseEnrollment[]   @relation("CourseParticipant")
   discussionsAuthored   Discussion[]         @relation("DiscussionAuthor")
   discussionReplies     DiscussionReply[]    @relation("ReplyAuthor")
-  evaluations           Evaluation[]
   communityGroups       GroupMembership[]    @relation("GroupMember")
   integrationsConnected Integration[]        @relation("IntegrationConnector")
   jobApplications       JobApplication[]     @relation("JobCandidate")
@@ -347,7 +346,9 @@ model SubmissionFile {
 
 model Judge {
   id             String             @id @default(uuid())
-  userId         String
+  userId         String?
+  name           String             @default("Unknown Judge")
+  email          String             @default("unknown@example.com")
   organizationId String
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
@@ -355,8 +356,7 @@ model Judge {
   expertise      String?
   organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   competitions   JudgeCompetition[]
-
-  @@unique([userId, organizationId])
+  evaluations    Evaluation[]
 }
 
 model JudgeCompetition {
@@ -386,8 +386,8 @@ model Evaluation {
   status           EvaluationStatus @default(PENDING)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
-  judge            User             @relation(fields: [judgeId], references: [id], onDelete: Cascade)
-  submission       Submission       @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  judge        Judge            @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+  submission   Submission       @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   eventRound       EventRound?      @relation(fields: [roundId], references: [id], onDelete: SetNull)
 
   @@unique([submissionId, judgeId])

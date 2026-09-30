@@ -49,6 +49,7 @@ const managerSections = [
       { title: "Evaluations", url: "/manager/evaluations", icon: FileCheck2 },
       { title: "Results", url: "/winners", icon: Trophy },
       { title: "Live Leaderboard", url: "/leaderboard", icon: Trophy },
+      { title: "Judges", url: "/manager/judges", icon: Gavel },
       { title: "Reports", url: "/manager/reports", icon: FileBarChart },
       { title: "Notifications", url: "/notifications", icon: Bell },
     ],
@@ -288,7 +289,7 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
 
-      {!collapsed && roleName !== "Participant" && roleName !== "Manager" ? (
+      {!collapsed && roleName !== "Participant" && roleName !== "Manager" && roleName !== "Judge" ? (
         <SidebarFooter className="border-t border-sidebar-border p-3">
           <div className="rounded-lg border border-sidebar-border bg-sidebar-accent/60 p-3">
             <p className="text-xs font-medium">Enterprise trial</p>
