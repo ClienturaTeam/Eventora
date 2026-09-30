@@ -301,7 +301,7 @@ async function main() {
     },
   });
 
-  await prisma.eventRound.create({
+  const round1 = await prisma.eventRound.create({
     data: {
       eventId: event1.id,
       roundNumber: 1,
@@ -311,7 +311,7 @@ async function main() {
       status: 'ACTIVE',
     },
   });
-  await prisma.eventRound.create({
+  const round2 = await prisma.eventRound.create({
     data: {
       eventId: event1.id,
       roundNumber: 2,
@@ -321,7 +321,7 @@ async function main() {
       status: 'ACTIVE',
     },
   });
-  await prisma.eventRound.create({
+  const round3 = await prisma.eventRound.create({
     data: {
       eventId: event1.id,
       roundNumber: 3,
@@ -332,7 +332,7 @@ async function main() {
     },
   });
 
-  await prisma.eventRound.create({
+  const designRound1 = await prisma.eventRound.create({
     data: {
       eventId: event2.id,
       roundNumber: 1,
@@ -342,7 +342,7 @@ async function main() {
       status: 'ACTIVE',
     },
   });
-  await prisma.eventRound.create({
+  const designRound2 = await prisma.eventRound.create({
     data: {
       eventId: event2.id,
       roundNumber: 2,
@@ -439,6 +439,15 @@ async function main() {
     },
   });
 
+  const team3 = await prisma.team.create({
+    data: {
+      name: 'Code Crafters',
+      competitionId: comp2.id,
+      problemStatementId: ps2.id,
+      members: { create: [{ name: 'Aarav Patel', email: 'aarav@example.com', isLead: true }] },
+    },
+  });
+
   // 11. Submissions
   const sub1 = await prisma.submission.create({
     data: {
@@ -446,7 +455,10 @@ async function main() {
       payload: { description: 'A real-time AI-powered screen reader using computer vision.', url: 'https://github.com/example/accessisight' },
       teamId: team1.id,
       competitionId: comp1.id,
-      status: SubmissionStatus.SUBMITTED,
+      eventId: event1.id,
+      roundId: round1.id,
+      roundNumber: 1,
+      status: SubmissionStatus.EVALUATED,
     },
   });
 
@@ -456,7 +468,36 @@ async function main() {
       payload: { description: 'Uses MediaPipe to translate sign language in real-time.', url: 'https://github.com/example/signbridge' },
       teamId: team2.id,
       competitionId: comp1.id,
+      eventId: event1.id,
+      roundId: round2.id,
+      roundNumber: 2,
       status: SubmissionStatus.IN_REVIEW,
+    },
+  });
+
+  const sub3 = await prisma.submission.create({
+    data: {
+      title: 'GridPulse — AI Smart Energy & Peak Load Optimizer',
+      payload: { description: 'Predictive neural network for micro-grid load balancing and solar distribution.', url: 'https://github.com/example/gridpulse' },
+      teamId: team1.id,
+      competitionId: comp1.id,
+      eventId: event1.id,
+      roundId: round3.id,
+      roundNumber: 3,
+      status: SubmissionStatus.SUBMITTED,
+    },
+  });
+
+  const sub4 = await prisma.submission.create({
+    data: {
+      title: 'EcoMobility — Low-Carbon Urban Transit Dashboard',
+      payload: { description: 'Figma wireframes and UX flows for city transit decarbonization.', url: 'https://figma.com/file/ecomobility' },
+      teamId: team3.id,
+      competitionId: comp2.id,
+      eventId: event2.id,
+      roundId: designRound1.id,
+      roundNumber: 1,
+      status: SubmissionStatus.SUBMITTED,
     },
   });
 
@@ -492,7 +533,10 @@ async function main() {
     data: {
       submissionId: sub1.id,
       judgeId: judge1.id,
+      roundId: round1.id,
+      roundNumber: 1,
       score: 87.5,
+      recommendation: 'QUALIFY',
       feedback: 'Strong technical depth. Excellent use of on-device inference.',
       status: EvaluationStatus.COMPLETED,
     },
@@ -502,7 +546,10 @@ async function main() {
     data: {
       submissionId: sub2.id,
       judgeId: judge1.id,
+      roundId: round2.id,
+      roundNumber: 2,
       score: 79,
+      recommendation: 'QUALIFY',
       feedback: 'Good concept, needs more robust error handling.',
       status: EvaluationStatus.IN_PROGRESS,
     },
@@ -510,8 +557,23 @@ async function main() {
 
   await prisma.evaluation.create({
     data: {
-      submissionId: sub1.id,
+      submissionId: sub3.id,
       judgeId: judge2.id,
+      roundId: round3.id,
+      roundNumber: 3,
+      score: 94.0,
+      recommendation: 'QUALIFY',
+      feedback: 'Outstanding live demonstration and benchmark results.',
+      status: EvaluationStatus.COMPLETED,
+    },
+  });
+
+  await prisma.evaluation.create({
+    data: {
+      submissionId: sub4.id,
+      judgeId: judge1.id,
+      roundId: designRound1.id,
+      roundNumber: 1,
       score: null,
       feedback: null,
       status: EvaluationStatus.PENDING,
