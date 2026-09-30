@@ -46,6 +46,7 @@ const managerSections = [
       { title: "Role Management", url: "/roles", icon: Shield },
       { title: "Teams", url: "/manager/teams", icon: UsersRound },
       { title: "Submissions", url: "/manager/submissions", icon: Sparkles },
+      { title: "Evaluations", url: "/manager/evaluations", icon: FileCheck2 },
       { title: "Judges", url: "/manager/judges", icon: Gavel },
       { title: "Results", url: "/winners", icon: Trophy },
       { title: "Live Leaderboard", url: "/leaderboard", icon: Trophy },
