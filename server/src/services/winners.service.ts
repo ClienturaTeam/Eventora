@@ -147,4 +147,77 @@ export class WinnersService {
   static async getDashboard(organizationId: string) {
     return WinnersRepository.getDashboardMetrics(organizationId);
   }
+
+  static async getFinalists(organizationId: string, competitionId: string) {
+    const submissions = await prisma.submission.findMany({
+      where: {
+        competitionId,
+        competition: { event: { organizationId } }
+      },
+      include: {
+        team: {
+          include: {
+            members: {
+              include: {
+                user: { select: { id: true, firstName: true, lastName: true, email: true } }
+              }
+            }
+          }
+        },
+        evaluations: {
+          include: {
+            judge: { select: { id: true, firstName: true, lastName: true, email: true } }
+          }
+        },
+        winners: {
+          include: {
+            prize: true
+          }
+        }
+      }
+    });
+
+    const finalists = submissions.map((sub) => {
+      const completedEvals = sub.evaluations.filter((e) => e.status === 'COMPLETED' && e.score !== null);
+      const avgScore =
+        completedEvals.length > 0
+          ? Number((completedEvals.reduce((sum, e) => sum + (e.score || 0), 0) / completedEvals.length).toFixed(1))
+          : 0;
+
+      return {
+        submissionId: sub.id,
+        title: sub.title,
+        status: sub.status,
+        teamId: sub.team?.id,
+        teamName: sub.team?.name || 'Individual Participant',
+        members: sub.team?.members || [],
+        evaluationsCount: completedEvals.length,
+        averageScore: avgScore,
+        feedbacks: completedEvals.map((e) => ({
+          judgeName: `${e.judge?.firstName || 'Judge'} ${e.judge?.lastName || ''}`.trim(),
+          score: e.score,
+          feedback: e.feedback
+        })),
+        existingWinner: sub.winners[0] || null
+      };
+    });
+
+    finalists.sort((a, b) => b.averageScore - a.averageScore);
+    return finalists;
+  }
+
+  static async updatePrizeStatus(organizationId: string, prizeId: string, status: "PENDING" | "PROCESSING" | "PAID") {
+    const prize = await prisma.prize.findFirst({
+      where: { id: prizeId, organizationId }
+    });
+
+    if (!prize) {
+      throw new Error("Prize not found");
+    }
+
+    return prisma.prize.update({
+      where: { id: prizeId },
+      data: { status }
+    });
+  }
 }

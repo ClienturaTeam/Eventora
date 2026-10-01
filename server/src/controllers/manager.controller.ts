@@ -9,6 +9,8 @@ import { JudgeService } from "../services/judges.service";
 import { MentorService } from "../services/mentors.service";
 import { VolunteerService } from "../services/volunteers.service";
 import { CertificateService } from "../services/certificates.service";
+import { AttendanceService } from "../services/attendance.service";
+import { prisma } from "../utils/prisma";
 import { AuthRequest } from "../middleware/auth.middleware";
 
 export class ManagerController {
@@ -274,8 +276,7 @@ export class ManagerController {
   // Attendance
   static async getAttendance(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      // Need to import AttendanceService at the top
-      const data = await require("../services/attendance.service").AttendanceService.getRecords(req.tenantId!);
+      const data = await AttendanceService.getRecords(req.tenantId!);
       res.json({ success: true, data });
     } catch (error) {
       next(error);
@@ -285,9 +286,113 @@ export class ManagerController {
   // Reports
   static async getReports(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      // Need to import ReportsService at the top
-      const data = await require("../services/reports.service").ReportsService.getDashboardSummary(req.tenantId!);
-      res.json({ success: true, data });
+      const reports = await prisma.eventFinalReport.findMany({
+        where: { organizationId: req.tenantId! },
+        include: {
+          event: {
+            select: {
+              id: true,
+              name: true,
+              startTime: true,
+              endTime: true,
+              status: true,
+            },
+          },
+          coordinator: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: { updatedAt: "desc" },
+      });
+
+      const events = await prisma.event.findMany({
+        where: { organizationId: req.tenantId! },
+        include: {
+          EventFinalReport: {
+            select: {
+              id: true,
+              status: true,
+              updatedAt: true,
+              executiveSummary: true,
+            },
+          },
+          _count: {
+            select: {
+              registrations: true,
+              competitions: true,
+              submissions: true,
+              Certificate: true,
+            },
+          },
+        },
+        orderBy: { startTime: "desc" },
+      });
+
+      const totalRegistrations = await prisma.registration.count({
+        where: { event: { organizationId: req.tenantId! } },
+      });
+
+      const totalEvaluations = await prisma.evaluation.count({
+        where: { submission: { competition: { event: { organizationId: req.tenantId! } } } },
+      });
+
+      const totalCertificates = await prisma.certificate.count({
+        where: { organizationId: req.tenantId! },
+      });
+
+      res.json({
+        success: true,
+        data: {
+          reports,
+          events,
+          metrics: {
+            totalEvents: events.length,
+            totalDossiers: reports.length,
+            pendingReview: reports.filter((r) => r.status === "SUBMITTED_TO_MANAGER").length,
+            totalRegistrations,
+            totalEvaluations,
+            totalCertificates,
+          },
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async generateReport(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { eventId } = req.params;
+      const { FinalReportService } = await import("../services/final-report.service");
+      const report = await FinalReportService.generateAIDraft(req.tenantId!, eventId, req.user!.id);
+      res.json({ success: true, data: report });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async approveReport(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const { FinalReportService } = await import("../services/final-report.service");
+      const report = await prisma.eventFinalReport.findFirst({
+        where: { OR: [{ id }, { eventId: id }], organizationId: req.tenantId! },
+      });
+      if (!report) throw { status: 404, message: "Report not found" };
+
+      const updated = await FinalReportService.managerReview(
+        req.tenantId!,
+        report.eventId,
+        req.user!.id,
+        "APPROVE",
+        req.body?.comment || "Approved and sealed by organization manager."
+      );
+      res.json({ success: true, data: updated });
     } catch (error) {
       next(error);
     }
@@ -297,7 +402,7 @@ export class ManagerController {
   static async publishResult(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { ResultsService } = await import("../services/results.service");
-      const result = await ResultsService.publishResult(req.tenantId!, req.user!.userId, req.body);
+      const result = await ResultsService.publishResult(req.tenantId!, req.user!.id, req.body);
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);

@@ -18,13 +18,32 @@ export class WinnersRepository {
       where,
       include: {
         competition: { select: { id: true, name: true, event: { select: { id: true, name: true } } } },
-        team: { select: { id: true, name: true } },
+        team: {
+          select: {
+            id: true,
+            name: true,
+            members: {
+              include: {
+                user: { select: { id: true, firstName: true, lastName: true, email: true } }
+              }
+            }
+          }
+        },
         user: { select: { id: true, firstName: true, lastName: true, email: true } },
         prize: true,
-        submission: { select: { id: true, title: true } },
+        submission: {
+          select: {
+            id: true,
+            title: true,
+            evaluations: {
+              where: { status: 'COMPLETED' },
+              select: { id: true, score: true, feedback: true }
+            }
+          }
+        },
         selector: { select: { id: true, firstName: true, lastName: true, email: true } }
       },
-      orderBy: { position: 'asc' }
+      orderBy: { createdAt: 'desc' }
     });
   }
 
@@ -38,9 +57,13 @@ export class WinnersRepository {
     return prisma.winner.findFirst({
       where: { id, organizationId },
       include: {
-        competition: true,
+        competition: { select: { id: true, name: true, event: { select: { id: true, name: true } } } },
         submission: true,
-        team: true,
+        team: {
+          include: {
+            members: { include: { user: true } }
+          }
+        },
         user: true,
         prize: true
       }
@@ -85,9 +108,15 @@ export class WinnersRepository {
     return prisma.prize.findMany({
       where,
       include: {
-        competition: { select: { id: true, name: true } }
+        competition: { select: { id: true, name: true, event: { select: { name: true } } } },
+        winners: {
+          include: {
+            team: { select: { id: true, name: true } },
+            user: { select: { id: true, firstName: true, lastName: true, email: true } }
+          }
+        }
       },
-      orderBy: { position: 'asc' }
+      orderBy: { createdAt: 'desc' }
     });
   }
 
@@ -97,15 +126,136 @@ export class WinnersRepository {
       by: ['competitionId'],
       where: { organizationId, status: 'FINALIZED' }
     });
-    const prizes = await prisma.prize.aggregate({
+
+    const pendingPrizesAgg = await prisma.prize.aggregate({
       where: { organizationId, status: 'PENDING' },
-      _sum: { value: true }
+      _sum: { value: true, amount: true }
     });
-    
+
+    const paidPrizesAgg = await prisma.prize.aggregate({
+      where: { organizationId, status: 'PAID' },
+      _sum: { value: true, amount: true }
+    });
+
+    const pendingPrizeValue = (pendingPrizesAgg._sum.value || 0) + (pendingPrizesAgg._sum.amount || 0);
+    const paidPrizeValue = (paidPrizesAgg._sum.value || 0) + (paidPrizesAgg._sum.amount || 0);
+
+    const pendingPrizesList = await prisma.prize.findMany({
+      where: { organizationId, status: 'PENDING' },
+      include: {
+        competition: { select: { id: true, name: true, event: { select: { name: true } } } },
+        winners: {
+          include: {
+            team: { select: { name: true } },
+            user: { select: { firstName: true, lastName: true } }
+          }
+        }
+      },
+      take: 8
+    });
+
+    const pendingPrizes = pendingPrizesList.map((p) => {
+      const recipientName =
+        p.winners[0]?.team?.name ||
+        (p.winners[0]?.user ? `${p.winners[0].user.firstName} ${p.winners[0].user.lastName}` : null) ||
+        p.name;
+      return {
+        id: p.id,
+        name: recipientName,
+        comp: p.competition?.name || "Competition",
+        prize: `${p.currency || 'INR'} ${(p.value || p.amount || 0).toLocaleString()}`,
+        status: p.status,
+        value: p.value || p.amount || 0,
+        currency: p.currency || 'INR'
+      };
+    });
+
+    // Group winners by competition
+    const winnersByComp = await prisma.winner.groupBy({
+      by: ['competitionId'],
+      where: { organizationId },
+      _count: { id: true }
+    });
+
+    const compIds = winnersByComp.map((w) => w.competitionId);
+    const comps = await prisma.competition.findMany({
+      where: { id: { in: compIds } },
+      select: { id: true, name: true }
+    });
+    const compMap = new Map(comps.map((c) => [c.id, c.name]));
+
+    const winnersByOrganization = winnersByComp.map((w) => ({
+      org: compMap.get(w.competitionId) || 'Competition Track',
+      winners: w._count.id
+    }));
+
+    if (winnersByOrganization.length === 0) {
+      const allComps = await prisma.competition.findMany({
+        where: { event: { organizationId } },
+        select: { name: true },
+        take: 5
+      });
+      allComps.forEach((c) => {
+        winnersByOrganization.push({ org: c.name, winners: 0 });
+      });
+    }
+
+    // Competitions summary
+    const competitions = await prisma.competition.findMany({
+      where: { event: { organizationId } },
+      include: {
+        event: { select: { name: true } },
+        _count: {
+          select: {
+            submissions: true,
+            winners: true
+          }
+        },
+        submissions: {
+          include: {
+            _count: {
+              select: {
+                evaluations: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const competitionsSummary = competitions.map((c) => {
+      const evaluatedCount = c.submissions.filter((s) => s._count.evaluations > 0).length;
+      return {
+        id: c.id,
+        name: c.name,
+        eventName: c.event.name,
+        totalSubmissions: c._count.submissions,
+        evaluatedSubmissions: evaluatedCount,
+        totalWinners: c._count.winners,
+        isReadyForSelection: c._count.submissions > 0 && evaluatedCount === c._count.submissions
+      };
+    });
+
+    const totalEvaluatedSubmissions = await prisma.evaluation.count({
+      where: {
+        submission: {
+          competition: {
+            event: { organizationId }
+          }
+        },
+        status: 'COMPLETED'
+      }
+    });
+
     return {
       totalWinners,
       finalizedCompetitions: finalizedCompetitions.length,
-      pendingPrizeValue: prizes._sum.value || 0
+      pendingPrizeValue,
+      paidPrizeValue,
+      totalEvaluatedSubmissions,
+      pendingPrizes,
+      winnersByOrganization,
+      competitionsSummary
     };
   }
 }

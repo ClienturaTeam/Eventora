@@ -17,8 +17,12 @@ router.get("/dashboard", requirePermission("winners.read"), WinnersController.ge
 router.get("/", requirePermission("winners.read"), WinnersController.getWinners);
 router.post("/", requirePermission("winners.manage"), WinnersController.selectWinner);
 
-// Prizes list
+// Prizes list & status update
 router.get("/prizes", requirePermission("winners.read"), WinnersController.getPrizes);
+router.patch("/prizes/:id/status", requirePermission("winners.manage"), WinnersController.updatePrizeStatus);
+
+// Finalists leaderboard for selection
+router.get("/finalists", requirePermission("winners.read"), WinnersController.getFinalists);
 
 // Individual Winner operations
 router.get("/:id", requirePermission("winners.read"), WinnersController.getWinnerById);

@@ -65,3 +65,47 @@ export const usePrizes = (competitionId?: string) => {
     },
   });
 };
+
+export const useFinalists = (competitionId?: string) => {
+  return useQuery({
+    queryKey: ["finalists", competitionId],
+    queryFn: () => {
+      if (!competitionId) return Promise.resolve([]);
+      return fetchApi<{ data: any[] }>(`/winners/finalists?competitionId=${competitionId}`).then((res) => res.data);
+    },
+    enabled: !!competitionId,
+  });
+};
+
+export const useUpdatePrizeStatus = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "PENDING" | "PROCESSING" | "PAID" }) =>
+      fetchApi<{ data: any }>(`/winners/prizes/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }).then((res) => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["prizes"] });
+      queryClient.invalidateQueries({ queryKey: ["winners-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["winners"] });
+    },
+  });
+};
+
+export const usePublishResult = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { competitionId: string; teamId: string; resultType: string; prizeAmount?: number; currency?: string }) =>
+      fetchApi<{ data: any }>("/manager/results/publish", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }).then((res) => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["winners"] });
+      queryClient.invalidateQueries({ queryKey: ["winners-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["finalists"] });
+      queryClient.invalidateQueries({ queryKey: ["prizes"] });
+    },
+  });
+};

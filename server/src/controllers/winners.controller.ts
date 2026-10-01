@@ -68,4 +68,28 @@ export class WinnersController {
       res.status(500).json({ success: false, error: { message: error.message, details: [] } });
     }
   }
+
+  static async getFinalists(req: AuthRequest, res: Response) {
+    try {
+      const { competitionId } = req.query;
+      if (!competitionId) {
+        return res.status(400).json({ success: false, error: { message: "competitionId query param is required." } });
+      }
+      const data = await WinnersService.getFinalists(req.tenantId!, competitionId as string);
+      res.json({ success: true, data });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: { message: error.message, details: [] } });
+    }
+  }
+
+  static async updatePrizeStatus(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      const data = await WinnersService.updatePrizeStatus(req.tenantId!, id, status);
+      res.json({ success: true, data });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: { message: error.message, details: [] } });
+    }
+  }
 }
