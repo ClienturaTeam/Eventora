@@ -200,16 +200,39 @@ export function ManagerEvaluationsPage() {
           columns={[
             {
               key: "team",
-              header: "Team & Submission",
+              header: "Team & Problem Statement",
               sortable: true,
               render: (row) => {
                 const teamName = row.team?.name || row.submission?.team?.name || 'Team';
+                const ps = row.submission?.problemStatement;
                 const subTitle = row.submission?.title;
                 return (
-                  <div>
+                  <div className="space-y-0.5">
                     <span className="font-semibold text-sm block">{teamName}</span>
-                    {subTitle && <span className="text-xs text-muted-foreground block">{subTitle}</span>}
+                    {ps ? (
+                      <span className="text-xs text-primary font-medium block">
+                        {ps.code}{ps.title ? ` — ${ps.title}` : ""}
+                      </span>
+                    ) : subTitle ? (
+                      <span className="text-xs text-muted-foreground block">{subTitle}</span>
+                    ) : null}
                   </div>
+                );
+              },
+            },
+            {
+              key: "round",
+              header: "Round",
+              sortable: true,
+              render: (row) => {
+                const round = row.submission?.eventRound || row.eventRound;
+                const roundNum = row.roundNumber || round?.roundNumber || row.submission?.roundNumber || 1;
+                const roundName = round?.name ? `Round ${roundNum} — ${round.name}` : `Round ${roundNum}`;
+                return (
+                  <Badge variant="outline" className="text-xs px-2 py-0.5 inline-flex items-center gap-1 font-normal">
+                    <Layers className="w-3 h-3 text-blue-500" />
+                    {roundName}
+                  </Badge>
                 );
               },
             },
@@ -218,16 +241,15 @@ export function ManagerEvaluationsPage() {
               header: "Assigned Judge",
               render: (row) => {
                 const j = row.judge || row.submission?.judgeAssignments?.[0]?.judge;
-                const judgeName = j ? `${j.firstName || ''} ${j.lastName || ''}`.trim() || j.email : 'Official Judge';
+                const judgeName = j ? `${j.firstName || ''} ${j.lastName || ''}`.trim() || j.name || j.email : 'Judge';
                 return <span className="text-xs font-medium text-foreground">{judgeName}</span>;
               },
             },
             {
               key: "score",
-              header: scoreHeader,
+              header: "Score / Max Marks",
               sortable: true,
               render: (row) => {
-                const roundNum = row.roundNumber || row.eventRound?.roundNumber || row.submission?.roundNumber || row.submission?.eventRound?.roundNumber || 1;
                 const maxMarks = row.eventRound?.maxMarks || row.submission?.eventRound?.maxMarks || 100;
 
                 if (row.score === null || row.score === undefined) {
@@ -235,23 +257,26 @@ export function ManagerEvaluationsPage() {
                 }
 
                 return (
-                  <div>
-                    <span className="font-mono font-bold text-primary text-sm">{row.score} / {maxMarks}</span>
-                    {selectedRoundFilter === "ALL" && (
-                      <Badge variant="outline" className="text-[10px] ml-2 px-1 py-0 inline-flex items-center gap-1">
-                        <Layers className="w-2.5 h-2.5 text-blue-500" />
-                        Round {roundNum}
-                      </Badge>
-                    )}
-                  </div>
+                  <span className="font-mono font-bold text-primary text-sm">
+                    {row.score} / {maxMarks}
+                  </span>
                 );
               },
+            },
+            {
+              key: "feedback",
+              header: "Feedback",
+              render: (row) => (
+                <div className="max-w-[180px] truncate text-xs text-muted-foreground" title={row.feedback || "No feedback"}>
+                  {row.feedback || <span className="italic">None</span>}
+                </div>
+              ),
             },
             {
               key: "recommendation",
               header: "Recommendation",
               render: (row) => (
-                <Badge variant={row.recommendation === "QUALIFY" ? "default" : row.recommendation === "REJECT" ? "destructive" : "outline"}>
+                <Badge variant={row.recommendation === "QUALIFY" ? "default" : row.recommendation === "REJECT" ? "destructive" : "outline"} className="text-[11px]">
                   {row.recommendation || "PENDING"}
                 </Badge>
               ),
@@ -269,10 +294,27 @@ export function ManagerEvaluationsPage() {
 
                 return (
                   <Badge variant={variant} className="text-xs font-normal">
-                    {status.replace("_", " ")}
+                    {status === "COMPLETED" ? "EVALUATED" : status.replace("_", " ")}
                   </Badge>
                 );
               },
+            },
+            {
+              key: "updatedAt",
+              header: "Evaluated At",
+              sortable: true,
+              render: (row) => (
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  {new Date(row.updatedAt || row.createdAt).toLocaleString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                  })}
+                </span>
+              ),
             },
             {
               key: "action",

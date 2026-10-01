@@ -9,8 +9,10 @@ export type ApiEventRound = {
   description: string | null;
   maxMarks: number;
   submissionType: string;
-  startDate: string | null;
-  endDate: string | null;
+  submissionStart?: string | null;
+  submissionDeadline?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
   isLocked: boolean;
 };
 

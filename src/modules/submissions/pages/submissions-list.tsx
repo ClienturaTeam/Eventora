@@ -6,6 +6,7 @@ import { useSubmissions, useDeleteSubmission, ApiSubmission } from "../services/
 import { useEvents, useEventRounds } from "@/modules/events/services/events.api";
 import { SubmissionDialog } from "../components/submission-dialog";
 import { AssignJudgeDialog } from "../components/assign-judge-dialog";
+import { BatchAssignJudgeDialog } from "../components/batch-assign-judge-dialog";
 import { EventDetailsDialog } from "@/components/events/EventDetailsDialog";
 import { ApiEvent } from "@/modules/events/services/events.api";
 import { toast } from "sonner";
@@ -28,6 +29,8 @@ const statusLabel: Record<string, string> = {
 export function SubmissionsListPage() {
   const [selectedEventId, setSelectedEventId] = useState<string>("ALL");
   const [selectedRoundFilter, setSelectedRoundFilter] = useState<string>("ALL");
+  const [selectedSubmissionIds, setSelectedSubmissionIds] = useState<string[]>([]);
+  const [batchAssignOpen, setBatchAssignOpen] = useState(false);
 
   // Fetch events list
   const { data: events = [] } = useEvents();
@@ -76,19 +79,33 @@ export function SubmissionsListPage() {
   const handleEventChange = (value: string) => {
     setSelectedEventId(value);
     setSelectedRoundFilter("ALL");
+    setSelectedSubmissionIds([]);
   };
+
+  const handleRoundChange = (roundId: string) => {
+    setSelectedRoundFilter(roundId);
+    setSelectedSubmissionIds([]);
+  };
+
+  const selectedSubmissions = submissions.filter((s) => selectedSubmissionIds.includes(s.id));
 
   const columns: Column<ApiSubmission>[] = [
     {
       key: "title",
-      header: "Title & Student/Team",
+      header: "Team & Submission",
       sortable: true,
       render: (row) => (
-        <div>
-          <span className="font-medium text-sm block">{row.title}</span>
-          <span className="text-xs text-muted-foreground">
-            {row.team?.name ? `Team: ${row.team.name}` : row.submittedBy ? `${row.submittedBy.firstName} ${row.submittedBy.lastName}` : "Participant"}
-          </span>
+        <div className="space-y-1">
+          <div className="font-semibold text-sm text-foreground">
+            {row.team?.name || (row.submittedBy ? `${row.submittedBy.firstName} ${row.submittedBy.lastName}` : "Participant")}
+          </div>
+          <div className="text-xs text-muted-foreground">{row.title}</div>
+          {row.problemStatement && (
+            <div className="text-xs text-primary font-medium flex items-center gap-1">
+              <span className="font-semibold text-foreground/80">{row.problemStatement.code}:</span>
+              <span>{row.problemStatement.title}</span>
+            </div>
+          )}
         </div>
       ),
     },
@@ -189,7 +206,18 @@ export function SubmissionsListPage() {
       key: "createdAt",
       header: "Submitted Date",
       sortable: true,
-      render: (row) => <span className="text-xs">{new Date(row.createdAt).toLocaleDateString()}</span>,
+      render: (row) => (
+        <span className="text-xs text-muted-foreground whitespace-nowrap">
+          {new Date(row.createdAt).toLocaleString(undefined, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          })}
+        </span>
+      ),
     },
   ];
 
@@ -235,7 +263,7 @@ export function SubmissionsListPage() {
               variant={selectedRoundFilter === "ALL" ? "default" : "outline"}
               size="sm"
               className="h-7 text-xs px-3"
-              onClick={() => setSelectedRoundFilter("ALL")}
+              onClick={() => handleRoundChange("ALL")}
             >
               All Rounds
             </Button>
@@ -253,7 +281,7 @@ export function SubmissionsListPage() {
                     variant={isSelected ? "default" : "outline"}
                     size="sm"
                     className="h-7 text-xs px-3"
-                    onClick={() => setSelectedRoundFilter(round.id)}
+                    onClick={() => handleRoundChange(round.id)}
                     title={round.description || round.name}
                   >
                     {roundLabel}
@@ -263,6 +291,33 @@ export function SubmissionsListPage() {
             ) : null}
           </div>
         </div>
+
+        {/* Selected Submissions Banner */}
+        {selectedSubmissionIds.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-2.5 bg-primary/10 border border-primary/20 rounded-lg text-sm text-foreground">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-primary">{selectedSubmissionIds.length}</span>
+              <span>submission{selectedSubmissionIds.length > 1 ? "s" : ""} selected</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => setBatchAssignOpen(true)}
+                className="gap-1.5"
+              >
+                <UserCheck className="w-3.5 h-3.5" />
+                Assign to Judge
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedSubmissionIds([])}
+              >
+                Clear selection
+              </Button>
+            </div>
+          </div>
+        )}
 
         <ListPageTemplate<ApiSubmission>
           title="Submissions"
@@ -274,7 +329,21 @@ export function SubmissionsListPage() {
           searchKeys={["title", "team.name", "submittedBy.firstName", "submittedBy.lastName", "submittedBy.email", "id"]}
           statusKey="status"
           dateKey="createdAt"
-          selectable={false}
+          selectable={true}
+          selected={selectedSubmissionIds}
+          onSelectedChange={setSelectedSubmissionIds}
+          headerCheckboxLabel="Select All Visible"
+          headerActions={
+            selectedSubmissionIds.length > 0 ? (
+              <Button
+                onClick={() => setBatchAssignOpen(true)}
+                className="gap-2"
+              >
+                <UserCheck className="w-4 h-4" />
+                Assign to Judge ({selectedSubmissionIds.length})
+              </Button>
+            ) : null
+          }
           stats={statsList}
           emptyTitle={
             selectedRoundFilter !== "ALL"
@@ -328,6 +397,13 @@ export function SubmissionsListPage() {
         open={assignJudgeOpen}
         onOpenChange={setAssignJudgeOpen}
         submission={selectedSub}
+      />
+
+      <BatchAssignJudgeDialog
+        open={batchAssignOpen}
+        onOpenChange={setBatchAssignOpen}
+        selectedSubmissions={selectedSubmissions}
+        onSuccess={() => setSelectedSubmissionIds([])}
       />
 
       <EventDetailsDialog

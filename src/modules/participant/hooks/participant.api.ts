@@ -284,6 +284,8 @@ export const useUploadSubmissionFile = () => {
       queryClient.invalidateQueries({ queryKey: participantKeys.submissions() });
       queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
       queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['manager', 'submissions'] });
     },
   });
 };
@@ -301,6 +303,8 @@ export const useFinalSubmitSubmission = () => {
       queryClient.invalidateQueries({ queryKey: participantKeys.submissions() });
       queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
       queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['manager', 'submissions'] });
     },
   });
 };

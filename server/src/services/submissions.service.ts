@@ -155,6 +155,13 @@ export class SubmissionService {
       });
 
       if (existingSub) {
+        if (existingSub.isLocked || existingSub.status === "SUBMITTED" || existingSub.status === "EVALUATED") {
+          throw {
+            status: 400,
+            code: "SUBMISSION_ALREADY_LOCKED",
+            message: `Round '${round.name}' submission has already been submitted and locked.`
+          };
+        }
         return existingSub;
       }
     }
@@ -195,43 +202,74 @@ export class SubmissionService {
     const sub = await SubmissionRepository.findById(tenantId, submissionId);
     if (!sub) throw { status: 404, code: "NOT_FOUND", message: "Submission not found." };
 
+    // 1. Resolve User and Judge models
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: judgeUserId },
+          { judgeProfiles: { some: { id: judgeUserId } } }
+        ]
+      },
+      include: { judgeProfiles: true }
+    });
+
+    if (!user) {
+      throw { status: 404, code: "NOT_FOUND", message: "Judge user not found." };
+    }
+
+    const targetUserId = user.id;
+
     // Verify judge user is a member of the organization
     const judgeMember = await prisma.organizationMember.findUnique({
-      where: { userId_organizationId: { userId: judgeUserId, organizationId: tenantId } }
+      where: { userId_organizationId: { userId: targetUserId, organizationId: tenantId } },
+      include: { role: true }
     });
     if (!judgeMember) {
       throw { status: 400, code: "INVALID_JUDGE", message: "Selected judge does not belong to this organization." };
+    }
+
+    // Resolve or create corresponding Judge profile record
+    let judgeProfile = user.judgeProfiles?.find((j) => j.organizationId === tenantId) || user.judgeProfiles?.[0];
+    if (!judgeProfile) {
+      judgeProfile = await prisma.judge.create({
+        data: {
+          userId: targetUserId,
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+          email: user.email,
+          organizationId: tenantId
+        }
+      });
     }
 
     const assignment = await prisma.submissionJudgeAssignment.upsert({
       where: {
         submissionId_judgeId: {
           submissionId,
-          judgeId: judgeUserId
+          judgeId: targetUserId
         }
       },
       update: {},
       create: {
         submissionId,
-        judgeId: judgeUserId
+        judgeId: targetUserId
       },
       include: {
         judge: { select: { id: true, firstName: true, lastName: true, email: true } }
       }
     });
 
-    // Also upsert corresponding Evaluation record so evaluation queue shows the submission immediately
+    // Also upsert corresponding Evaluation record using judgeProfile.id
     await prisma.evaluation.upsert({
       where: {
         submissionId_judgeId: {
           submissionId,
-          judgeId: judgeUserId
+          judgeId: judgeProfile.id
         }
       },
       update: {},
       create: {
         submissionId,
-        judgeId: judgeUserId,
+        judgeId: judgeProfile.id,
         roundId: sub.roundId || null,
         roundNumber: sub.roundNumber || 1,
         status: "PENDING"
@@ -242,7 +280,7 @@ export class SubmissionService {
     await prisma.notification.create({
       data: {
         organizationId: tenantId,
-        recipientUserId: judgeUserId,
+        recipientUserId: targetUserId,
         title: "New Submission Assigned",
         message: `You have been assigned to evaluate submission '${sub.title}'.`,
         type: "EVALUATION",
@@ -268,19 +306,29 @@ export class SubmissionService {
     const sub = await SubmissionRepository.findById(tenantId, submissionId);
     if (!sub) throw { status: 404, code: "NOT_FOUND", message: "Submission not found." };
 
-    await prisma.submissionJudgeAssignment.deleteMany({
+    const judgeProfile = await prisma.judge.findFirst({
       where: {
-        submissionId,
-        judgeId: judgeUserId
+        OR: [{ userId: judgeUserId }, { id: judgeUserId }]
       }
     });
 
-    await prisma.evaluation.deleteMany({
+    const targetUserId = judgeProfile?.userId || judgeUserId;
+
+    await prisma.submissionJudgeAssignment.deleteMany({
       where: {
         submissionId,
-        judgeId: judgeUserId
+        judgeId: targetUserId
       }
     });
+
+    if (judgeProfile) {
+      await prisma.evaluation.deleteMany({
+        where: {
+          submissionId,
+          judgeId: judgeProfile.id
+        }
+      });
+    }
 
     return true;
   }
@@ -292,6 +340,18 @@ export class SubmissionService {
     }
     if (sub.isLocked) {
       throw { status: 400, code: "SUBMISSION_LOCKED", message: "Submission is locked and cannot be modified." };
+    }
+    if (sub.roundId) {
+      const round = await prisma.eventRound.findUnique({ where: { id: sub.roundId } });
+      if (round) {
+        const now = new Date();
+        if (round.submissionStart && now < new Date(round.submissionStart)) {
+          throw { status: 400, code: "SUBMISSION_WINDOW_NOT_OPEN", message: `Submission window for '${round.name}' has not opened yet.` };
+        }
+        if (round.submissionDeadline && now > new Date(round.submissionDeadline)) {
+          throw { status: 400, code: "SUBMISSION_WINDOW_CLOSED", message: `Submission deadline for '${round.name}' has passed.` };
+        }
+      }
     }
     return SubmissionRepository.update(tenantId, id, data);
   }
@@ -375,6 +435,19 @@ export class SubmissionService {
       throw { status: 400, code: "SUBMISSION_LOCKED", message: "Submission is already locked." };
     }
 
+    if (sub.roundId) {
+      const round = await prisma.eventRound.findUnique({ where: { id: sub.roundId } });
+      if (round) {
+        const now = new Date();
+        if (round.submissionStart && now < new Date(round.submissionStart)) {
+          throw { status: 400, code: "SUBMISSION_WINDOW_NOT_OPEN", message: `Submission window for '${round.name}' has not opened yet.` };
+        }
+        if (round.submissionDeadline && now > new Date(round.submissionDeadline)) {
+          throw { status: 400, code: "SUBMISSION_WINDOW_CLOSED", message: `Submission deadline for '${round.name}' has passed.` };
+        }
+      }
+    }
+
     const updated = await prisma.$transaction(async (tx) => {
       const s = await tx.submission.update({
         where: { id: submissionId },
@@ -406,10 +479,14 @@ export class SubmissionService {
   }
 
   static async deleteSubmission(tenantId: string, id: string) {
-    const sub = await SubmissionRepository.delete(tenantId, id);
-    if (!sub) {
+    const existing = await prisma.submission.findUnique({ where: { id } });
+    if (!existing) {
       throw { status: 404, code: "NOT_FOUND", message: "Submission not found." };
     }
+    if (existing.isLocked || existing.status === "SUBMITTED" || existing.status === "EVALUATED") {
+      throw { status: 400, code: "SUBMISSION_LOCKED", message: "Locked submission cannot be deleted." };
+    }
+    const sub = await SubmissionRepository.delete(tenantId, id);
     return true;
   }
 }

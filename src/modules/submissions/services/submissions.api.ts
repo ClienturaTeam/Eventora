@@ -86,6 +86,8 @@ export function useAssignJudge() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["submissions"] });
       queryClient.invalidateQueries({ queryKey: ["evaluations"] });
+      queryClient.invalidateQueries({ queryKey: ["manager", "submissions"] });
+      queryClient.invalidateQueries({ queryKey: ["manager", "evaluations"] });
     },
   });
 }
@@ -102,6 +104,8 @@ export function useUnassignJudge() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["submissions"] });
       queryClient.invalidateQueries({ queryKey: ["evaluations"] });
+      queryClient.invalidateQueries({ queryKey: ["manager", "submissions"] });
+      queryClient.invalidateQueries({ queryKey: ["manager", "evaluations"] });
     },
   });
 }

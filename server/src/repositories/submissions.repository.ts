@@ -79,7 +79,15 @@ export class SubmissionRepository {
         },
         evaluations: {
           include: {
-            judge: { select: { id: true, firstName: true, lastName: true, email: true } }
+            judge: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                userId: true,
+                user: { select: { id: true, firstName: true, lastName: true, email: true } }
+              }
+            }
           }
         },
         _count: { select: { evaluations: true } }
@@ -112,7 +120,15 @@ export class SubmissionRepository {
         },
         evaluations: {
           include: {
-            judge: { select: { id: true, firstName: true, lastName: true, email: true } }
+            judge: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                userId: true,
+                user: { select: { id: true, firstName: true, lastName: true, email: true } }
+              }
+            }
           }
         }
       }

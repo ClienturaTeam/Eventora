@@ -40,17 +40,9 @@ export class EvaluationController {
   static async findMine(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const tenantId = req.tenantId as string;
-      const profileId = req.query.profileId as string;
-      if (!profileId) {
-        return res.status(400).json({ success: false, message: "profileId query parameter is required" });
-      }
-      // verify the profile belongs to the tenant
-      const judgeProfile = await prisma.judge.findFirst({ where: { id: profileId, organizationId: tenantId }});
-      if (!judgeProfile) {
-        return res.status(403).json({ success: false, message: "Invalid profile ID or access denied" });
-      }
+      const profileId = req.query.profileId as string | undefined;
       
-      const data = await EvaluationService.getMyEvaluations(tenantId, profileId);
+      const data = await EvaluationService.getMyEvaluations(tenantId, req.user!.id, profileId);
       res.json({ success: true, data });
     } catch (error) {
       next(error);
@@ -81,23 +73,12 @@ export class EvaluationController {
     try {
       const tenantId = req.tenantId as string;
       const actorUserId = req.user!.id;
-      const profileId = req.body.profileId || req.query.profileId as string;
       const admin = await isOrgAdmin(actorUserId, tenantId);
-      
-      if (!admin) {
-        if (!profileId) {
-          return res.status(400).json({ success: false, message: "profileId is required for judges" });
-        }
-        const judgeProfile = await prisma.judge.findFirst({ where: { id: profileId, organizationId: tenantId }});
-        if (!judgeProfile) {
-          return res.status(403).json({ success: false, message: "Invalid profile ID or access denied" });
-        }
-      }
 
       const data = await EvaluationService.updateEvaluation(
         tenantId,
         req.params.id,
-        profileId, // Passing profileId instead of actorUserId for judges
+        actorUserId,
         admin,
         req.body
       );

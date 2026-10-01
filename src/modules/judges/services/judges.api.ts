@@ -69,14 +69,14 @@ export function useJudgeProfiles() {
   });
 }
 
-export function useMyEvaluations(profileId: string | null) {
+export function useMyEvaluations(profileId?: string | null) {
   return useQuery({
-    queryKey: ["evaluations", "my", profileId],
+    queryKey: ["evaluations", "my", profileId || "self"],
     queryFn: async () => {
-      const res = await fetchApi(`/evaluations/my?profileId=${profileId}`);
+      const qs = profileId ? `?profileId=${encodeURIComponent(profileId)}` : "";
+      const res = await fetchApi(`/evaluations/my${qs}`);
       return res.data;
     },
-    enabled: !!profileId,
   });
 }
 
@@ -146,6 +146,9 @@ export function useUpdateEvaluation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["evaluations"] });
+      queryClient.invalidateQueries({ queryKey: ["submissions"] });
+      queryClient.invalidateQueries({ queryKey: ["manager", "evaluations"] });
+      queryClient.invalidateQueries({ queryKey: ["manager", "submissions"] });
     },
   });
 }

@@ -21,8 +21,8 @@ export class EvaluationService {
     return EvaluationRepository.findAll(tenantId, filters);
   }
 
-  static async getMyEvaluations(tenantId: string, judgeUserId: string) {
-    return EvaluationRepository.findByJudge(tenantId, judgeUserId);
+  static async getMyEvaluations(tenantId: string, judgeUserId: string, profileId?: string) {
+    return EvaluationRepository.findByJudge(tenantId, judgeUserId, profileId);
   }
 
   static async getEvaluation(tenantId: string, id: string) {
@@ -58,18 +58,25 @@ export class EvaluationService {
     const ev = await EvaluationRepository.findById(tenantId, id);
     if (!ev) throw { status: 404, code: "NOT_FOUND", message: "Evaluation not found." };
 
+    const judgeRecord = await prisma.judge.findFirst({
+      where: {
+        OR: [{ userId: actorUserId }, { id: actorUserId }],
+        organizationId: tenantId
+      }
+    });
+
+    const isAssignedToUser = Boolean((judgeRecord && ev.judgeId === judgeRecord.id) || ev.judgeId === actorUserId);
+
     // Verify judge assignment unless admin
     if (!isAdmin) {
-      const assignment = await prisma.submissionJudgeAssignment.findUnique({
+      const assignment = await prisma.submissionJudgeAssignment.findFirst({
         where: {
-          submissionId_judgeId: {
-            submissionId: ev.submissionId,
-            judgeId: actorUserId,
-          }
+          submissionId: ev.submissionId,
+          judgeId: actorUserId,
         }
       });
 
-      if (!assignment && ev.judgeId !== actorUserId) {
+      if (!assignment && !isAssignedToUser) {
         throw {
           status: 403,
           code: "FORBIDDEN",
@@ -79,7 +86,7 @@ export class EvaluationService {
     }
 
     // Strict Role Constraint: Admins CANNOT enter or directly edit judge scores for another judge.
-    if (isAdmin && ev.judgeId !== actorUserId) {
+    if (isAdmin && !isAssignedToUser) {
       throw {
         status: 403,
         code: "FORBIDDEN",
@@ -87,7 +94,7 @@ export class EvaluationService {
       };
     }
 
-    if (ev.judgeId !== actorUserId) {
+    if (!isAssignedToUser) {
       throw {
         status: 403,
         code: "FORBIDDEN",

@@ -734,6 +734,13 @@ export class ParticipantService {
         where: { teamId: data.teamId, roundId: data.roundId }
       });
       if (existingSub) {
+        if (existingSub.isLocked || existingSub.status === "SUBMITTED" || existingSub.status === "EVALUATED") {
+          throw {
+            status: 400,
+            code: "SUBMISSION_ALREADY_LOCKED",
+            message: `Round '${round.name}' submission has already been submitted and locked.`
+          };
+        }
         return existingSub;
       }
 
@@ -761,10 +768,42 @@ export class ParticipantService {
   }
 
   static async updateSubmission(userId: string, submissionId: string, data: any) {
-    const sub = await prisma.submission.findUnique({ where: { id: submissionId }, include: { team: { include: { members: true } } } });
+    const sub = await prisma.submission.findUnique({
+      where: { id: submissionId },
+      include: {
+        team: { include: { members: true } },
+        eventRound: true
+      }
+    });
     if (!sub) throw { status: 404, code: "NOT_FOUND", message: "Submission not found." };
     if (!sub.team.members.find((m: any) => m.userId === userId)) {
       throw { status: 403, code: "FORBIDDEN", message: "Not a team member." };
+    }
+
+    if (sub.isLocked || sub.status === "SUBMITTED" || sub.status === "EVALUATED") {
+      throw {
+        status: 400,
+        code: "SUBMISSION_LOCKED",
+        message: "Submission is permanently locked and cannot be modified."
+      };
+    }
+
+    if (sub.eventRound) {
+      const now = new Date();
+      if (sub.eventRound.submissionStart && now < new Date(sub.eventRound.submissionStart)) {
+        throw {
+          status: 400,
+          code: "SUBMISSION_WINDOW_NOT_OPEN",
+          message: `Submission window for '${sub.eventRound.name}' has not opened yet.`
+        };
+      }
+      if (sub.eventRound.submissionDeadline && now > new Date(sub.eventRound.submissionDeadline)) {
+        throw {
+          status: 400,
+          code: "SUBMISSION_WINDOW_CLOSED",
+          message: `Submission deadline for '${sub.eventRound.name}' has passed.`
+        };
+      }
     }
 
     if (sub.eventId) {

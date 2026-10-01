@@ -41,6 +41,7 @@ interface DataTableProps<T extends { id: string }> {
   selectable?: boolean | undefined;
   selected?: string[] | undefined;
   onSelectedChange?: ((ids: string[]) => void) | undefined;
+  headerCheckboxLabel?: string | undefined;
   rowActions?: RowAction<T>[] | undefined;
   loading?: boolean | undefined;
   error?: boolean | undefined;
@@ -59,6 +60,7 @@ export function DataTable<T extends { id: string }>({
   selectable = false,
   selected = [],
   onSelectedChange,
+  headerCheckboxLabel,
   rowActions,
   loading,
   error,
@@ -150,12 +152,20 @@ export function DataTable<T extends { id: string }>({
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               {selectable ? (
-                <TableHead className="w-10">
-                  <Checkbox
-                    checked={allPagedSelected}
-                    onCheckedChange={toggleAll}
-                    aria-label="Select all rows on this page"
-                  />
+                <TableHead className={headerCheckboxLabel ? "whitespace-nowrap px-3" : "w-10"}>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={allPagedSelected}
+                      onCheckedChange={toggleAll}
+                      aria-label={headerCheckboxLabel || "Select All Visible"}
+                      title={headerCheckboxLabel || "Select All Visible"}
+                    />
+                    {headerCheckboxLabel ? (
+                      <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                        {headerCheckboxLabel}
+                      </span>
+                    ) : null}
+                  </div>
                 </TableHead>
               ) : null}
               {columns.map((col) => (

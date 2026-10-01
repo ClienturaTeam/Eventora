@@ -50,6 +50,9 @@ export interface ListPageProps<T extends { id: string }> {
   loading?: boolean;
   error?: boolean;
   selectable?: boolean;
+  selected?: string[];
+  onSelectedChange?: (ids: string[]) => void;
+  headerCheckboxLabel?: string;
   pageSize?: number;
   emptyTitle?: string | undefined;
   emptyDescription?: string | undefined;
@@ -100,6 +103,9 @@ export function ListPageTemplate<T extends { id: string }>({
   loading,
   error,
   selectable = false,
+  selected: externalSelected,
+  onSelectedChange: externalOnSelectedChange,
+  headerCheckboxLabel,
   pageSize = 8,
   emptyTitle: customEmptyTitle,
   emptyDescription: customEmptyDescription,
@@ -109,7 +115,9 @@ export function ListPageTemplate<T extends { id: string }>({
   const [facetValues, setFacetValues] = useState<string[]>([]);
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [sortMode, setSortMode] = useState("recent");
-  const [selected, setSelected] = useState<string[]>([]);
+  const [internalSelected, setInternalSelected] = useState<string[]>([]);
+  const selected = externalSelected !== undefined ? externalSelected : internalSelected;
+  const setSelected = externalOnSelectedChange || setInternalSelected;
   const [showFilters, setShowFilters] = useState(false);
 
   // Compute available status options dynamically from DEFAULT + rows
@@ -443,6 +451,7 @@ export function ListPageTemplate<T extends { id: string }>({
           selectable={selectable}
           selected={selected}
           onSelectedChange={setSelected}
+          headerCheckboxLabel={headerCheckboxLabel}
           rowActions={rowActions}
           onRowClick={onRowClick}
           loading={loading}

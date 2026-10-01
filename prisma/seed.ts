@@ -308,6 +308,8 @@ async function main() {
       name: 'Qualifier Round',
       description: 'Initial screening round',
       maxMarks: 100,
+      submissionStart: new Date('2026-10-01T04:30:00.000Z'),
+      submissionDeadline: new Date('2026-10-03T12:30:00.000Z'),
       status: 'ACTIVE',
     },
   });
@@ -318,6 +320,8 @@ async function main() {
       name: 'Demo Round',
       description: 'Prototype demonstration',
       maxMarks: 100,
+      submissionStart: new Date('2026-10-05T04:30:00.000Z'),
+      submissionDeadline: new Date('2026-10-06T12:30:00.000Z'),
       status: 'ACTIVE',
     },
   });
@@ -328,6 +332,8 @@ async function main() {
       name: 'Final Presentation',
       description: 'Grand finale presentation',
       maxMarks: 100,
+      submissionStart: new Date('2026-10-08T04:30:00.000Z'),
+      submissionDeadline: new Date('2026-10-09T12:30:00.000Z'),
       status: 'ACTIVE',
     },
   });
