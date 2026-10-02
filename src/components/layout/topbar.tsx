@@ -153,17 +153,10 @@ export function Topbar() {
       <SidebarTrigger className="min-h-9 min-w-9" />
       <Separator orientation="vertical" className="mx-1 hidden h-6 sm:block" />
 
-      <div className="hidden max-w-56 gap-2 px-2 md:inline-flex items-center h-9">
-        <span className="grid h-6 w-6 shrink-0 place-items-center rounded bg-primary-muted text-[11px] font-semibold text-accent-foreground">
-          CO
-        </span>
-        <span className="min-w-0 truncate text-sm font-medium">{orgName}</span>
-      </div>
-
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg border border-input text-muted-foreground transition-colors hover:text-foreground md:ml-2 md:w-full md:max-w-md md:justify-start md:gap-2 md:px-3"
+        className="flex h-9 w-9 items-center justify-center rounded-lg border border-input text-muted-foreground transition-colors hover:text-foreground md:ml-2 md:w-full md:max-w-md md:justify-start md:gap-2 md:px-3"
         aria-label="Open global search"
       >
         <Search className="h-4 w-4 shrink-0" />
@@ -175,7 +168,7 @@ export function Topbar() {
         </kbd>
       </button>
 
-      <div className="ml-auto flex items-center gap-0.5 md:ml-0">
+      <div className="ml-auto flex items-center gap-1">
         <Button
           variant="ghost"
           size="icon"
@@ -184,41 +177,6 @@ export function Topbar() {
         >
           <CircleHelp className="h-[1.1rem] w-[1.1rem]" />
         </Button>
-        {/* Dev Role Switcher */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="hidden h-9 border-dashed text-muted-foreground sm:inline-flex"
-            >
-              <BugPlay className="mr-2 h-4 w-4" />
-              Dev Role
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Switch Test User</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => switchDevUser("admin@ascent.dev")}>
-              Platform Admin
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => switchDevUser("manager@contoso.com")}>
-              Org Admin / Manager
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => switchDevUser("participant1@contoso.com")}>
-              Participant
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => switchDevUser("faculty1@contoso.com")}>
-              Faculty Coordinator
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => switchDevUser("student1@contoso.com")}>
-              Student Coordinator (Sub-manager)
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => switchDevUser("elena@ascent.dev")}>
-              Judge
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
 
         <ThemeToggle />
 

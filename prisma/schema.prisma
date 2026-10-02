@@ -181,9 +181,9 @@ model Event {
   sponsorships       Sponsorship[]
   surveys            Survey[]
   volunteerEvents    VolunteerEvent[]
-  price              Float               @default(0)
+  price              Decimal             @default(0) @db.Decimal(12, 2)
   currency           String              @default("INR")
-  revenue            Float               @default(0)
+  revenue            Decimal             @default(0) @db.Decimal(12, 2)
   payments           Payment[]           @relation("EventPayments")
   AIInsightsReport   AIInsightsReport[]
   proposalId         String?             @unique
@@ -370,6 +370,7 @@ model JudgeCompetition {
   judge         Judge       @relation(fields: [judgeId], references: [id], onDelete: Cascade)
 
   @@unique([judgeId, competitionId])
+  @@index([competitionId])
 }
 
 model Evaluation {
@@ -417,6 +418,7 @@ model TeamMentor {
   team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@unique([mentorId, teamId])
+  @@index([teamId])
 }
 
 model Volunteer {
@@ -443,6 +445,7 @@ model VolunteerEvent {
   volunteer   Volunteer @relation(fields: [volunteerId], references: [id], onDelete: Cascade)
 
   @@unique([volunteerId, eventId])
+  @@index([eventId])
 }
 
 model AttendanceSession {
@@ -473,6 +476,7 @@ model AttendanceRecord {
   user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([sessionId, userId])
+  @@index([userId])
 }
 
 model Certificate {
@@ -502,6 +506,10 @@ model Certificate {
   user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, eventId, type])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([eventId])
+  @@index([competitionId])
 }
 
 model AuditLog {
@@ -512,8 +520,11 @@ model AuditLog {
   target         String?
   metadata       Json?
   createdAt      DateTime     @default(now())
-  actor          User         @relation(fields: [actorId], references: [id], onDelete: Cascade)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor          User         @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId])
+  @@index([actorId])
 }
 
 model Communication {
@@ -556,8 +567,8 @@ model Prize {
   resultType     String?
   name           String
   position       String
-  value          Float?
-  amount         Float?
+  value          Decimal?     @db.Decimal(12, 2)
+  amount         Decimal?     @db.Decimal(12, 2)
   currency       String?
   description    String?
   status         String       @default("PENDING")
@@ -623,6 +634,8 @@ model BadgeAward {
   recipient       User         @relation("BadgeRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
 
   @@unique([badgeId, recipientUserId])
+  @@index([organizationId])
+  @@index([recipientUserId])
 }
 
 model Achievement {
@@ -664,6 +677,7 @@ model CourseEnrollment {
   user       User     @relation("CourseParticipant", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([courseId, userId])
+  @@index([userId])
 }
 
 model LearningResource {
@@ -717,6 +731,7 @@ model GroupMembership {
   user     User           @relation("GroupMember", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, userId])
+  @@index([userId])
 }
 
 model Discussion {
@@ -814,7 +829,7 @@ model Sponsor {
   organizationId String
   name           String
   tier           String
-  committedValue Float?
+  committedValue Decimal?     @db.Decimal(12, 2)
   status         String           @default("ACTIVE")
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
@@ -822,6 +837,8 @@ model Sponsor {
   organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   contacts       SponsorContact[]
   sponsorships   Sponsorship[]
+
+  @@index([organizationId])
 }
 
 model SponsorContact {
@@ -981,7 +998,7 @@ model SubscriptionPlan {
   description     String?
   stripeProductId String?        @unique
   stripePriceId   String?        @unique
-  price           Float
+  price           Decimal        @db.Decimal(12, 2)
   currency        String         @default("INR")
   interval        String         @default("month")
   features        Json?
@@ -1006,7 +1023,7 @@ model OrganizationBillingProfile {
   stripeCustomerId String?      @unique
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
-  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 }
 
 model Subscription {
@@ -1021,14 +1038,16 @@ model Subscription {
   providerSubId      String?            @unique
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
-  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  plan               SubscriptionPlan   @relation(fields: [planId], references: [id])
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  plan               SubscriptionPlan   @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([planId])
 }
 
 model Payment {
   id                String          @id @default(uuid())
   organizationId    String
-  amount            Float
+  amount            Decimal         @db.Decimal(12, 2)
   currency          String          @default("INR")
   status            PaymentStatus   @default(PENDING)
   provider          PaymentProvider
@@ -1037,7 +1056,7 @@ model Payment {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   invoice           Invoice?
-  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   refunds           Refund[]
   type              PaymentType     @default(SUBSCRIPTION)
   userId            String?
@@ -1047,6 +1066,10 @@ model Payment {
   user         User?         @relation("UserPayments", fields: [userId], references: [id], onDelete: SetNull)
   event        Event?        @relation("EventPayments", fields: [eventId], references: [id], onDelete: SetNull)
   registration Registration? @relation("RegistrationPayment", fields: [registrationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([eventId])
 }
 
 model Invoice {
@@ -1054,10 +1077,10 @@ model Invoice {
   organizationId String
   paymentId      String        @unique
   invoiceNumber  String        @unique
-  subtotal       Float
-  taxAmount      Float
-  discountAmount Float
-  total          Float
+  subtotal       Decimal       @db.Decimal(12, 2)
+  taxAmount      Decimal       @db.Decimal(12, 2)
+  discountAmount Decimal       @db.Decimal(12, 2)
+  total          Decimal       @db.Decimal(12, 2)
   currency       String
   status         InvoiceStatus @default(DRAFT)
   issuedAt       DateTime?
@@ -1065,16 +1088,18 @@ model Invoice {
   invoiceUrl     String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  payment        Payment       @relation(fields: [paymentId], references: [id])
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  payment        Payment       @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId])
 }
 
 model Coupon {
   id             String       @id @default(uuid())
   organizationId String
   code           String
-  type           String
-  value          Float
+  type           CouponType   @default(PERCENTAGE)
+  value          Decimal      @db.Decimal(12, 2)
   isActive       Boolean      @default(true)
   maxUses        Int?
   usedCount      Int          @default(0)
@@ -1082,23 +1107,27 @@ model Coupon {
   validUntil     DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   @@unique([organizationId, code])
+  @@index([organizationId])
 }
 
 model Refund {
   id               String        @id @default(uuid())
   organizationId   String
   paymentId        String
-  amount           Float
+  amount           Decimal       @db.Decimal(12, 2)
   reason           String?
   status           PaymentStatus
   providerRefundId String?       @unique
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
-  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  payment          Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  payment          Payment       @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId])
+  @@index([paymentId])
 }
 
 model PaymentWebhookEvent {
@@ -1133,6 +1162,7 @@ model UserSession {
   @@index([organizationId])
   @@index([expiresAt])
   @@index([revokedAt])
+  @@index([tokenIdentifier, expiresAt])
 }
 
 model OrganizationSecurityPolicy {
@@ -1160,10 +1190,11 @@ model SecurityEvent {
   device         String?
   status         String
   createdAt      DateTime     @default(now())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user           User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
+  @@index([userId])
   @@index([createdAt])
 }
 
@@ -1185,6 +1216,8 @@ model UserRecoveryCode {
   usedAt    DateTime?
   createdAt DateTime  @default(now())
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 enum UserStatus {
@@ -1350,6 +1383,11 @@ enum PaymentType {
   EVENT_REGISTRATION
 }
 
+enum CouponType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
 model AIInsightsReport {
   id              String       @id @default(uuid())
   organizationId  String
@@ -1361,9 +1399,13 @@ model AIInsightsReport {
   model           String
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
-  event           Event?       @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  generatedBy     User         @relation(fields: [generatedById], references: [id], onDelete: Cascade)
+  event           Event?       @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  generatedBy     User         @relation(fields: [generatedById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId])
+  @@index([eventId])
+  @@index([generatedById])
 }
 
 enum ProposalStatus {
@@ -1384,7 +1426,7 @@ model HackathonProposal {
   title                 String
   description           String?
   expectedParticipants  Int?
-  estimatedBudget       Float?
+  estimatedBudget       Decimal?       @db.Decimal(12, 2)
   requiredManpower      Int?
   estimatedWorkingHours Float?
   startDate             DateTime?

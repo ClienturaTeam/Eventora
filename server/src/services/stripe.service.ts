@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { Request } from "express";
+import { CouponType } from "@prisma/client";
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 if (!stripeSecretKey) {
@@ -99,7 +100,8 @@ export class StripeService {
   /**
    * Create or Retrieve a Stripe Coupon
    */
-  static async getOrCreateCoupon(code: string, type: string, value: number) {
+  static async getOrCreateCoupon(code: string, type: CouponType, value: number | any) {
+    const numericValue = typeof value === "number" ? value : Number(value);
     try {
       // Check if it exists
       const existing = await stripe.coupons.retrieve(code);
@@ -112,10 +114,10 @@ export class StripeService {
         duration: "once",
       };
       
-      if (type === "PERCENTAGE") {
-        couponParams.percent_off = value;
+      if (type === CouponType.PERCENTAGE) {
+        couponParams.percent_off = numericValue;
       } else {
-        couponParams.amount_off = Math.round(value * 100);
+        couponParams.amount_off = Math.round(numericValue * 100);
         couponParams.currency = "inr";
       }
 
