@@ -48,6 +48,7 @@ export function ManagerReportsPage() {
   const [activeTab, setActiveTab] = useState<"dossiers" | "exports">("dossiers");
   const [selectedReportForPreview, setSelectedReportForPreview] = useState<any | null>(null);
   const [exportingCategory, setExportingCategory] = useState<string | null>(null);
+  const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Normalize API data
@@ -181,6 +182,49 @@ export function ManagerReportsPage() {
       toast.error(err.message || `Failed to export ${category}`);
     } finally {
       setExportingCategory(null);
+    }
+  };
+
+  // Download Official PDF Dossier Handler
+  const handleDownloadPDF = async (eventId: string, eventName: string) => {
+    setDownloadingPdfId(eventId);
+    try {
+      toast.loading(`Generating official PDF dossier for ${eventName}...`, { id: `pdf-${eventId}` });
+      const token = localStorage.getItem("ascent_token");
+      const baseUrl = import.meta.env["VITE_API_URL"] || "http://localhost:3000/api/v1";
+      const activeOrgId = localStorage.getItem("ascent_active_org") || "";
+
+      const response = await fetch(`${baseUrl}/events/${eventId}/final-report/pdf`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(activeOrgId ? { "x-organization-id": activeOrgId } : {}),
+        },
+      });
+
+      if (!response.ok) {
+        let errorMsg = "Failed to download PDF dossier";
+        try {
+          const errData = await response.json();
+          errorMsg = errData.error?.message || errData.message || errorMsg;
+        } catch (_) {}
+        throw new Error(errorMsg);
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = `Final_Report_${eventName.replace(/[^a-z0-9]/gi, "_")}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      window.URL.revokeObjectURL(downloadUrl);
+      document.body.removeChild(link);
+
+      toast.success(`Official sealed PDF for "${eventName}" downloaded!`, { id: `pdf-${eventId}` });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to download official PDF dossier", { id: `pdf-${eventId}` });
+    } finally {
+      setDownloadingPdfId(null);
     }
   };
 
@@ -522,12 +566,11 @@ export function ManagerReportsPage() {
                                 size="sm"
                                 variant="default"
                                 className="gap-1.5 h-8 text-xs"
-                                onClick={() => {
-                                  window.open(`/api/v1/events/${event.id}/final-report/pdf`, "_blank");
-                                }}
+                                disabled={downloadingPdfId === event.id}
+                                onClick={() => handleDownloadPDF(event.id, event.name)}
                               >
-                                <Download className="h-3.5 w-3.5" />
-                                PDF Export
+                                <Download className={`h-3.5 w-3.5 ${downloadingPdfId === event.id ? "animate-spin" : ""}`} />
+                                {downloadingPdfId === event.id ? "Generating PDF..." : "PDF Export"}
                               </Button>
                             </>
                           )}
@@ -812,16 +855,18 @@ export function ManagerReportsPage() {
               <Button
                 size="sm"
                 className="gap-1.5"
+                disabled={downloadingPdfId === selectedReportForPreview?.eventId}
                 onClick={() => {
                   if (selectedReportForPreview?.eventId) {
-                    window.open(
-                      `/api/v1/events/${selectedReportForPreview.eventId}/final-report/pdf`,
-                      "_blank"
+                    handleDownloadPDF(
+                      selectedReportForPreview.eventId,
+                      selectedReportForPreview.event?.name || "Event"
                     );
                   }
                 }}
               >
-                <Download className="h-4 w-4" /> Download PDF
+                <Download className={`h-4 w-4 ${downloadingPdfId === selectedReportForPreview?.eventId ? "animate-spin" : ""}`} />
+                {downloadingPdfId === selectedReportForPreview?.eventId ? "Generating PDF..." : "Download PDF"}
               </Button>
             </div>
           </DialogFooter>
