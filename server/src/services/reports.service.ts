@@ -101,7 +101,7 @@ export class ReportsService {
           ID: e.id,
           Competition: e.submission.competition.name,
           Submission: e.submission.title,
-          JudgeName: e.judge.user.firstName ? `${e.judge.user.firstName} ${e.judge.user.lastName}` : e.judge.user.email,
+          JudgeName: e.judge?.firstName ? `${e.judge.firstName} ${e.judge.lastName || ''}`.trim() : (e.judge?.email || "Unknown Judge"),
           Status: e.status,
           Score: e.score || 0,
         }));
@@ -147,10 +147,12 @@ export class ReportsService {
         const comms = await this.getCommunicationReports(organizationId, filters);
         data = comms.map(c => ({
           ID: c.id,
-          Subject: c.subject,
+          Title: c.title,
           Type: c.type,
           Status: c.status,
-          NotificationsSent: c._count.notifications,
+          Audience: c.audience,
+          Creator: c.creator ? (c.creator.firstName ? `${c.creator.firstName} ${c.creator.lastName}` : c.creator.email) : 'System',
+          PublishedAt: c.publishedAt ? c.publishedAt.toISOString() : 'N/A',
           CreatedAt: c.createdAt?.toISOString(),
         }));
         break;
