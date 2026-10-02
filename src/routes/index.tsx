@@ -12,6 +12,7 @@ import {
   Shield,
   LayoutDashboard,
   ArrowRight,
+  ArrowDown,
   Target,
   BarChart,
   Sparkles,
@@ -191,17 +192,30 @@ export function LandingPage() {
               </div>
 
               {/* Stepper Flow Container */}
-              <div className="relative space-y-4">
+              <div className="relative space-y-5">
                 {/* Continuous Vertical Gradient Connecting Line */}
                 <div className="absolute left-[23px] top-6 bottom-6 w-[2px] bg-gradient-to-b from-blue-500 via-indigo-500 to-rose-500 opacity-60 z-0" />
 
-                {PIPELINE_STEPS.map((step) => {
+                {PIPELINE_STEPS.map((step, idx) => {
                   const Icon = step.icon;
+                  const isLast = idx === PIPELINE_STEPS.length - 1;
                   return (
                     <div key={step.id} className="relative z-10 flex items-center gap-4 group">
                       {/* Node Icon */}
-                      <div className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border ${step.border} ${step.bg} bg-slate-950 transition-all duration-300 group-hover:scale-110 group-hover:border-blue-400`}>
+                      <div className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border ${step.border} ${step.bg} bg-slate-950 transition-all duration-300 group-hover:scale-110 group-hover:border-blue-400 shadow-md`}>
                         <Icon className={`h-5 w-5 ${step.color}`} />
+
+                        {/* Downward Flow Arrow Symbol on Connecting Line */}
+                        {!isLast && (
+                          <div
+                            className="absolute left-1/2 top-[calc(100%+16px)] -translate-x-1/2 -translate-y-1/2 z-20 flex items-center justify-center pointer-events-none"
+                            aria-hidden="true"
+                          >
+                            <div className={`flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#090d1e] border ${step.border} shadow-lg transition-all duration-300 group-hover:scale-125 group-hover:border-blue-400 group-hover:shadow-[0_0_10px_rgba(59,130,246,0.6)]`}>
+                              <ArrowDown className={`h-2.5 w-2.5 ${step.color} transition-transform group-hover:translate-y-0.5`} />
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Content Box */}

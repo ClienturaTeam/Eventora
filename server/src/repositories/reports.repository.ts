@@ -116,7 +116,7 @@ export class ReportsRepository {
     return prisma.evaluation.findMany({
       where,
       include: {
-        judge: { select: { user: { select: { firstName: true, lastName: true, email: true } } } },
+        judge: { select: { firstName: true, lastName: true, email: true } },
         submission: { 
           select: { 
             title: true, 
@@ -181,7 +181,7 @@ export class ReportsRepository {
     return prisma.communication.findMany({
       where,
       include: {
-        _count: { select: { notifications: true } }
+        creator: { select: { firstName: true, lastName: true, email: true } }
       },
       orderBy: { createdAt: 'desc' }
     });

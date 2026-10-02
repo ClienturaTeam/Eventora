@@ -421,3 +421,34 @@ export const usePublishManagerResult = () => {
     },
   });
 };
+
+export const useGenerateManagerReport = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (eventId: string) => {
+      const response = await fetchApi(`/manager/reports/generate/${eventId}`, {
+        method: 'POST',
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: managerKeys.reports() });
+    },
+  });
+};
+
+export const useApproveManagerReport = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, comment }: { id: string; comment?: string }) => {
+      const response = await fetchApi(`/manager/reports/${id}/approve`, {
+        method: 'POST',
+        body: JSON.stringify({ comment }),
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: managerKeys.reports() });
+    },
+  });
+};
