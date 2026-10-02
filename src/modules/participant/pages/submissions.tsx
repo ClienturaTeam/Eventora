@@ -3,6 +3,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useMySubmissions,
+  useParticipantSubmission,
   useUploadSubmissionFile,
   useFinalSubmitSubmission,
   useParticipantDashboard,
@@ -95,11 +96,11 @@ export function ParticipantSubmissionsPage() {
 
   // Find active team & event & selected Problem Statement for activeEventId
   const activeTeamMember = useMemo(() => {
-    if (!activeEventId) return myTeams[0];
-    return myTeams.find((m: any) =>
+    if (!activeEventId) return null;
+    return (myTeams || []).find((m: any) =>
       m.team?.competition?.eventId === activeEventId ||
       m.team?.competition?.event?.id === activeEventId
-    ) || myTeams[0];
+    ) || null;
   }, [myTeams, activeEventId]);
 
   const activeTeam = activeTeamMember?.team;
@@ -109,13 +110,14 @@ export function ParticipantSubmissionsPage() {
     return activeCompetition?.event || foundInEligible || dashboardData?.event;
   }, [activeCompetition, eligibleEvents, activeEventId, dashboardData]);
 
-  const selectedProblemStatement = activeTeam?.problemStatement;
+  // Check whether the participant's TEAM has permanently selected a Problem Statement for that event
+  const isProblemStatementSelected = Boolean(
+    activeTeam?.problemStatementId &&
+    activeTeam?.problemStatementLocked &&
+    activeTeam?.problemStatement
+  );
 
-  const hasProblemStatements = useMemo(() => {
-    if (activeEvent?.problemStatements && activeEvent.problemStatements.length > 0) return true;
-    if (activeCompetition?.event?.problemStatements && activeCompetition.event.problemStatements.length > 0) return true;
-    return false;
-  }, [activeEvent, activeCompetition]);
+  const selectedProblemStatement = isProblemStatementSelected ? activeTeam.problemStatement : null;
 
   // Fetch real rounds and mentor questions for activeEventId
   const { data: rounds = [], isLoading: loadingRounds } = useEventRounds(activeEventId);
@@ -123,7 +125,11 @@ export function ParticipantSubmissionsPage() {
 
   // Modals & form state
   const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
+  const [viewSubmissionId, setViewSubmissionId] = useState<string | null>(null);
   const [viewSubmissionModalData, setViewSubmissionModalData] = useState<any | null>(null);
+  const { data: fetchedSubmission, isLoading: loadingFetchedSub, isError: fetchSubError } = useParticipantSubmission(viewSubmissionId);
+  const activeModalSub = fetchedSubmission || viewSubmissionModalData;
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [description, setDescription] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -131,8 +137,20 @@ export function ParticipantSubmissionsPage() {
   const [showAskMentorModal, setShowAskMentorModal] = useState(false);
   const [mentorQuestionText, setMentorQuestionText] = useState("");
 
+  const getFileViewUrl = (fileUrl: string) => {
+    if (!fileUrl) return "#";
+    if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://") || fileUrl.startsWith("blob:") || fileUrl.startsWith("data:")) {
+      return fileUrl;
+    }
+    const apiBase = import.meta.env['VITE_API_URL'] || "http://localhost:3000/api/v1";
+    const backendOrigin = apiBase.replace(/\/api\/v1\/?$/, "");
+    const normalizedPath = fileUrl.startsWith("/") ? fileUrl : `/${fileUrl}`;
+    return `${backendOrigin}${normalizedPath}`;
+  };
+
   useEffect(() => {
     setSelectedRoundId(null);
+    setViewSubmissionId(null);
     setViewSubmissionModalData(null);
     setSelectedFile(null);
     setDescription("");
@@ -149,7 +167,11 @@ export function ParticipantSubmissionsPage() {
   }, [submissions, activeEventId]);
 
   // Filter rounds dynamically by selected Problem Statement's applicable rounds
+  // If NO problem statement is selected, NEVER render or fall back to any rounds
   const configuredRounds = useMemo(() => {
+    if (!isProblemStatementSelected || !selectedProblemStatement) {
+      return [];
+    }
     if (!rounds || rounds.length === 0) return [];
     if (!selectedProblemStatement?.applicableRounds || selectedProblemStatement.applicableRounds.length === 0) {
       return rounds;
@@ -157,7 +179,7 @@ export function ParticipantSubmissionsPage() {
     return rounds.filter((r: any) =>
       selectedProblemStatement.applicableRounds.some((appRound: any) => appRound.id === r.id)
     );
-  }, [rounds, selectedProblemStatement]);
+  }, [rounds, isProblemStatementSelected, selectedProblemStatement]);
 
   const formatScheduleDate = (dateVal: any) => {
     if (!dateVal) return "Schedule not configured";
@@ -247,7 +269,7 @@ export function ParticipantSubmissionsPage() {
 
   // Determine active OPEN round whose submission form should be shown below
   const activeOpenRound = useMemo(() => {
-    if (configuredRounds.length === 0) return null;
+    if (!isProblemStatementSelected || configuredRounds.length === 0) return null;
 
     // Check if user explicitly selected an OPEN, YET_TO_SUBMIT round card
     if (selectedRoundId) {
@@ -263,7 +285,7 @@ export function ParticipantSubmissionsPage() {
       const state = getRoundState(r);
       return state.statusKey === "YET_TO_SUBMIT";
     }) || null;
-  }, [configuredRounds, selectedRoundId, eventSubmissions, nowTime, accessStatus]);
+  }, [configuredRounds, selectedRoundId, eventSubmissions, nowTime, accessStatus, isProblemStatementSelected]);
 
   const activeOpenRoundState = activeOpenRound ? getRoundState(activeOpenRound) : null;
   const activeOpenRoundSub = activeOpenRoundState?.existingSub || null;
@@ -292,6 +314,10 @@ export function ParticipantSubmissionsPage() {
 
   const handleUploadOnly = async () => {
     if (!selectedFile) return;
+    if (!isProblemStatementSelected || !selectedProblemStatement) {
+      toast.error("Please select a Problem Statement before accessing round submissions.");
+      return;
+    }
     if (!activeOpenRound) return;
     if (!activeTeam) {
       toast.error("Active team required for upload.");
@@ -309,6 +335,8 @@ export function ParticipantSubmissionsPage() {
           eventId: activeEventId,
           roundId: activeOpenRound.id,
           title: `${activeTeam.name} - ${activeOpenRound.name} Submission`,
+          description: description.trim(),
+          content: description.trim(),
         });
       }
 
@@ -334,6 +362,10 @@ export function ParticipantSubmissionsPage() {
   };
 
   const handleFinalSubmitConfirm = async () => {
+    if (!isProblemStatementSelected || !selectedProblemStatement) {
+      toast.error("Please select a Problem Statement before accessing round submissions.");
+      return;
+    }
     if (!activeOpenRound) return;
     if (!activeTeam) {
       toast.error("You are not part of an active team for this event.");
@@ -341,6 +373,7 @@ export function ParticipantSubmissionsPage() {
     }
 
     let targetSub = activeOpenRoundSub;
+    const finalDescription = description.trim();
 
     try {
       setIsUploading(true);
@@ -352,7 +385,8 @@ export function ParticipantSubmissionsPage() {
           eventId: activeEventId,
           roundId: activeOpenRound.id,
           title: `${activeTeam.name} - Round ${activeOpenRound.roundNumber} Submission`,
-          ...(description.trim() ? { content: description.trim() } : {}),
+          description: finalDescription,
+          content: finalDescription,
         });
       }
 
@@ -363,7 +397,7 @@ export function ParticipantSubmissionsPage() {
           fileSize: selectedFile.size,
           fileType: selectedFile.type || selectedFile.name.split(".").pop() || "document",
           fileUrl: `/uploads/${selectedFile.name}`,
-          ...(description.trim() ? { description: description.trim() } : {})
+          ...(finalDescription ? { description: finalDescription } : {})
         };
         await uploadFileMutation.mutateAsync({
           submissionId: targetSub.id,
@@ -371,13 +405,19 @@ export function ParticipantSubmissionsPage() {
         });
       }
 
-      // Lock submission permanently in backend
-      await finalSubmitMutation.mutateAsync(targetSub.id);
+      // Lock submission permanently in backend with description
+      await finalSubmitMutation.mutateAsync({
+        submissionId: targetSub.id,
+        description: finalDescription
+      });
       toast.success(`Round ${activeOpenRound.roundNumber}: ${activeOpenRound.name} submission finalized and locked!`);
       
       // Invalidate queries immediately so UI and round cards update reactively
       queryClient.invalidateQueries({ queryKey: participantKeys.submissions(activeEventId) });
+      queryClient.invalidateQueries({ queryKey: participantKeys.submissions() });
       queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['submissions'] });
 
       setSelectedFile(null);
       setDescription("");
@@ -392,18 +432,23 @@ export function ParticipantSubmissionsPage() {
 
   const handleAskMentor = async () => {
     if (!mentorQuestionText.trim()) return;
+    if (!activeEventId) {
+      toast.error("Please select an active event first.");
+      return;
+    }
     try {
       const roundId = activeOpenRound?.id || rounds[0]?.id;
       await askMentorMutation.mutateAsync({
-        eventId: activeEventId || "default-event",
+        eventId: activeEventId,
         ...(roundId ? { roundId } : {}),
         question: mentorQuestionText.trim(),
       });
       toast.success("Question submitted to mentors!");
       setMentorQuestionText("");
       setShowAskMentorModal(false);
+      queryClient.invalidateQueries({ queryKey: ["mentorQuestions"] });
     } catch (err: any) {
-      toast.error(err.message || "Failed to submit question to mentor.");
+      toast.error(err?.message || "Failed to submit question to mentor.");
     }
   };
 
@@ -530,27 +575,28 @@ export function ParticipantSubmissionsPage() {
             </p>
           </div>
 
-          {/* PROBLEM STATEMENT SELECTION GATE */}
-          {hasProblemStatements && !selectedProblemStatement ? (
-            <Card className="border-amber-500/30 bg-amber-500/5 shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-bold text-amber-700 dark:text-amber-400 flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4" /> Problem Statement Selection Required
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-xs text-muted-foreground space-y-3">
-                <p>
-                  Your team has not permanently selected a Problem Statement for <strong>{activeEvent?.name || activeEvent?.title || "this event"}</strong> yet. Please select a problem statement to access your round submissions.
+          {/* PROBLEM STATEMENT SELECTION GATE: Check whether team has permanently selected a Problem Statement */}
+          {!isProblemStatementSelected ? (
+            <Card className="border-amber-500/30 bg-amber-500/5 shadow-sm p-6">
+              <div className="flex flex-col items-center justify-center text-center space-y-4 py-8">
+                <div className="p-3 bg-amber-500/10 rounded-full text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="h-8 w-8" />
+                </div>
+                <h2 className="text-xl font-bold tracking-tight text-foreground">
+                  Problem Statement Selection Required
+                </h2>
+                <p className="text-sm text-muted-foreground max-w-md">
+                  Please select a Problem Statement before accessing round submissions.
                 </p>
                 <Button
                   size="sm"
                   variant="default"
-                  className="text-xs gap-1.5"
+                  className="text-xs font-semibold gap-1.5"
                   onClick={() => navigate({ to: "/participant/problem-statements", search: { eventId: activeEventId } })}
                 >
-                  <FileCode className="h-3.5 w-3.5" /> Go to Problem Statements
+                  <FileCode className="h-4 w-4" /> Go to Problem Statements
                 </Button>
-              </CardContent>
+              </div>
             </Card>
           ) : (
             <>
@@ -675,7 +721,20 @@ export function ParticipantSubmissionsPage() {
                                   size="sm"
                                   variant="default"
                                   className="w-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5"
-                                  onClick={() => setViewSubmissionModalData(state.existingSub)}
+                                  onClick={() => {
+                                    // Resolve exact submission for eventId + teamId + roundId + selectedProblemStatementId
+                                    const subToView = state.existingSub || eventSubmissions.find((s: any) =>
+                                      (s.roundId === r.id || s.roundNumber === r.roundNumber) &&
+                                      s.teamId === activeTeam?.id &&
+                                      (!s.problemStatementId || s.problemStatementId === selectedProblemStatement?.id)
+                                    );
+                                    if (subToView?.id) {
+                                      setViewSubmissionModalData(subToView);
+                                      setViewSubmissionId(subToView.id);
+                                    } else {
+                                      toast.error("Submission record not found for this round.");
+                                    }
+                                  }}
                                 >
                                   <Eye className="h-3.5 w-3.5" /> View Submission
                                 </Button>
@@ -895,30 +954,50 @@ export function ParticipantSubmissionsPage() {
                                     Round {q.round.roundNumber}: {q.round.name}
                                   </Badge>
                                 ) : (
-                                  <span className="font-semibold text-muted-foreground">General Question</span>
+                                  <span className="font-semibold text-muted-foreground text-[10px]">General Question</span>
                                 )}
                                 <Badge variant={isAnswered ? "default" : "secondary"} className="text-[10px]">
                                   {isAnswered ? "ANSWERED" : "PENDING"}
                                 </Badge>
                               </div>
-                              <p className="text-foreground font-medium">{q.question}</p>
+                              <div>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-0.5">Question:</span>
+                                <p className="text-foreground font-medium">{q.question}</p>
+                              </div>
                               <p className="text-[10px] text-muted-foreground">
                                 Asked: {new Date(q.createdAt).toLocaleString()}
                               </p>
 
                               {isAnswered && (
-                                <div className="border-t pt-2 space-y-1 bg-card p-2 rounded-md border-primary/20 mt-1">
-                                  <div className="flex items-center justify-between text-[11px]">
-                                    <span className="font-semibold text-primary">Mentor: {mentorName}</span>
-                                    {q.replies?.[0] && (
-                                      <span className="text-[10px] text-muted-foreground">
-                                        {new Date(q.replies[0].createdAt).toLocaleString()}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-foreground italic text-xs">
-                                    "{answerMessage || "Answer provided by mentor."}"
-                                  </p>
+                                <div className="border-t pt-2 space-y-2">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary block">Answer:</span>
+                                  {q.replies && q.replies.length > 0 ? (
+                                    q.replies.map((r: any) => {
+                                      const rMentorName = r.sender
+                                        ? `${r.sender.firstName || ''} ${r.sender.lastName || ''}`.trim() || r.sender.email
+                                        : mentorName;
+                                      const rMsg = r.message || r.reply;
+                                      return (
+                                        <div key={r.id} className="bg-card p-2.5 rounded-md border border-primary/20 space-y-1">
+                                          <div className="flex items-center justify-between text-[11px]">
+                                            <span className="font-semibold text-primary">{rMentorName}</span>
+                                            <span className="text-[10px] text-muted-foreground">
+                                              {new Date(r.createdAt).toLocaleString()}
+                                            </span>
+                                          </div>
+                                          <p className="text-foreground text-xs leading-relaxed">
+                                            {rMsg}
+                                          </p>
+                                        </div>
+                                      );
+                                    })
+                                  ) : (
+                                    <div className="bg-card p-2.5 rounded-md border border-primary/20">
+                                      <p className="text-foreground text-xs italic">
+                                        {answerMessage || "Answered by mentor."}
+                                      </p>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1024,178 +1103,229 @@ export function ParticipantSubmissionsPage() {
       </Dialog>
 
       {/* STRICT READ-ONLY VIEW SUBMISSION DETAILS MODAL */}
-      <Dialog open={!!viewSubmissionModalData} onOpenChange={(open) => !open && setViewSubmissionModalData(null)}>
-        {viewSubmissionModalData && (
-          <DialogContent className="sm:max-w-[650px] w-[calc(100vw-24px)] max-h-[90vh] flex flex-col p-0 overflow-hidden border-border bg-card shadow-2xl">
-            {/* Modal Header */}
-            <div className="p-5 sm:p-6 pb-4 border-b border-border flex items-center justify-between shrink-0 bg-muted/10">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
-                  <FileText className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold tracking-tight text-foreground leading-tight">
-                    {viewSubmissionModalData.title || "Round Submission Details"}
-                  </h2>
-                  <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                    ID: {viewSubmissionModalData.id}
-                  </p>
-                </div>
-              </div>
+      <Dialog
+        open={Boolean(viewSubmissionId || viewSubmissionModalData)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewSubmissionId(null);
+            setViewSubmissionModalData(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[650px] w-[calc(100vw-24px)] max-h-[90vh] flex flex-col p-0 overflow-hidden border-border bg-card shadow-2xl">
+          {loadingFetchedSub && !activeModalSub ? (
+            <div className="p-12 flex flex-col items-center justify-center space-y-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-xs text-muted-foreground font-medium">Loading submission details...</p>
             </div>
-
-            {/* Modal Body - Scrollable Read-Only View */}
-            <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1 text-xs">
-              {/* Summary Grid */}
-              <div className="p-4 rounded-xl border bg-muted/20 space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Round</span>
-                    <p className="font-semibold text-foreground mt-0.5">
-                      Round {viewSubmissionModalData.roundNumber || viewSubmissionModalData.eventRound?.roundNumber || 1} — {viewSubmissionModalData.eventRound?.name || viewSubmissionModalData.title || "Round Submission"}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Submission ID</span>
-                    <p className="font-mono text-muted-foreground mt-0.5 select-all">
-                      {viewSubmissionModalData.id}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Team</span>
-                    <p className="font-semibold text-foreground mt-0.5">{viewSubmissionModalData.team?.name || activeTeam?.name || "Team"}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Problem Statement</span>
-                    <p className="font-semibold text-primary mt-0.5">
-                      {viewSubmissionModalData.problemStatement
-                        ? `${viewSubmissionModalData.problemStatement.code} — ${viewSubmissionModalData.problemStatement.title}`
-                        : (selectedProblemStatement ? `${selectedProblemStatement.code} — ${selectedProblemStatement.title}` : "General Submission")}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Submission Status</span>
-                    <div className="mt-0.5 flex items-center gap-1.5">
-                      <Badge variant="default" className="bg-emerald-600 text-white text-[10px] gap-1 font-bold border-transparent">
-                        <Lock className="h-3 w-3" /> 🟢 SUBMITTED & LOCKED
-                      </Badge>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Submitted Date / Time</span>
-                    <p className="font-mono text-foreground font-medium mt-0.5">
-                      {formatScheduleDate(viewSubmissionModalData.lockedAt || viewSubmissionModalData.createdAt)}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Submitted By</span>
-                    <p className="font-semibold text-foreground mt-0.5">
-                      {viewSubmissionModalData.submittedBy
-                        ? `${viewSubmissionModalData.submittedBy.firstName || ''} ${viewSubmissionModalData.submittedBy.lastName || ''}`.trim() || viewSubmissionModalData.submittedBy.email
-                        : "Team Member"}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Event</span>
-                    <p className="font-semibold text-foreground mt-0.5">{activeEvent?.name || activeEvent?.title || "Event"}</p>
-                  </div>
-                </div>
+          ) : fetchSubError && !activeModalSub ? (
+            <div className="p-8 text-center space-y-4">
+              <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center mx-auto text-destructive">
+                <AlertCircle className="h-6 w-6" />
               </div>
-
-              {/* Submission Description */}
-              <div className="space-y-1.5">
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <FileText className="h-3.5 w-3.5 text-primary" /> SUBMISSION DESCRIPTION
-                </h4>
-                <div className="p-3.5 rounded-lg border bg-card text-foreground text-xs leading-relaxed whitespace-pre-line">
-                  {viewSubmissionModalData.description || viewSubmissionModalData.content || (viewSubmissionModalData.payload && typeof viewSubmissionModalData.payload === 'object' && viewSubmissionModalData.payload.description) || "No project description provided for this submission."}
-                </div>
+              <div className="space-y-1">
+                <h3 className="font-bold text-base text-foreground">Submission Not Found</h3>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  The requested submission details could not be retrieved or access is unauthorized.
+                </p>
               </div>
-
-              {/* Uploaded Files Roster */}
-              <div className="space-y-2">
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Paperclip className="h-3.5 w-3.5 text-primary" /> UPLOADED FILES ({viewSubmissionModalData.files?.length || 0})
-                  </span>
-                </h4>
-
-                {viewSubmissionModalData.files && viewSubmissionModalData.files.length > 0 ? (
-                  <div className="divide-y border rounded-lg overflow-hidden bg-card">
-                    {viewSubmissionModalData.files.map((file: any, idx: number) => (
-                      <div key={file.id || idx} className="p-3 flex items-center justify-between gap-3 text-xs">
-                        <div className="flex items-center gap-2.5 overflow-hidden">
-                          <FileText className="h-4 w-4 text-primary shrink-0" />
-                          <div className="truncate">
-                            <p className="font-semibold text-foreground truncate">{file.fileName}</p>
-                            <p className="text-[10px] text-muted-foreground">
-                              {(file.fileSize / (1024 * 1024)).toFixed(2)} MB • {file.fileType}
-                            </p>
-                          </div>
-                        </div>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-[11px] shrink-0 gap-1 font-medium"
-                          onClick={() => window.open(file.fileUrl || `/uploads/${file.fileName}`, "_blank")}
-                        >
-                          <Eye className="h-3 w-3" /> View / Download
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 border rounded-lg bg-card text-center text-xs text-muted-foreground italic">
-                    No files uploaded for this submission.
-                  </div>
-                )}
-              </div>
-
-              {/* Evaluation Progress */}
-              <div className="space-y-2">
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Star className="h-3.5 w-3.5 text-amber-500" /> EVALUATION PROGRESS
-                </h4>
-
-                {viewSubmissionModalData.evaluations && viewSubmissionModalData.evaluations.length > 0 ? (
-                  <div className="space-y-2">
-                    {viewSubmissionModalData.evaluations.map((ev: any, idx: number) => (
-                      <div key={ev.id || idx} className="p-3 rounded-lg border bg-card space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-foreground">
-                            Judge: {ev.user ? `${ev.user.firstName || ''} ${ev.user.lastName || ''}`.trim() || ev.user.email : "Assigned Judge"}
-                          </span>
-                          <span className="font-mono text-sm font-bold text-primary">
-                            {ev.score ?? "—"} Marks
-                          </span>
-                        </div>
-                        {ev.feedback && (
-                          <div className="text-muted-foreground border-t pt-2 space-y-0.5">
-                            <span className="font-medium text-[10px] uppercase tracking-wider text-foreground">Judge Feedback:</span>
-                            <p className="italic text-xs leading-relaxed">{ev.feedback}</p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-3 border rounded-lg bg-card text-xs text-muted-foreground flex items-center justify-between">
-                    <span>Status: <strong className="text-amber-600">Pending Evaluation</strong></span>
-                    <span className="text-[11px] font-mono">No score assigned yet</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="p-4 border-t border-border shrink-0 bg-muted/20 flex justify-end">
-              <Button size="sm" variant="outline" onClick={() => setViewSubmissionModalData(null)}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setViewSubmissionId(null);
+                  setViewSubmissionModalData(null);
+                }}
+              >
                 Close
               </Button>
             </div>
-          </DialogContent>
-        )}
+          ) : activeModalSub ? (
+            <>
+              {/* Modal Header */}
+              <div className="p-5 sm:p-6 pb-4 border-b border-border flex items-start justify-between shrink-0 bg-muted/10">
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 mt-0.5">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                        {activeModalSub.team?.name || activeTeam?.name || "Team"}
+                      </span>
+                    </div>
+                    <h2 className="text-lg font-bold tracking-tight text-foreground leading-tight mt-0.5">
+                      Round {activeModalSub.roundNumber || activeModalSub.eventRound?.roundNumber || 1} — {activeModalSub.eventRound?.name || activeModalSub.title || "Round Submission"}
+                    </h2>
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5 select-all">
+                      Submission ID: {activeModalSub.id}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Body - Scrollable Read-Only View */}
+              <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1 text-xs">
+                {/* Summary Grid */}
+                <div className="p-4 rounded-xl border bg-muted/20 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Event</span>
+                      <p className="font-semibold text-foreground mt-0.5">
+                        {activeModalSub.event?.name || activeModalSub.competition?.event?.name || activeEvent?.name || "Event"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Team</span>
+                      <p className="font-semibold text-foreground mt-0.5">
+                        {activeModalSub.team?.name || activeTeam?.name || "Team"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Problem Statement Code</span>
+                      <p className="font-mono font-bold text-primary mt-0.5">
+                        {activeModalSub.problemStatement?.code || selectedProblemStatement?.code || "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Problem Statement Name</span>
+                      <p className="font-semibold text-foreground mt-0.5">
+                        {activeModalSub.problemStatement?.title || selectedProblemStatement?.title || "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Submission Status</span>
+                      <div className="mt-0.5 flex items-center gap-1.5">
+                        <Badge variant="default" className="bg-emerald-600 text-white text-[10px] gap-1 font-bold border-transparent">
+                          <Lock className="h-3 w-3" /> 🟢 SUBMITTED & LOCKED
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Submitted Date / Time</span>
+                      <p className="font-mono text-foreground font-medium mt-0.5">
+                        {formatScheduleDate(activeModalSub.lockedAt || activeModalSub.createdAt)}
+                      </p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Submitted By</span>
+                      <p className="font-semibold text-foreground mt-0.5">
+                        {activeModalSub.submittedBy
+                          ? `${activeModalSub.submittedBy.firstName || ''} ${activeModalSub.submittedBy.lastName || ''}`.trim() || activeModalSub.submittedBy.email
+                          : "Team Member"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submission Description */}
+                <div className="space-y-1.5">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5 text-primary" /> SUBMISSION DESCRIPTION
+                  </h4>
+                  <div className="p-3.5 rounded-lg border bg-card text-foreground text-xs leading-relaxed whitespace-pre-line">
+                    {(() => {
+                      const descText =
+                        activeModalSub.description ||
+                        (activeModalSub.payload && typeof activeModalSub.payload === "object" && ((activeModalSub.payload as any).description || (activeModalSub.payload as any).content)) ||
+                        activeModalSub.content;
+                      return descText && String(descText).trim() ? String(descText).trim() : "No project description provided for this submission.";
+                    })()}
+                  </div>
+                </div>
+
+                {/* Uploaded Files Roster */}
+                <div className="space-y-2">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Paperclip className="h-3.5 w-3.5 text-primary" /> UPLOADED FILES ({activeModalSub.files?.length || 0})
+                    </span>
+                  </h4>
+
+                  {activeModalSub.files && activeModalSub.files.length > 0 ? (
+                    <div className="divide-y border rounded-lg overflow-hidden bg-card">
+                      {activeModalSub.files.map((file: any, idx: number) => (
+                        <div key={file.id || idx} className="p-3 flex items-center justify-between gap-3 text-xs">
+                          <div className="flex items-center gap-2.5 overflow-hidden">
+                            <FileText className="h-4 w-4 text-primary shrink-0" />
+                            <div className="truncate">
+                              <p className="font-semibold text-foreground truncate">{file.fileName}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {(file.fileSize / (1024 * 1024)).toFixed(2)} MB • {file.fileType}
+                              </p>
+                            </div>
+                          </div>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[11px] shrink-0 gap-1 font-medium hover:bg-primary/10"
+                            onClick={() => window.open(getFileViewUrl(file.fileUrl || `/uploads/${file.fileName}`), "_blank", "noopener,noreferrer")}
+                          >
+                            <Eye className="h-3 w-3" /> View
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 border rounded-lg bg-card text-center text-xs text-muted-foreground italic">
+                      No files uploaded for this submission.
+                    </div>
+                  )}
+                </div>
+
+                {/* Evaluation Progress */}
+                <div className="space-y-2">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Star className="h-3.5 w-3.5 text-amber-500" /> EVALUATION PROGRESS
+                  </h4>
+
+                  {activeModalSub.evaluations && activeModalSub.evaluations.length > 0 ? (
+                    <div className="space-y-2">
+                      {activeModalSub.evaluations.map((ev: any, idx: number) => (
+                        <div key={ev.id || idx} className="p-3 rounded-lg border bg-card space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-foreground">
+                              Judge: {ev.judge?.user ? `${ev.judge.user.firstName || ''} ${ev.judge.user.lastName || ''}`.trim() || ev.judge.user.email : ev.judge?.name || "Assigned Judge"}
+                            </span>
+                            <span className="font-mono text-sm font-bold text-primary">
+                              {ev.score ?? "—"} Marks
+                            </span>
+                          </div>
+                          {ev.feedback && (
+                            <div className="text-muted-foreground border-t pt-2 space-y-0.5">
+                              <span className="font-medium text-[10px] uppercase tracking-wider text-foreground">Judge Feedback:</span>
+                              <p className="italic text-xs leading-relaxed">{ev.feedback}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-3 border rounded-lg bg-card text-xs text-muted-foreground flex items-center justify-between">
+                      <span>Status: <strong className="text-amber-600">Pending Evaluation</strong></span>
+                      <span className="text-[11px] font-mono">No score assigned yet</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Footer - Strictly Read-Only, Close only */}
+              <div className="p-4 border-t border-border shrink-0 bg-muted/20 flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setViewSubmissionId(null);
+                    setViewSubmissionModalData(null);
+                  }}
+                >
+                  Close
+                </Button>
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
       </Dialog>
     </div>
   );

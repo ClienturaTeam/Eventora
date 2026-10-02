@@ -103,32 +103,127 @@ export class EvaluationRepository {
   }
 
   /** List evaluations assigned to the current judge within a tenant */
-  static async findByJudge(tenantId: string, judgeUserId: string, profileId?: string) {
+  static async findByJudge(
+    tenantId: string,
+    judgeUserId: string,
+    profileId?: string,
+    filters?: { eventId?: string; roundId?: string; roundNumber?: number }
+  ) {
     const judgeConditions: any[] = [{ userId: judgeUserId }];
     if (profileId) judgeConditions.push({ id: profileId });
 
-    const judges = await prisma.judge.findMany({
+    let judges = await prisma.judge.findMany({
       where: { OR: judgeConditions, organizationId: tenantId },
       select: { id: true }
     });
+
+    if (judges.length === 0) {
+      // Find or create judge profile for this user
+      const user = await prisma.user.findUnique({ where: { id: judgeUserId } });
+      if (user) {
+        const createdJudge = await prisma.judge.create({
+          data: {
+            userId: judgeUserId,
+            name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
+            email: user.email,
+            organizationId: tenantId
+          }
+        });
+        judges = [{ id: createdJudge.id }];
+      }
+    }
+
     const judgeIds = judges.map((j) => j.id);
 
-    const results = await prisma.evaluation.findMany({
+    // Auto-sync: Ensure an Evaluation record exists for every submission assigned to this judge
+    const assignments = await prisma.submissionJudgeAssignment.findMany({
       where: {
+        judgeId: judgeUserId,
+        submission: {
+          OR: [
+            { competition: { event: { organizationId: tenantId } } },
+            { event: { organizationId: tenantId } }
+          ]
+        }
+      },
+      include: { submission: true }
+    });
+
+    if (judges.length > 0 && assignments.length > 0) {
+      const primaryJudgeId = judges[0].id;
+      for (const assignment of assignments) {
+        await prisma.evaluation.upsert({
+          where: {
+            submissionId_judgeId: {
+              submissionId: assignment.submissionId,
+              judgeId: primaryJudgeId,
+            }
+          },
+          update: {},
+          create: {
+            submissionId: assignment.submissionId,
+            judgeId: primaryJudgeId,
+            roundId: assignment.submission.roundId || null,
+            roundNumber: assignment.submission.roundNumber || 1,
+            status: "PENDING"
+          }
+        }).catch(() => {});
+      }
+    }
+
+    const andConditions: any[] = [
+      {
         OR: [
           { judgeId: { in: [...judgeIds, judgeUserId] } },
-          { judge: { userId: judgeUserId } },
-          { submission: { judgeAssignments: { some: { judgeId: judgeUserId } } } }
-        ],
-        AND: [
-          {
-            OR: [
-              { submission: { competition: { event: { organizationId: tenantId } } } },
-              { submission: { event: { organizationId: tenantId } } }
-            ]
-          }
+          { judge: { userId: judgeUserId } }
         ]
       },
+      {
+        OR: [
+          { submission: { competition: { event: { organizationId: tenantId } } } },
+          { submission: { event: { organizationId: tenantId } } }
+        ]
+      }
+    ];
+
+    if (filters?.eventId && filters.eventId !== "ALL") {
+      andConditions.push({
+        OR: [
+          { submission: { eventId: filters.eventId } },
+          { submission: { competition: { eventId: filters.eventId } } },
+          { submission: { eventRound: { eventId: filters.eventId } } }
+        ]
+      });
+    }
+
+    if (filters?.roundId && filters.roundId !== "ALL") {
+      const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(filters.roundId);
+      if (isUuid) {
+        andConditions.push({
+          OR: [
+            { roundId: filters.roundId },
+            { eventRound: { id: filters.roundId } },
+            { submission: { roundId: filters.roundId } },
+            { submission: { eventRound: { id: filters.roundId } } }
+          ]
+        });
+      } else {
+        const rNum = parseInt(filters.roundId, 10);
+        if (!isNaN(rNum)) {
+          andConditions.push({
+            OR: [
+              { roundNumber: rNum },
+              { eventRound: { roundNumber: rNum } },
+              { submission: { roundNumber: rNum } },
+              { submission: { eventRound: { roundNumber: rNum } } }
+            ]
+          });
+        }
+      }
+    }
+
+    const results = await prisma.evaluation.findMany({
+      where: { AND: andConditions },
       include: {
         eventRound: true,
         submission: {

@@ -5,16 +5,20 @@ import { requireTenant } from "../middleware/tenant.middleware";
 
 const router = Router();
 router.use(requireAuth);
-router.use(requireTenant);
 
-router.get("/", SubmissionController.findAll);
-router.get("/:id", SubmissionController.findById);
-router.post("/", SubmissionController.create);
-router.patch("/:id", SubmissionController.update);
+// Participant & Team submission actions (requireAuth only)
 router.post("/:id/upload", SubmissionController.uploadFile);
 router.post("/:id/final-submit", SubmissionController.finalSubmit);
-router.post("/:id/assign-judge", SubmissionController.assignJudge);
-router.delete("/:id/assign-judge/:judgeId", SubmissionController.unassignJudge);
-router.delete("/:id", SubmissionController.delete);
+
+// View submission (allows participant team members, assigned judges, or tenant staff)
+router.get("/:id", SubmissionController.findById);
+
+// Tenant-scoped management actions (requireTenant)
+router.get("/", requireTenant, SubmissionController.findAll);
+router.post("/", requireTenant, SubmissionController.create);
+router.patch("/:id", requireTenant, SubmissionController.update);
+router.post("/:id/assign-judge", requireTenant, SubmissionController.assignJudge);
+router.delete("/:id/assign-judge/:judgeId", requireTenant, SubmissionController.unassignJudge);
+router.delete("/:id", requireTenant, SubmissionController.delete);
 
 export { router as submissionRoutes };

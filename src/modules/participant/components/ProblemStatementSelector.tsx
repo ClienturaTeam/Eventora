@@ -22,7 +22,10 @@ export function ProblemStatementSelector() {
   const handleSelect = async () => {
     if (!confirmStatement) return;
     try {
-      await selectMutation.mutateAsync(confirmStatement.id);
+      await selectMutation.mutateAsync({
+        problemStatementId: confirmStatement.id,
+        teamId: primaryTeam?.id,
+      });
       toast.success(`Problem Statement ${confirmStatement.code} selected and locked!`);
       setConfirmStatement(null);
     } catch (err: any) {

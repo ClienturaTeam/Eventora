@@ -5,7 +5,17 @@ import { AuthRequest } from "./auth.middleware";
 import { prisma } from "../utils/prisma";
 
 export const requireTenant = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  const organizationId = req.headers["x-organization-id"] as string;
+  let organizationId = req.headers["x-organization-id"] as string;
+
+  if (!organizationId && req.user) {
+    const activeMember = await prisma.organizationMember.findFirst({
+      where: { userId: req.user.id, status: "ACTIVE" },
+      orderBy: { createdAt: "asc" }
+    });
+    if (activeMember) {
+      organizationId = activeMember.organizationId;
+    }
+  }
 
   if (!organizationId) {
     return res.status(400).json({

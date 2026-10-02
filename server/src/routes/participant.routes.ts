@@ -12,6 +12,7 @@ router.get("/registrations", ParticipantController.getMyRegistrations);
 router.get("/access-status", ParticipantController.getAccessStatus);
 router.get("/teams", ParticipantController.getMyTeams);
 router.get("/submissions", ParticipantController.getMySubmissions);
+router.get("/submissions/:id", ParticipantController.getSubmissionById);
 router.get("/certificates", ParticipantController.getMyCertificates);
 router.get("/achievements", ParticipantController.getMyAchievements);
 router.get("/notifications", ParticipantController.getMyNotifications);

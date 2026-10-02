@@ -8,6 +8,7 @@ export const participantKeys = {
   registrations: () => [...participantKeys.all, 'registrations'] as const,
   teams: () => [...participantKeys.all, 'teams'] as const,
   submissions: (eventId?: string) => [...participantKeys.all, 'submissions', eventId || 'all'] as const,
+  submission: (id: string | null) => [...participantKeys.all, 'submission', id || ''] as const,
   accessStatus: (eventId?: string) => [...participantKeys.all, 'accessStatus', eventId || 'none'] as const,
   certificates: () => [...participantKeys.all, 'certificates'] as const,
   achievements: () => [...participantKeys.all, 'achievements'] as const,
@@ -206,10 +207,22 @@ export const useAcceptTeamInvite = () => {
   });
 };
 
+export const useParticipantSubmission = (submissionId: string | null) => {
+  return useQuery({
+    queryKey: participantKeys.submission(submissionId),
+    queryFn: async () => {
+      if (!submissionId) return null;
+      const response = await fetchApi(`/participant/submissions/${submissionId}`);
+      return response.data;
+    },
+    enabled: !!submissionId,
+  });
+};
+
 export const useCreateParticipantSubmission = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { teamId: string; competitionId?: string; eventId?: string; roundId?: string; title?: string; content?: string }) => {
+    mutationFn: async (data: { teamId: string; competitionId?: string; eventId?: string; roundId?: string; title?: string; content?: string; description?: string }) => {
       const response = await fetchApi('/participant/submissions', {
         method: 'POST',
         body: JSON.stringify(data),
@@ -234,8 +247,9 @@ export const useUpdateParticipantSubmission = () => {
       });
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: participantKeys.submissions() });
+      queryClient.invalidateQueries({ queryKey: participantKeys.submission(variables.id) });
       queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
       queryClient.invalidateQueries({ queryKey: ['events'] });
     },
@@ -255,10 +269,11 @@ export const useProblemStatements = () => {
 export const useSelectProblemStatement = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (problemStatementId: string) => {
+    mutationFn: async (payload: string | { problemStatementId: string; teamId?: string }) => {
+      const body = typeof payload === "string" ? { problemStatementId: payload } : payload;
       const response = await fetchApi('/problem-statements/select', {
         method: 'POST',
-        body: JSON.stringify({ problemStatementId }),
+        body: JSON.stringify(body),
       });
       return response.data;
     },
@@ -280,8 +295,9 @@ export const useUploadSubmissionFile = () => {
       });
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: participantKeys.submissions() });
+      queryClient.invalidateQueries({ queryKey: participantKeys.submission(variables.submissionId) });
       queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
       queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['submissions'] });
@@ -293,14 +309,19 @@ export const useUploadSubmissionFile = () => {
 export const useFinalSubmitSubmission = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (submissionId: string) => {
+    mutationFn: async (payload: string | { submissionId: string; description?: string }) => {
+      const submissionId = typeof payload === "string" ? payload : payload.submissionId;
+      const body = typeof payload === "string" ? {} : (payload.description ? { description: payload.description } : {});
       const response = await fetchApi(`/submissions/${submissionId}/final-submit`, {
         method: 'POST',
+        body: JSON.stringify(body),
       });
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      const subId = typeof variables === "string" ? variables : variables.submissionId;
       queryClient.invalidateQueries({ queryKey: participantKeys.submissions() });
+      queryClient.invalidateQueries({ queryKey: participantKeys.submission(subId) });
       queryClient.invalidateQueries({ queryKey: participantKeys.dashboard() });
       queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['submissions'] });

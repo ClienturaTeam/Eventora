@@ -156,7 +156,11 @@ export class ParticipantService {
         team: {
           include: {
             competition: { include: { event: true } },
-            problemStatement: true,
+            problemStatement: {
+              include: {
+                applicableRounds: { orderBy: { roundNumber: 'asc' } }
+              }
+            },
             members: { include: { user: true } }
           }
         }
@@ -301,15 +305,42 @@ export class ParticipantService {
         ...(eventId ? { eventId } : {})
       },
       include: {
-        team: true,
+        team: {
+          include: {
+            members: { include: { user: true } },
+            problemStatement: true
+          }
+        },
         eventRound: true,
         event: true,
         competition: { include: { event: true } },
+        problemStatement: true,
+        submittedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
         files: true,
-        evaluations: true
+        evaluations: {
+          include: {
+            judge: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                user: { select: { id: true, firstName: true, lastName: true, email: true } }
+              }
+            }
+          }
+        }
       },
       orderBy: { createdAt: 'desc' }
     });
+
+    const formatSub = (sub: any) => {
+      const payloadObj = (typeof sub.payload === "object" && sub.payload ? sub.payload : {}) as any;
+      const description = payloadObj.description || payloadObj.content || "";
+      return {
+        ...sub,
+        description
+      };
+    };
 
     if (!eventId) {
       const verifiedMap = new Map<string, boolean>();
@@ -322,13 +353,83 @@ export class ParticipantService {
           verifiedMap.set(targetEventId, acc.allowed);
         }
         if (verifiedMap.get(targetEventId)) {
-          allowedSubs.push(sub);
+          allowedSubs.push(formatSub(sub));
         }
       }
       return allowedSubs;
     }
 
-    return submissions;
+    return submissions.map(formatSub);
+  }
+
+  static async getSubmissionById(userId: string, submissionId: string, eventId?: string) {
+    const sub = await prisma.submission.findUnique({
+      where: { id: submissionId },
+      include: {
+        team: {
+          include: {
+            members: { include: { user: true } },
+            problemStatement: true
+          }
+        },
+        eventRound: true,
+        event: true,
+        competition: { include: { event: true } },
+        problemStatement: true,
+        submittedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+        files: true,
+        evaluations: {
+          include: {
+            judge: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                user: { select: { id: true, firstName: true, lastName: true, email: true } }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!sub) {
+      throw { status: 404, code: "NOT_FOUND", message: "Submission not found." };
+    }
+
+    // Backend security: Participant can view ONLY their team's submission
+    const isMember = sub.team?.members?.some((m: any) => m.userId === userId || m.user?.id === userId);
+    if (!isMember) {
+      throw { status: 403, code: "FORBIDDEN", message: "You are not authorized to view another team's submission." };
+    }
+
+    const targetEventId = sub.eventId || sub.competition?.eventId;
+
+    // Backend security: Submission must belong to the selected event
+    if (eventId && targetEventId && sub.eventId !== eventId && sub.competition?.eventId !== eventId) {
+      throw { status: 403, code: "FORBIDDEN", message: "Submission does not belong to the selected event." };
+    }
+
+    // Backend security: Verify registration & payment for this event
+    if (targetEventId) {
+      const access = await ParticipantService.verifyParticipantRegistrationAndPayment(userId, targetEventId);
+      if (!access.allowed) {
+        throw { status: 403, code: "FORBIDDEN", message: access.message || "Complete event registration and payment before viewing submissions." };
+      }
+    }
+
+    // Backend security: Submission must belong to the team's permanently selected Problem Statement
+    if (sub.team?.problemStatementId && sub.problemStatementId && sub.problemStatementId !== sub.team.problemStatementId) {
+      throw { status: 403, code: "FORBIDDEN", message: "Submission problem statement does not match team's selected problem statement." };
+    }
+
+    const payloadObj = (typeof sub.payload === "object" && sub.payload ? sub.payload : {}) as any;
+    const description = payloadObj.description || payloadObj.content || "";
+
+    return {
+      ...sub,
+      description
+    };
   }
 
   static async getMyCertificates(userId: string) {
@@ -381,6 +482,16 @@ export class ParticipantService {
   }
 
   static async registerForEvent(userId: string, data: { eventId: string }) {
+    const judgeMembership = await prisma.organizationMember.findFirst({
+      where: {
+        userId,
+        role: { name: { equals: "Judge", mode: "insensitive" } }
+      }
+    });
+    if (judgeMembership) {
+      throw { status: 403, code: "FORBIDDEN", message: "Judges cannot register for events." };
+    }
+
     const event = await prisma.event.findUnique({ where: { id: data.eventId } });
     if (!event) throw { status: 404, code: "NOT_FOUND", message: "Event not found." };
 
@@ -428,6 +539,16 @@ export class ParticipantService {
   }
 
   static async registerTeamForEvent(userId: string, data: { eventId: string, teamName: string, competitionId?: string, members?: any[] }) {
+    const judgeMembership = await prisma.organizationMember.findFirst({
+      where: {
+        userId,
+        role: { name: { equals: "Judge", mode: "insensitive" } }
+      }
+    });
+    if (judgeMembership) {
+      throw { status: 403, code: "FORBIDDEN", message: "Judges cannot register for events." };
+    }
+
     const event = await prisma.event.findUnique({ 
       where: { id: data.eventId },
       include: { competitions: true }
@@ -655,7 +776,7 @@ export class ParticipantService {
     return { success: true };
   }
 
-  static async createSubmission(userId: string, data: { teamId: string; competitionId?: string; eventId?: string; roundId?: string; title?: string; content?: string }) {
+  static async createSubmission(userId: string, data: { teamId: string; competitionId?: string; eventId?: string; roundId?: string; title?: string; content?: string; description?: string; payload?: any }) {
     const member = await prisma.teamMember.findFirst({
       where: { teamId: data.teamId, userId },
       include: {
@@ -685,15 +806,29 @@ export class ParticipantService {
       };
     }
 
-    // Check if event has problem statements and team has selected one
-    const eventProblemStatementsCount = await prisma.problemStatement.count({
-      where: { eventId: targetEventId }
-    });
-    if (eventProblemStatementsCount > 0 && !member.team.problemStatementId) {
+    // Check whether the participant's team has permanently selected a Problem Statement for that event
+    if (!member.team.problemStatementId || !member.team.problemStatementLocked || !member.team.problemStatement) {
       throw {
         status: 400,
         code: "NO_PROBLEM_STATEMENT_SELECTED",
-        message: "Your team must select a Problem Statement before starting a round submission."
+        message: "Your team must select and permanently lock a Problem Statement before starting a round submission."
+      };
+    }
+
+    const ps = member.team.problemStatement;
+    if (ps.eventId && ps.eventId !== targetEventId) {
+      throw {
+        status: 400,
+        code: "INVALID_PROBLEM_STATEMENT",
+        message: "Selected Problem Statement does not belong to this event."
+      };
+    }
+
+    if (!data.roundId) {
+      throw {
+        status: 400,
+        code: "BAD_REQUEST",
+        message: "Round ID is required for round submission."
       };
     }
 
@@ -708,7 +843,6 @@ export class ParticipantService {
       }
 
       // Check applicable rounds for team's selected problem statement
-      const ps = member.team.problemStatement;
       if (ps && ps.applicableRounds && ps.applicableRounds.length > 0) {
         const isApplicable = ps.applicableRounds.some(r => r.id === data.roundId);
         if (!isApplicable) {
@@ -723,16 +857,30 @@ export class ParticipantService {
       // Submission timeline checks
       const now = new Date();
       if (round.submissionStart && now < new Date(round.submissionStart)) {
-        throw { status: 400, code: "SUBMISSION_NOT_STARTED", message: "Submissions for this round have not started yet." };
+        throw { status: 400, code: "SUBMISSION_NOT_STARTED", message: `Submissions for '${round.name}' have not started yet.` };
       }
       if (round.submissionDeadline && now > new Date(round.submissionDeadline)) {
-        throw { status: 400, code: "SUBMISSION_CLOSED", message: "Submission deadline for this round has passed." };
+        throw { status: 400, code: "SUBMISSION_CLOSED", message: `Submission deadline for '${round.name}' has passed.` };
       }
 
       // Prevent duplicate submissions for the same team & round
       const existingSub = await prisma.submission.findFirst({
-        where: { teamId: data.teamId, roundId: data.roundId }
+        where: { teamId: data.teamId, roundId: data.roundId },
+        include: {
+          eventRound: true,
+          team: {
+            include: {
+              members: { include: { user: true } },
+              problemStatement: true
+            }
+          },
+          files: true,
+          problemStatement: true,
+          submittedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+          evaluations: true
+        }
       });
+
       if (existingSub) {
         if (existingSub.isLocked || existingSub.status === "SUBMITTED" || existingSub.status === "EVALUATED") {
           throw {
@@ -741,13 +889,51 @@ export class ParticipantService {
             message: `Round '${round.name}' submission has already been submitted and locked.`
           };
         }
-        return existingSub;
+        const rawDesc = (data.description || data.content || "").trim();
+        if (rawDesc) {
+          const updatedDraft = await prisma.submission.update({
+            where: { id: existingSub.id },
+            data: {
+              payload: {
+                ...(typeof existingSub.payload === "object" && existingSub.payload ? (existingSub.payload as any) : {}),
+                description: rawDesc
+              }
+            },
+            include: {
+              eventRound: true,
+              team: {
+                include: {
+                  members: { include: { user: true } },
+                  problemStatement: true
+                }
+              },
+              files: true,
+              problemStatement: true,
+              submittedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+              evaluations: true
+            }
+          });
+          return {
+            ...updatedDraft,
+            description: rawDesc
+          };
+        }
+        const existingPayload = (typeof existingSub.payload === "object" && existingSub.payload ? existingSub.payload : {}) as any;
+        return {
+          ...existingSub,
+          description: existingPayload.description || existingPayload.content || ""
+        };
       }
 
       targetRoundNumber = round.roundNumber;
     }
 
-    return prisma.submission.create({
+    const rawDesc = (data.description || data.content || "").trim();
+    const payload = rawDesc
+      ? { ...(data.payload && typeof data.payload === "object" ? data.payload : {}), description: rawDesc }
+      : (data.payload || null);
+
+    const created = await prisma.submission.create({
       data: {
         eventId: targetEventId,
         competitionId: compId,
@@ -756,15 +942,28 @@ export class ParticipantService {
         roundNumber: targetRoundNumber,
         submittedById: userId,
         title: data.title || `${member.team.name} - Round ${targetRoundNumber} Submission`,
+        payload,
         status: "DRAFT",
         problemStatementId: member.team.problemStatementId || null
       },
       include: {
         eventRound: true,
-        team: true,
-        files: true
+        team: {
+          include: {
+            members: { include: { user: true } },
+            problemStatement: true
+          }
+        },
+        files: true,
+        problemStatement: true,
+        submittedBy: { select: { id: true, firstName: true, lastName: true, email: true } }
       }
     });
+
+    return {
+      ...created,
+      description: rawDesc
+    };
   }
 
   static async updateSubmission(userId: string, submissionId: string, data: any) {
@@ -817,10 +1016,39 @@ export class ParticipantService {
       }
     }
 
-    return prisma.submission.update({
+    const rawDesc = (data.description || data.content || "").trim();
+    const updateData = { ...data };
+    delete updateData.description;
+    delete updateData.content;
+    if (rawDesc) {
+      updateData.payload = {
+        ...(typeof sub.payload === "object" && sub.payload ? (sub.payload as any) : {}),
+        description: rawDesc
+      };
+    }
+
+    const updated = await prisma.submission.update({
       where: { id: submissionId },
-      data
+      data: updateData,
+      include: {
+        eventRound: true,
+        team: {
+          include: {
+            members: { include: { user: true } },
+            problemStatement: true
+          }
+        },
+        files: true,
+        problemStatement: true,
+        submittedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+        evaluations: true
+      }
     });
+
+    return {
+      ...updated,
+      description: rawDesc || (updated.payload as any)?.description || ""
+    };
   }
 
   static async markNotificationRead(userId: string, id: string) {

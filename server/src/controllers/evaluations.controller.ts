@@ -41,8 +41,10 @@ export class EvaluationController {
     try {
       const tenantId = req.tenantId as string;
       const profileId = req.query.profileId as string | undefined;
+      const eventId = req.query.eventId as string | undefined;
+      const roundId = req.query.roundId as string | undefined;
       
-      const data = await EvaluationService.getMyEvaluations(tenantId, req.user!.id, profileId);
+      const data = await EvaluationService.getMyEvaluations(tenantId, req.user!.id, profileId, { eventId, roundId });
       res.json({ success: true, data });
     } catch (error) {
       next(error);

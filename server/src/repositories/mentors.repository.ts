@@ -1,9 +1,10 @@
 import { prisma } from "../utils/prisma";
 
 export class MentorRepository {
-  static async findAll(tenantId: string) {
+  static async findAll(tenantId?: string) {
+    const where: any = tenantId ? { organizationId: tenantId } : {};
     return prisma.mentor.findMany({
-      where: { organizationId: tenantId },
+      where,
       include: {
         user: { select: { id: true, firstName: true, lastName: true, email: true } },
         teamAssignments: {

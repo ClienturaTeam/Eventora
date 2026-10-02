@@ -83,8 +83,9 @@ export function useAssignJudge() {
       });
       return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["submissions"] });
+      queryClient.invalidateQueries({ queryKey: ["submissions", variables.submissionId] });
       queryClient.invalidateQueries({ queryKey: ["evaluations"] });
       queryClient.invalidateQueries({ queryKey: ["manager", "submissions"] });
       queryClient.invalidateQueries({ queryKey: ["manager", "evaluations"] });
@@ -101,8 +102,9 @@ export function useUnassignJudge() {
       });
       return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["submissions"] });
+      queryClient.invalidateQueries({ queryKey: ["submissions", variables.submissionId] });
       queryClient.invalidateQueries({ queryKey: ["evaluations"] });
       queryClient.invalidateQueries({ queryKey: ["manager", "submissions"] });
       queryClient.invalidateQueries({ queryKey: ["manager", "evaluations"] });

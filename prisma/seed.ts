@@ -255,6 +255,25 @@ async function main() {
     }
   }
 
+  const mentorPerms = [
+    'events.read', 'competitions.read', 'teams.read',
+    'submissions.read', 'communications.read', 'notifications.read'
+  ];
+  for (const p of mentorPerms) {
+    if (permissions[p]) {
+      await prisma.rolePermission.create({ data: { roleId: mentorRole.id, permissionId: permissions[p].id } });
+    }
+  }
+
+  const judgePerms = [
+    'events.read', 'competitions.read', 'submissions.read', 'evaluations.read', 'notifications.read'
+  ];
+  for (const p of judgePerms) {
+    if (permissions[p]) {
+      await prisma.rolePermission.create({ data: { roleId: judgeRole.id, permissionId: permissions[p].id } });
+    }
+  }
+
   // 6. Organization Memberships
   const allUsersForOrg = [
     { userId: sudoAdmin.id, roleId: globalAdminRole.id },

@@ -47,33 +47,92 @@ export class SubmissionService {
     return SubmissionRepository.findAll(tenantId, filters);
   }
 
-  static async getSubmission(tenantId: string, id: string, requestingUserId?: string) {
-    const sub = await SubmissionRepository.findById(tenantId, id);
+  static async getSubmission(tenantId: string | undefined, id: string, requestingUserId?: string) {
+    let sub: any;
+    if (tenantId) {
+      sub = await SubmissionRepository.findById(tenantId, id);
+    } else {
+      sub = await prisma.submission.findUnique({
+        where: { id },
+        include: {
+          competition: { select: { name: true, event: { select: { name: true, organizationId: true } } } },
+          event: { select: { id: true, name: true, organizationId: true } },
+          eventRound: true,
+          problemStatement: { select: { id: true, code: true, title: true, description: true, category: true } },
+          team: { select: { id: true, name: true, members: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } } } },
+          submittedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+          files: true,
+          judgeAssignments: {
+            include: {
+              judge: { select: { id: true, firstName: true, lastName: true, email: true } }
+            }
+          },
+          evaluations: {
+            include: {
+              judge: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  userId: true,
+                  user: { select: { id: true, firstName: true, lastName: true, email: true } }
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
     if (!sub) {
       throw { status: 404, code: "NOT_FOUND", message: "Submission not found." };
     }
 
     if (requestingUserId) {
+      const isTeamMember = sub.team?.members?.some((m: any) => m.user?.id === requestingUserId || m.userId === requestingUserId);
+      const isJudge = sub.judgeAssignments?.some((a: any) => a.judge?.id === requestingUserId || a.judgeId === requestingUserId);
+      let isOrgStaff = false;
+
+      const orgId = tenantId || sub.event?.organizationId || sub.competition?.event?.organizationId;
+      if (orgId) {
+        const membership = await prisma.organizationMember.findUnique({
+          where: { userId_organizationId: { userId: requestingUserId, organizationId: orgId } },
+          include: { role: true }
+        });
+        if (membership && membership.status === "ACTIVE") {
+          isOrgStaff = true;
+          const roleName = membership?.role?.name?.toLowerCase() || "";
+          const isJudgeOnly = roleName.includes("judge") && !roleName.includes("admin") && !roleName.includes("manager");
+          if (isJudgeOnly && !isJudge) {
+            throw { status: 403, code: "FORBIDDEN", message: "You are not assigned to view this submission." };
+          }
+        }
+      }
+
+      if (!isTeamMember && !isJudge && !isOrgStaff) {
+        throw { status: 403, code: "FORBIDDEN", message: "You are not authorized to view this submission." };
+      }
+    }
+
+    const payloadObj = (typeof sub.payload === "object" && sub.payload ? sub.payload : {}) as any;
+    return {
+      ...sub,
+      description: payloadObj.description || payloadObj.content || ""
+    };
+  }
+
+  static async createSubmission(tenantId: string, data: any, requestingUserId?: string) {
+    if (requestingUserId) {
       const membership = await prisma.organizationMember.findUnique({
         where: { userId_organizationId: { userId: requestingUserId, organizationId: tenantId } },
         include: { role: true }
       });
-
       const roleName = membership?.role?.name?.toLowerCase() || "";
-      const isJudgeOnly = roleName.includes("judge") && !roleName.includes("admin") && !roleName.includes("manager");
-
-      if (isJudgeOnly) {
-        const isAssigned = sub.judgeAssignments?.some((a) => a.judge.id === requestingUserId);
-        if (!isAssigned) {
-          throw { status: 403, code: "FORBIDDEN", message: "You are not assigned to view this submission." };
-        }
+      if (roleName.includes("judge") && !roleName.includes("admin") && !roleName.includes("manager")) {
+        throw { status: 403, code: "FORBIDDEN", message: "Judges cannot create submissions." };
       }
     }
 
-    return sub;
-  }
-
-  static async createSubmission(tenantId: string, data: any) {
     const team = await prisma.team.findFirst({
       where: { id: data.teamId },
       include: {
@@ -86,7 +145,7 @@ export class SubmissionService {
       throw { status: 404, code: "NOT_FOUND", message: "Team not found." };
     }
 
-    if (!team.problemStatementId || !team.problemStatement) {
+    if (!team.problemStatementId || !team.problemStatementLocked || !team.problemStatement) {
       throw {
         status: 400,
         code: "NO_PROBLEM_STATEMENT_SELECTED",
@@ -96,6 +155,14 @@ export class SubmissionService {
 
     const ps = team.problemStatement;
     const eventId = data.eventId || team.competition?.eventId;
+
+    if (eventId && ps.eventId && ps.eventId !== eventId) {
+      throw {
+        status: 400,
+        code: "INVALID_PROBLEM_STATEMENT",
+        message: "Selected Problem Statement does not belong to this event."
+      };
+    }
 
     if (data.roundId) {
       const round = await prisma.eventRound.findUnique({
@@ -241,15 +308,20 @@ export class SubmissionService {
       });
     }
 
-    const assignment = await prisma.submissionJudgeAssignment.upsert({
+    const existingAssignment = await prisma.submissionJudgeAssignment.findUnique({
       where: {
         submissionId_judgeId: {
           submissionId,
           judgeId: targetUserId
         }
-      },
-      update: {},
-      create: {
+      }
+    });
+    if (existingAssignment) {
+      throw { status: 409, code: "ALREADY_ASSIGNED", message: "This judge is already assigned to this submission." };
+    }
+
+    const assignment = await prisma.submissionJudgeAssignment.create({
+      data: {
         submissionId,
         judgeId: targetUserId
       },
@@ -333,7 +405,18 @@ export class SubmissionService {
     return true;
   }
 
-  static async updateSubmission(tenantId: string, id: string, data: any) {
+  static async updateSubmission(tenantId: string, id: string, data: any, requestingUserId?: string) {
+    if (requestingUserId) {
+      const membership = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: requestingUserId, organizationId: tenantId } },
+        include: { role: true }
+      });
+      const roleName = membership?.role?.name?.toLowerCase() || "";
+      if (roleName.includes("judge") && !roleName.includes("admin") && !roleName.includes("manager")) {
+        throw { status: 403, code: "FORBIDDEN", message: "Judges cannot edit submissions. Judges are evaluators only." };
+      }
+    }
+
     const sub = await prisma.submission.findUnique({ where: { id } });
     if (!sub) {
       throw { status: 404, code: "NOT_FOUND", message: "Submission not found." };
@@ -359,9 +442,23 @@ export class SubmissionService {
   static async addSubmissionFile(userId: string, submissionId: string, fileData: { fileName: string; fileSize: number; fileType: string; fileUrl?: string }) {
     const sub = await prisma.submission.findUnique({
       where: { id: submissionId },
-      include: { files: true }
+      include: {
+        files: true,
+        team: {
+          include: {
+            members: true,
+            problemStatement: { include: { applicableRounds: true } }
+          }
+        },
+        eventRound: true
+      }
     });
     if (!sub) throw { status: 404, code: "NOT_FOUND", message: "Submission not found." };
+
+    const isMember = sub.team?.members?.some((m: any) => m.userId === userId);
+    if (!isMember) {
+      throw { status: 403, code: "FORBIDDEN", message: "You are not a member of the team for this submission." };
+    }
 
     if (sub.eventId) {
       const access = await ParticipantService.verifyParticipantRegistrationAndPayment(userId, sub.eventId);
@@ -370,20 +467,44 @@ export class SubmissionService {
       }
     }
 
-    if (sub.roundId) {
-      const round = await prisma.eventRound.findUnique({ where: { id: sub.roundId } });
-      if (round) {
-        const now = new Date();
-        if (round.submissionStart && now < new Date(round.submissionStart)) {
-          throw { status: 400, code: "SUBMISSION_WINDOW_NOT_OPEN", message: `Submission window for '${round.name}' has not opened yet.` };
+    if (!sub.team?.problemStatementId || !sub.team?.problemStatementLocked || !sub.team?.problemStatement) {
+      throw {
+        status: 400,
+        code: "NO_PROBLEM_STATEMENT_SELECTED",
+        message: "Your team must select and permanently lock a Problem Statement before submitting files."
+      };
+    }
+
+    const ps = sub.team.problemStatement;
+    if (sub.eventId && ps.eventId && ps.eventId !== sub.eventId) {
+      throw {
+        status: 400,
+        code: "INVALID_PROBLEM_STATEMENT",
+        message: "Selected Problem Statement does not belong to this event."
+      };
+    }
+
+    if (sub.eventRound) {
+      if (ps.applicableRounds && ps.applicableRounds.length > 0) {
+        const isApplicable = ps.applicableRounds.some(r => r.id === sub.eventRound!.id);
+        if (!isApplicable) {
+          throw {
+            status: 400,
+            code: "UNAUTHORIZED_ROUND_SUBMISSION",
+            message: `Round '${sub.eventRound.name}' is not configured for your team's selected Problem Statement ('${ps.code}: ${ps.title}').`
+          };
         }
-        if (round.submissionDeadline && now > new Date(round.submissionDeadline)) {
-          throw { status: 400, code: "SUBMISSION_WINDOW_CLOSED", message: `Submission deadline for '${round.name}' has passed.` };
-        }
+      }
+      const now = new Date();
+      if (sub.eventRound.submissionStart && now < new Date(sub.eventRound.submissionStart)) {
+        throw { status: 400, code: "SUBMISSION_WINDOW_NOT_OPEN", message: `Submission window for '${sub.eventRound.name}' has not opened yet.` };
+      }
+      if (sub.eventRound.submissionDeadline && now > new Date(sub.eventRound.submissionDeadline)) {
+        throw { status: 400, code: "SUBMISSION_WINDOW_CLOSED", message: `Submission deadline for '${sub.eventRound.name}' has passed.` };
       }
     }
 
-    if (sub.isLocked) {
+    if (sub.isLocked || sub.status === "SUBMITTED" || sub.status === "EVALUATED") {
       throw { status: 400, code: "SUBMISSION_LOCKED", message: "Submission is locked and cannot accept file uploads." };
     }
 
@@ -404,6 +525,18 @@ export class SubmissionService {
       };
     }
 
+    if (fileData.description && fileData.description.trim()) {
+      await prisma.submission.update({
+        where: { id: submissionId },
+        data: {
+          payload: {
+            ...(typeof sub.payload === "object" && sub.payload ? (sub.payload as any) : {}),
+            description: fileData.description.trim()
+          }
+        }
+      });
+    }
+
     const file = await prisma.submissionFile.create({
       data: {
         submissionId,
@@ -417,12 +550,26 @@ export class SubmissionService {
     return file;
   }
 
-  static async finalSubmit(userId: string, submissionId: string) {
+  static async finalSubmit(userId: string, submissionId: string, description?: string) {
     const sub = await prisma.submission.findUnique({
-      where: { id: submissionId }
+      where: { id: submissionId },
+      include: {
+        team: {
+          include: {
+            members: true,
+            problemStatement: { include: { applicableRounds: true } }
+          }
+        },
+        eventRound: true
+      }
     });
 
     if (!sub) throw { status: 404, code: "NOT_FOUND", message: "Submission not found." };
+
+    const isMember = sub.team?.members?.some((m: any) => m.userId === userId);
+    if (!isMember) {
+      throw { status: 403, code: "FORBIDDEN", message: "You are not a member of the team for this submission." };
+    }
 
     if (sub.eventId) {
       const access = await ParticipantService.verifyParticipantRegistrationAndPayment(userId, sub.eventId);
@@ -431,32 +578,71 @@ export class SubmissionService {
       }
     }
 
-    if (sub.isLocked) {
-      throw { status: 400, code: "SUBMISSION_LOCKED", message: "Submission is already locked." };
+    if (!sub.team?.problemStatementId || !sub.team?.problemStatementLocked || !sub.team?.problemStatement) {
+      throw {
+        status: 400,
+        code: "NO_PROBLEM_STATEMENT_SELECTED",
+        message: "Your team must select and permanently lock a Problem Statement before final submission."
+      };
     }
 
-    if (sub.roundId) {
-      const round = await prisma.eventRound.findUnique({ where: { id: sub.roundId } });
-      if (round) {
-        const now = new Date();
-        if (round.submissionStart && now < new Date(round.submissionStart)) {
-          throw { status: 400, code: "SUBMISSION_WINDOW_NOT_OPEN", message: `Submission window for '${round.name}' has not opened yet.` };
+    const ps = sub.team.problemStatement;
+    if (sub.eventId && ps.eventId && ps.eventId !== sub.eventId) {
+      throw {
+        status: 400,
+        code: "INVALID_PROBLEM_STATEMENT",
+        message: "Selected Problem Statement does not belong to this event."
+      };
+    }
+
+    if (sub.eventRound) {
+      if (ps.applicableRounds && ps.applicableRounds.length > 0) {
+        const isApplicable = ps.applicableRounds.some(r => r.id === sub.eventRound!.id);
+        if (!isApplicable) {
+          throw {
+            status: 400,
+            code: "UNAUTHORIZED_ROUND_SUBMISSION",
+            message: `Round '${sub.eventRound.name}' is not configured for your team's selected Problem Statement ('${ps.code}: ${ps.title}').`
+          };
         }
-        if (round.submissionDeadline && now > new Date(round.submissionDeadline)) {
-          throw { status: 400, code: "SUBMISSION_WINDOW_CLOSED", message: `Submission deadline for '${round.name}' has passed.` };
-        }
+      }
+      const now = new Date();
+      if (sub.eventRound.submissionStart && now < new Date(sub.eventRound.submissionStart)) {
+        throw { status: 400, code: "SUBMISSION_WINDOW_NOT_OPEN", message: `Submission window for '${sub.eventRound.name}' has not opened yet.` };
+      }
+      if (sub.eventRound.submissionDeadline && now > new Date(sub.eventRound.submissionDeadline)) {
+        throw { status: 400, code: "SUBMISSION_WINDOW_CLOSED", message: `Submission deadline for '${sub.eventRound.name}' has passed.` };
       }
     }
 
+    if (sub.isLocked || sub.status === "SUBMITTED" || sub.status === "EVALUATED") {
+      throw { status: 400, code: "SUBMISSION_LOCKED", message: "Submission is already locked." };
+    }
+
     const updated = await prisma.$transaction(async (tx) => {
+      const rawDesc = description?.trim();
+      const updatedPayload = rawDesc
+        ? {
+            ...(typeof sub.payload === "object" && sub.payload ? (sub.payload as any) : {}),
+            description: rawDesc
+          }
+        : sub.payload;
+
       const s = await tx.submission.update({
         where: { id: submissionId },
         data: {
           status: "SUBMITTED",
           isLocked: true,
-          lockedAt: new Date()
+          lockedAt: new Date(),
+          ...(rawDesc ? { payload: updatedPayload } : {})
         },
-        include: { files: true }
+        include: {
+          files: true,
+          eventRound: true,
+          team: true,
+          problemStatement: true,
+          submittedBy: { select: { id: true, firstName: true, lastName: true, email: true } }
+        }
       });
 
       const org = await tx.organization.findFirst();
@@ -472,13 +658,27 @@ export class SubmissionService {
         });
       }
 
-      return s;
+      return {
+        ...s,
+        description: (s.payload as any)?.description || ""
+      };
     });
 
     return updated;
   }
 
-  static async deleteSubmission(tenantId: string, id: string) {
+  static async deleteSubmission(tenantId: string, id: string, requestingUserId?: string) {
+    if (requestingUserId) {
+      const membership = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: requestingUserId, organizationId: tenantId } },
+        include: { role: true }
+      });
+      const roleName = membership?.role?.name?.toLowerCase() || "";
+      if (roleName.includes("judge") && !roleName.includes("admin") && !roleName.includes("manager")) {
+        throw { status: 403, code: "FORBIDDEN", message: "Judges cannot delete submissions." };
+      }
+    }
+
     const existing = await prisma.submission.findUnique({ where: { id } });
     if (!existing) {
       throw { status: 404, code: "NOT_FOUND", message: "Submission not found." };

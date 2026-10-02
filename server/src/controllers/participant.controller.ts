@@ -116,6 +116,16 @@ export class ParticipantController {
     }
   }
 
+  static async getSubmissionById(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const eventId = req.query.eventId as string | undefined;
+      const data = await ParticipantService.getSubmissionById(req.user!.id, req.params.id, eventId);
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async createSubmission(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const data = await ParticipantService.createSubmission(req.user!.id, req.body);

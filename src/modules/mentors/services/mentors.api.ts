@@ -150,6 +150,8 @@ export interface ApiMentorQuestion {
   user?: { firstName: string | null; lastName: string | null; email: string };
   event?: { id: string; title?: string; name?: string };
   round?: { id: string; roundNumber?: number; name?: string };
+  team?: { id: string; name: string } | null;
+  problemStatement?: { id: string; code?: string; title?: string; description?: string; category?: string } | null;
   replies?: ApiQuestionReply[];
 }
 

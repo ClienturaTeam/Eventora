@@ -1,15 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth";
-import { useAssignJudge, useUnassignJudge, ApiSubmission } from "../services/submissions.api";
+import { useAssignJudge, useUnassignJudge, useSubmission, ApiSubmission } from "../services/submissions.api";
 import { toast } from "sonner";
-import { UserCheck, Trash2, Layers, Trophy } from "lucide-react";
+import { UserCheck, Trash2, Layers, Trophy, Loader2 } from "lucide-react";
 
 interface AssignJudgeDialogProps {
   open: boolean;
@@ -19,11 +19,29 @@ interface AssignJudgeDialogProps {
 
 export function AssignJudgeDialog({ open, onOpenChange, submission }: AssignJudgeDialogProps) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const orgId = user?.memberships?.[0]?.organization?.id || (user as any)?.organizationId;
 
   const [selectedJudgeId, setSelectedJudgeId] = useState<string>("");
   const assignJudgeMutation = useAssignJudge();
   const unassignJudgeMutation = useUnassignJudge();
+
+  // Fetch real-time fresh submission details including latest judgeAssignments from backend
+  const {
+    data: freshSubmission,
+    refetch: refetchSubmission,
+    isLoading: loadingFreshSub
+  } = useSubmission(open && submission?.id ? submission.id : "");
+
+  const currentSubmission = freshSubmission || submission;
+
+  // Refetch latest submission data whenever dialog opens
+  useEffect(() => {
+    if (open && submission?.id) {
+      refetchSubmission();
+      setSelectedJudgeId("");
+    }
+  }, [open, submission?.id, refetchSubmission]);
 
   // Load organization members / judges from backend
   const { data: members = [] } = useQuery({
@@ -46,68 +64,78 @@ export function AssignJudgeDialog({ open, onOpenChange, submission }: AssignJudg
   });
 
   const handleAssign = async () => {
-    if (!submission || !selectedJudgeId) return;
+    if (!currentSubmission || !selectedJudgeId) return;
     try {
       await assignJudgeMutation.mutateAsync({
-        submissionId: submission.id,
+        submissionId: currentSubmission.id,
         judgeId: selectedJudgeId,
       });
       toast.success("Judge successfully assigned!");
       setSelectedJudgeId("");
+      await refetchSubmission();
+      queryClient.invalidateQueries({ queryKey: ["submissions"] });
+      queryClient.invalidateQueries({ queryKey: ["submissions", currentSubmission.id] });
     } catch (e: any) {
-      toast.error(e.message || "Failed to assign judge");
+      toast.error(e?.message || e?.details?.[0] || "Failed to assign judge");
     }
   };
 
   const handleUnassign = async (judgeId: string) => {
-    if (!submission) return;
+    if (!currentSubmission) return;
     try {
       await unassignJudgeMutation.mutateAsync({
-        submissionId: submission.id,
+        submissionId: currentSubmission.id,
         judgeId,
       });
       toast.success("Judge assignment removed");
+      await refetchSubmission();
+      queryClient.invalidateQueries({ queryKey: ["submissions"] });
+      queryClient.invalidateQueries({ queryKey: ["submissions", currentSubmission.id] });
     } catch (e: any) {
-      toast.error(e.message || "Failed to unassign judge");
+      toast.error(e?.message || e?.details?.[0] || "Failed to unassign judge");
     }
   };
 
-  if (!submission) return null;
+  if (!currentSubmission) return null;
 
-  const assignedJudgeIds = new Set(submission.judgeAssignments?.map((a) => a.judge.id) || []);
+  const assignedJudges = currentSubmission.judgeAssignments || [];
+  const assignedJudgeIds = new Set(
+    assignedJudges.map((a) => a.judge?.id || (a as any).judgeId).filter(Boolean)
+  );
 
-  // Combine judges profiles and organization members
+  // Combine judges profiles and organization members excluding already-assigned judges
   const candidateMap = new Map<string, { id: string; name: string; email: string; roleName: string }>();
   
   members.forEach((m: any) => {
-    if (m.user && !assignedJudgeIds.has(m.user.id)) {
-      candidateMap.set(m.user.id, {
-        id: m.user.id,
-        name: `${m.user.firstName || ""} ${m.user.lastName || ""}`.trim() || m.user.email,
-        email: m.user.email,
+    const userId = m.user?.id || m.userId;
+    if (userId && !assignedJudgeIds.has(userId)) {
+      candidateMap.set(userId, {
+        id: userId,
+        name: `${m.user?.firstName || ""} ${m.user?.lastName || ""}`.trim() || m.user?.email || "Member",
+        email: m.user?.email || "",
         roleName: m.role?.name || "Member",
       });
     }
   });
 
   judgesList.forEach((j: any) => {
-    const userId = j.userId || j.user?.id;
+    const userId = j.userId || j.user?.id || j.id;
     if (userId && !assignedJudgeIds.has(userId) && !candidateMap.has(userId)) {
-      const name = j.user ? `${j.user.firstName || ""} ${j.user.lastName || ""}`.trim() : "Judge";
+      const name = j.user ? `${j.user.firstName || ""} ${j.user.lastName || ""}`.trim() : (j.name || "Judge");
       candidateMap.set(userId, {
         id: userId,
         name: name || j.user?.email || "Judge Profile",
-        email: j.user?.email || "",
+        email: j.user?.email || j.email || "",
         roleName: "Judge",
       });
     }
   });
 
   const availableJudges = Array.from(candidateMap.values());
-  const eventName = submission.event?.name || submission.competition?.event?.name || "General Event";
-  const roundName = submission.eventRound
-    ? `Round ${submission.eventRound.roundNumber} — ${submission.eventRound.name}`
-    : `Round ${submission.roundNumber || 1}`;
+  const eventName = currentSubmission.event?.name || currentSubmission.competition?.event?.name || "General Event";
+  const roundName = currentSubmission.eventRound
+    ? `Round ${currentSubmission.eventRound.roundNumber} — ${currentSubmission.eventRound.name}`
+    : `Round ${currentSubmission.roundNumber || 1}`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -122,7 +150,7 @@ export function AssignJudgeDialog({ open, onOpenChange, submission }: AssignJudg
         <div className="space-y-4 py-3">
           {/* Submission Context Box */}
           <div className="p-3.5 rounded-lg border border-border bg-muted/40 space-y-2 text-xs">
-            <div className="font-semibold text-sm text-foreground">{submission.title}</div>
+            <div className="font-semibold text-sm text-foreground">{currentSubmission.title}</div>
             <div className="grid grid-cols-2 gap-2 text-muted-foreground">
               <div>
                 <span className="block text-[10px]">Event</span>
@@ -139,41 +167,55 @@ export function AssignJudgeDialog({ open, onOpenChange, submission }: AssignJudg
                 </span>
               </div>
             </div>
-            {submission.team && (
+            {currentSubmission.team && (
               <div className="text-muted-foreground pt-1 border-t border-border/50">
-                Team: <span className="font-medium text-foreground">{submission.team.name}</span>
+                Team: <span className="font-medium text-foreground">{currentSubmission.team.name}</span>
               </div>
             )}
           </div>
 
           {/* Currently Assigned Judges List */}
           <div className="space-y-2">
-            <Label className="text-xs font-semibold">Assigned Judges ({submission.judgeAssignments?.length || 0})</Label>
-            {(!submission.judgeAssignments || submission.judgeAssignments.length === 0) ? (
-              <p className="text-xs text-muted-foreground italic p-2 rounded border border-dashed text-center">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold">
+                Assigned Judges ({assignedJudges.length})
+              </Label>
+              {loadingFreshSub && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+            </div>
+
+            {assignedJudges.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic p-3 rounded-md border border-dashed text-center bg-muted/10">
                 No judges assigned to this submission yet.
               </p>
             ) : (
-              <div className="space-y-1.5">
-                {submission.judgeAssignments.map((a) => (
-                  <div key={a.id} className="flex items-center justify-between p-2.5 rounded-md border border-border bg-card text-xs">
-                    <div>
-                      <span className="font-semibold text-foreground">{a.judge.firstName} {a.judge.lastName}</span>
-                      <span className="text-muted-foreground ml-1.5 text-[11px]">({a.judge.email})</span>
-                      <Badge variant="secondary" className="ml-2 text-[9px] py-0 px-1">Assigned</Badge>
+              <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
+                {assignedJudges.map((a) => {
+                  const judgeName = `${a.judge?.firstName || ""} ${a.judge?.lastName || ""}`.trim() || (a.judge as any)?.name || "Judge";
+                  const judgeEmail = a.judge?.email;
+                  return (
+                    <div key={a.id} className="flex items-center justify-between p-2.5 rounded-md border border-border bg-card text-xs">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-semibold text-foreground">{judgeName}</span>
+                        {judgeEmail && (
+                          <span className="text-muted-foreground text-[11px]">({judgeEmail})</span>
+                        )}
+                        <Badge variant="secondary" className="text-[9px] py-0 px-1.5 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                          Assigned
+                        </Badge>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                        onClick={() => handleUnassign(a.judge?.id || (a as any).judgeId)}
+                        disabled={unassignJudgeMutation.isPending}
+                        title="Remove judge assignment"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10"
-                      onClick={() => handleUnassign(a.judge.id)}
-                      disabled={unassignJudgeMutation.isPending}
-                      title="Remove judge assignment"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -181,33 +223,34 @@ export function AssignJudgeDialog({ open, onOpenChange, submission }: AssignJudg
           {/* Add New Judge Selection */}
           <div className="space-y-2 pt-3 border-t border-border">
             <Label className="text-xs font-semibold">Assign New Judge</Label>
-            <div className="flex items-center gap-2">
-              <Select value={selectedJudgeId} onValueChange={setSelectedJudgeId}>
-                <SelectTrigger className="h-9 text-xs flex-1">
-                  <SelectValue placeholder="Select an authorized judge..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableJudges.map((j) => (
-                    <SelectItem key={j.id} value={j.id} className="text-xs">
-                      {j.name} ({j.email}) — <span className="text-muted-foreground">{j.roleName}</span>
-                    </SelectItem>
-                  ))}
-                  {availableJudges.length === 0 && (
-                    <SelectItem value="none" disabled className="text-xs">
-                      All organization judges/members are already assigned
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-              <Button
-                size="sm"
-                className="h-9 text-xs"
-                onClick={handleAssign}
-                disabled={!selectedJudgeId || assignJudgeMutation.isPending}
-              >
-                {assignJudgeMutation.isPending ? "Assigning..." : "Assign"}
-              </Button>
-            </div>
+            {availableJudges.length > 0 ? (
+              <div className="flex items-center gap-2">
+                <Select value={selectedJudgeId} onValueChange={setSelectedJudgeId}>
+                  <SelectTrigger className="h-9 text-xs flex-1">
+                    <SelectValue placeholder="Select an authorized judge..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableJudges.map((j) => (
+                      <SelectItem key={j.id} value={j.id} className="text-xs">
+                        {j.name} {j.email ? `(${j.email})` : ""} — <span className="text-muted-foreground">{j.roleName}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  className="h-9 text-xs shrink-0"
+                  onClick={handleAssign}
+                  disabled={!selectedJudgeId || assignJudgeMutation.isPending}
+                >
+                  {assignJudgeMutation.isPending ? "Assigning..." : "Assign"}
+                </Button>
+              </div>
+            ) : (
+              <div className="p-2.5 rounded-md border border-dashed text-xs text-muted-foreground bg-muted/20 text-center">
+                All available judges are already assigned.
+              </div>
+            )}
           </div>
         </div>
 

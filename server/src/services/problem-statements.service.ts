@@ -178,36 +178,8 @@ export class ProblemStatementService {
     });
   }
 
-  static async selectProblemStatement(userId: string, problemStatementId: string) {
-    // Find authenticated user's team
-    const member = await prisma.teamMember.findFirst({
-      where: { userId },
-      include: {
-        team: {
-          include: {
-            competition: { include: { event: true } },
-            problemStatement: true
-          }
-        }
-      }
-    });
-
-    if (!member || !member.team) {
-      throw { status: 404, code: "NOT_FOUND", message: "No team associated with this user." };
-    }
-
-    const team = member.team;
-
-    // Strict immutability lock check
-    if (team.problemStatementLocked || team.problemStatementId) {
-      throw {
-        status: 400,
-        code: "SELECTION_LOCKED",
-        message: "Problem statement selection is permanently locked and cannot be modified."
-      };
-    }
-
-    // Verify problem statement exists and is released
+  static async selectProblemStatement(userId: string, problemStatementId: string, teamId?: string) {
+    // 1. Verify problem statement exists and is released
     const ps = await prisma.problemStatement.findUnique({
       where: { id: problemStatementId },
       include: { applicableRounds: true }
@@ -219,6 +191,97 @@ export class ProblemStatementService {
 
     if (!ps.isReleased) {
       throw { status: 400, code: "BAD_REQUEST", message: "This problem statement is not yet released for selection." };
+    }
+
+    // 2. Find authenticated user's relevant team
+    let member = null;
+
+    if (teamId) {
+      member = await prisma.teamMember.findFirst({
+        where: { userId, teamId },
+        include: {
+          team: {
+            include: {
+              competition: { include: { event: true } },
+              problemStatement: true
+            }
+          }
+        }
+      });
+    }
+
+    if (!member && ps.eventId) {
+      member = await prisma.teamMember.findFirst({
+        where: {
+          userId,
+          team: {
+            competition: {
+              eventId: ps.eventId
+            }
+          }
+        },
+        include: {
+          team: {
+            include: {
+              competition: { include: { event: true } },
+              problemStatement: true
+            }
+          }
+        }
+      });
+    }
+
+    if (!member) {
+      // Find any unlocked team for this user
+      member = await prisma.teamMember.findFirst({
+        where: {
+          userId,
+          team: {
+            problemStatementLocked: false,
+            problemStatementId: null
+          }
+        },
+        orderBy: { createdAt: "desc" },
+        include: {
+          team: {
+            include: {
+              competition: { include: { event: true } },
+              problemStatement: true
+            }
+          }
+        }
+      });
+    }
+
+    if (!member) {
+      // Fallback to any team the user belongs to so that specific error messages can be returned
+      member = await prisma.teamMember.findFirst({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          team: {
+            include: {
+              competition: { include: { event: true } },
+              problemStatement: true
+            }
+          }
+        }
+      });
+    }
+
+    if (!member || !member.team) {
+      throw { status: 404, code: "NOT_FOUND", message: "No team associated with this user for this event." };
+    }
+
+    const team = member.team;
+
+    // Strict immutability lock check
+    if (team.problemStatementLocked || team.problemStatementId) {
+      throw {
+        status: 400,
+        code: "SELECTION_LOCKED",
+        message: "Problem statement selection is permanently locked and cannot be modified."
+      };
     }
 
     const teamEventId = team.competition?.eventId;

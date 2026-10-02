@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { PaymentsService } from "../services/payments.service";
 import { AuditService } from "../services/audit.service";
 import { AuthRequest } from "../middleware/auth.middleware";
+import { prisma } from "../utils/prisma";
 
 export class PaymentsController {
   static async getPlans(req: AuthRequest, res: Response) {
@@ -196,6 +197,15 @@ export class PaymentsController {
 
       if (!eventId || !successUrl || !cancelUrl) {
         return res.status(400).json({ success: false, error: { message: "Missing required fields" } });
+      }
+
+      const membership = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId, organizationId: tenantId } },
+        include: { role: true }
+      });
+      const roleName = membership?.role?.name?.toLowerCase() || "";
+      if (roleName.includes("judge") && !roleName.includes("admin") && !roleName.includes("manager")) {
+        return res.status(403).json({ success: false, error: { message: "Judges cannot make payments or register for events." } });
       }
 
       const session = await PaymentsService.createEventRegistrationCheckout(

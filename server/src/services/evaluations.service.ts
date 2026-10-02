@@ -21,8 +21,13 @@ export class EvaluationService {
     return EvaluationRepository.findAll(tenantId, filters);
   }
 
-  static async getMyEvaluations(tenantId: string, judgeUserId: string, profileId?: string) {
-    return EvaluationRepository.findByJudge(tenantId, judgeUserId, profileId);
+  static async getMyEvaluations(
+    tenantId: string,
+    judgeUserId: string,
+    profileId?: string,
+    filters?: { eventId?: string; roundId?: string; roundNumber?: number }
+  ) {
+    return EvaluationRepository.findByJudge(tenantId, judgeUserId, profileId, filters);
   }
 
   static async getEvaluation(tenantId: string, id: string) {
@@ -102,15 +107,6 @@ export class EvaluationService {
       };
     }
 
-    // Check if evaluation is locked (submitted and not requested for correction)
-    if (ev.isLocked && ev.status === "COMPLETED") {
-      throw {
-        status: 400,
-        code: "EVALUATION_LOCKED",
-        message: "This evaluation is locked and submitted. An admin must request a correction before changes can be made.",
-      };
-    }
-
     let finalScore = data.score;
     let finalFeedback = data.feedback;
 
@@ -158,19 +154,21 @@ export class EvaluationService {
       status: requestedStatus,
       recommendation: data.recommendation || ev.recommendation,
       criteriaScores: data.scores || ev.criteriaScores,
+      lockedAt: new Date(),
     };
 
     if (finalScore !== undefined) updatePayload.score = finalScore;
     if (finalFeedback !== undefined) updatePayload.feedback = finalFeedback;
 
-    // Lock evaluation upon submission
-    if (requestedStatus === "COMPLETED") {
-      updatePayload.isLocked = true;
-      updatePayload.lockedAt = new Date();
-    }
-
     const updated = await EvaluationRepository.update(tenantId, id, updatePayload);
     if (!updated) throw { status: 404, code: "NOT_FOUND", message: "Evaluation not found." };
+
+    // Update submission status to EVALUATED
+    await prisma.submission.update({
+      where: { id: ev.submissionId },
+      data: { status: "EVALUATED" }
+    }).catch(() => {});
+
     return updated;
   }
 

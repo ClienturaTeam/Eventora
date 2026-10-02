@@ -390,13 +390,16 @@ export function SubmissionsListPage() {
       <SubmissionDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        submission={selectedSub}
+        submission={selectedSub ? (submissions.find(s => s.id === selectedSub.id) || selectedSub) : null}
       />
 
       <AssignJudgeDialog
         open={assignJudgeOpen}
-        onOpenChange={setAssignJudgeOpen}
-        submission={selectedSub}
+        onOpenChange={(open) => {
+          setAssignJudgeOpen(open);
+          if (!open) setSelectedSub(null);
+        }}
+        submission={selectedSub ? (submissions.find(s => s.id === selectedSub.id) || selectedSub) : null}
       />
 
       <BatchAssignJudgeDialog

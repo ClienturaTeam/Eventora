@@ -40,15 +40,28 @@ export function ParticipantProblemStatementsPage() {
     return statements.filter((s: any) => !s.eventId || s.eventId === activeEventId);
   }, [statements, activeEventId]);
 
-  const primaryTeam = teams[0]?.team;
-  const isLocked = primaryTeam?.problemStatementLocked;
-  const selectedId = primaryTeam?.problemStatementId;
-  const selectedStatement = statements.find((s: any) => s.id === selectedId) || primaryTeam?.problemStatement;
+  // Match user's team specifically for the active event (or fallback to first team)
+  const activeTeamMember = useMemo(() => {
+    if (!teams || teams.length === 0) return null;
+    if (activeEventId) {
+      const match = teams.find((t: any) => t.team?.competition?.eventId === activeEventId);
+      if (match) return match;
+    }
+    return teams[0];
+  }, [teams, activeEventId]);
+
+  const activeTeam = activeTeamMember?.team;
+  const isLocked = activeTeam?.problemStatementLocked;
+  const selectedId = activeTeam?.problemStatementId;
+  const selectedStatement = statements.find((s: any) => s.id === selectedId) || activeTeam?.problemStatement;
 
   const handleSelect = async () => {
     if (!confirmStatement) return;
     try {
-      await selectMutation.mutateAsync(confirmStatement.id);
+      await selectMutation.mutateAsync({
+        problemStatementId: confirmStatement.id,
+        teamId: activeTeam?.id,
+      });
       toast.success(`Problem Statement ${confirmStatement.code} selected and locked!`);
       setConfirmStatement(null);
     } catch (err: any) {

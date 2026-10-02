@@ -103,18 +103,11 @@ export function MentorsPage() {
     }
   };
 
-  if (isLoading)
+  if (isLoading && loadingQuestions)
     return (
       <div className="flex items-center gap-2 py-10 text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" /> Loading mentors…
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading mentors and doubts…
       </div>
-    );
-
-  if (error)
-    return (
-      <p className="py-10 text-sm text-destructive">
-        Failed to load mentors. Please check your permissions.
-      </p>
     );
 
   return (
@@ -125,7 +118,7 @@ export function MentorsPage() {
           { label: "Teams Mentored", value: String(totalTeams), hint: "active assignments" },
           {
             label: "Pending Doubts",
-            value: String(questions.filter((q) => !q.replies || q.replies.length === 0).length),
+            value: String(questions.filter((q) => q.status !== "ANSWERED" && (!q.replies || q.replies.length === 0)).length),
             hint: "unanswered questions",
           },
           {
@@ -144,28 +137,35 @@ export function MentorsPage() {
           <TabsTrigger value="qa-hub" className="flex items-center gap-1.5">
             <MessageSquare className="h-4 w-4" />
             Participant Q&A Hub
-            {questions.filter((q) => !q.replies || q.replies.length === 0).length > 0 && (
+            {questions.filter((q) => q.status !== "ANSWERED" && (!q.replies || q.replies.length === 0)).length > 0 && (
               <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-[10px]">
-                {questions.filter((q) => !q.replies || q.replies.length === 0).length}
+                {questions.filter((q) => q.status !== "ANSWERED" && (!q.replies || q.replies.length === 0)).length}
               </Badge>
             )}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="directory">
-          <ListPageTemplate<MentorRow>
-            title="Mentor Management"
-            description="All mentors registered in this organization with their team assignments."
-            crumbs={[{ label: "Event Operations" }, { label: "Mentors" }]}
-            columns={columns}
-            rows={rows}
-            searchKeys={["_name", "_email", "expertise"] as any}
-            facet={{ label: "Expertise", key: "expertise" as any, options: [] }}
-            rowActions={[
-              { label: "View Profile", onSelect: () => {} },
-              { label: "View Teams", onSelect: () => {} },
-            ]}
-          />
+          {error ? (
+            <div className="p-6 rounded-lg border border-destructive/20 bg-destructive/5 text-destructive text-sm space-y-1">
+              <p className="font-semibold">Failed to load mentors directory</p>
+              <p className="text-xs text-muted-foreground">Please check your mentor permissions or contact an administrator.</p>
+            </div>
+          ) : (
+            <ListPageTemplate<MentorRow>
+              title="Mentor Management"
+              description="All mentors registered in this organization with their team assignments."
+              crumbs={[{ label: "Event Operations" }, { label: "Mentors" }]}
+              columns={columns}
+              rows={rows}
+              searchKeys={["_name", "_email", "expertise"] as any}
+              facet={{ label: "Expertise", key: "expertise" as any, options: [] }}
+              rowActions={[
+                { label: "View Profile", onSelect: () => {} },
+                { label: "View Teams", onSelect: () => {} },
+              ]}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="qa-hub">
@@ -174,7 +174,7 @@ export function MentorsPage() {
               <div>
                 <h3 className="text-lg font-semibold">Participant Questions & Doubts</h3>
                 <p className="text-sm text-muted-foreground">
-                  View, filter, and answer participant doubts for specific event rounds.
+                  View, filter, and answer participant doubts for specific events and rounds.
                 </p>
               </div>
 
@@ -218,6 +218,10 @@ export function MentorsPage() {
                   const assignedMentorName = q.mentor
                     ? `${q.mentor.firstName ?? ""} ${q.mentor.lastName ?? ""}`.trim() || q.mentor.email
                     : null;
+                  const teamName = q.team?.name || "Individual Participant";
+                  const problemTitle = q.problemStatement
+                    ? `${q.problemStatement.code ? `[${q.problemStatement.code}] ` : ""}${q.problemStatement.title || ""}`
+                    : "—";
 
                   return (
                     <div
@@ -225,40 +229,82 @@ export function MentorsPage() {
                       className="rounded-lg border p-4 hover:border-primary/50 transition-colors space-y-3"
                     >
                       <div className="flex items-start justify-between flex-wrap gap-2">
-                        <div className="space-y-1">
+                        <div className="space-y-1.5 flex-1 min-w-[280px]">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-sm text-foreground">{askerName}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(q.createdAt).toLocaleString()}
-                            </span>
+                            <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20">
+                              Team: {teamName}
+                            </Badge>
+                            {q.event && (
+                              <Badge variant="outline" className="text-[10px]">
+                                Event: {q.event.name || q.event.title}
+                              </Badge>
+                            )}
                             {q.round && (
                               <Badge variant="secondary" className="text-[10px]">
                                 Round {q.round.roundNumber}: {q.round.name}
                               </Badge>
                             )}
-                            {q.event && (
-                              <Badge variant="outline" className="text-[10px]">
-                                {q.event.name || q.event.title}
-                              </Badge>
-                            )}
+                            <span className="text-[10px] text-muted-foreground ml-auto">
+                              {new Date(q.createdAt).toLocaleString()}
+                            </span>
                           </div>
-                          {q.subject && (
-                            <p className="text-xs font-semibold text-muted-foreground">Subject: {q.subject}</p>
+
+                          {q.problemStatement && (
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <span className="font-semibold text-foreground">Problem Statement:</span>
+                              <span className="text-primary font-medium">{problemTitle}</span>
+                            </div>
                           )}
-                          <p className="text-sm font-medium text-foreground">{q.question}</p>
+
+                          <div className="space-y-0.5 pt-1">
+                            {q.subject && q.subject !== q.question && (
+                              <p className="text-xs font-semibold text-muted-foreground">Subject: {q.subject}</p>
+                            )}
+                            <p className="text-sm font-medium text-foreground">{q.question}</p>
+                          </div>
                         </div>
-                        <Badge
-                          variant={q.status === "ANSWERED" || hasReplies ? "default" : "destructive"}
-                          className="shrink-0 flex items-center gap-1"
-                        >
-                          {q.status === "ANSWERED" || hasReplies ? (
-                            <>
-                              <CheckCircle2 className="h-3 w-3" /> Answered
-                            </>
-                          ) : (
-                            "Pending"
-                          )}
-                        </Badge>
+
+                        <div className="flex flex-col items-end gap-2 shrink-0">
+                          <Badge
+                            variant={q.status === "ANSWERED" || hasReplies ? "default" : "destructive"}
+                            className="shrink-0 flex items-center gap-1"
+                          >
+                            {q.status === "ANSWERED" || hasReplies ? (
+                              <>
+                                <CheckCircle2 className="h-3 w-3" /> Answered
+                              </>
+                            ) : (
+                              "Pending"
+                            )}
+                          </Badge>
+
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-xs"
+                              onClick={() => {
+                                setSelectedQuestion(q);
+                                setReplyText("");
+                              }}
+                            >
+                              Details
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              onClick={() => {
+                                setSelectedQuestion(q);
+                                setReplyText("");
+                              }}
+                            >
+                              <Send className="h-3 w-3 mr-1" />
+                              Reply
+                            </Button>
+                          </div>
+                        </div>
                       </div>
 
                       {/* Replies / Answer List */}
@@ -288,20 +334,6 @@ export function MentorsPage() {
                           })}
                         </div>
                       )}
-
-                      <div className="pt-1 flex justify-end">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedQuestion(q);
-                            setReplyText("");
-                          }}
-                        >
-                          <Send className="h-3.5 w-3.5 mr-1.5" />
-                          {hasReplies ? "Add Follow-up Reply" : "Answer Question"}
-                        </Button>
-                      </div>
                     </div>
                   );
                 })}
@@ -311,33 +343,116 @@ export function MentorsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Reply Modal */}
+      {/* Question Details & Reply Modal */}
       <Dialog open={!!selectedQuestion} onOpenChange={(o) => !o && setSelectedQuestion(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Reply to Participant Question</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-primary" /> Question Details
+            </DialogTitle>
             <DialogDescription>
-              Provide official guidance or answers for this participant's doubt.
+              Review complete participant doubt context and provide official mentor reply.
             </DialogDescription>
           </DialogHeader>
 
           {selectedQuestion && (
-            <div className="space-y-4">
-              <div className="p-3 bg-muted rounded-md space-y-1 text-xs">
-                <span className="font-semibold text-foreground">
-                  Question from{" "}
-                  {selectedQuestion.user
-                    ? `${selectedQuestion.user.firstName ?? ""} ${selectedQuestion.user.lastName ?? ""}`.trim() || selectedQuestion.user.email
-                    : "Participant"}
-                </span>
-                <p className="text-sm font-medium text-foreground">{selectedQuestion.question}</p>
+            <div className="space-y-4 text-xs">
+              {/* Context Grid */}
+              <div className="grid grid-cols-2 gap-3 p-3.5 bg-muted/30 rounded-lg border">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Event</span>
+                  <p className="font-semibold text-foreground mt-0.5">
+                    {selectedQuestion.event?.name || selectedQuestion.event?.title || "—"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Team</span>
+                  <p className="font-semibold text-foreground mt-0.5">
+                    {selectedQuestion.team?.name || "Individual Participant"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Problem Statement</span>
+                  <p className="font-semibold text-primary mt-0.5">
+                    {selectedQuestion.problemStatement
+                      ? `${selectedQuestion.problemStatement.code ? `[${selectedQuestion.problemStatement.code}] ` : ""}${selectedQuestion.problemStatement.title || ""}`
+                      : "General Inquiry / None"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Round</span>
+                  <p className="font-semibold text-foreground mt-0.5">
+                    {selectedQuestion.round
+                      ? `Round ${selectedQuestion.round.roundNumber}: ${selectedQuestion.round.name}`
+                      : "General / Not round-specific"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Participant</span>
+                  <p className="font-semibold text-foreground mt-0.5">
+                    {selectedQuestion.participant
+                      ? `${selectedQuestion.participant.firstName ?? ""} ${selectedQuestion.participant.lastName ?? ""}`.trim() || selectedQuestion.participant.email
+                      : selectedQuestion.user
+                      ? `${selectedQuestion.user.firstName ?? ""} ${selectedQuestion.user.lastName ?? ""}`.trim() || selectedQuestion.user.email
+                      : "Participant"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Submitted Date/Time</span>
+                  <p className="font-mono text-muted-foreground mt-0.5">
+                    {new Date(selectedQuestion.createdAt).toLocaleString()}
+                  </p>
+                </div>
+                <div className="col-span-2 flex items-center justify-between border-t pt-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Status</span>
+                  <Badge
+                    variant={selectedQuestion.status === "ANSWERED" || (selectedQuestion.replies && selectedQuestion.replies.length > 0) ? "default" : "destructive"}
+                    className="text-[10px]"
+                  >
+                    {selectedQuestion.status === "ANSWERED" || (selectedQuestion.replies && selectedQuestion.replies.length > 0) ? "ANSWERED" : "PENDING"}
+                  </Badge>
+                </div>
               </div>
 
-              <div className="space-y-2">
+              {/* Participant Question Text */}
+              <div className="p-3.5 bg-card rounded-lg border space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Question</span>
+                <p className="text-sm font-medium text-foreground leading-relaxed whitespace-pre-line">
+                  {selectedQuestion.question}
+                </p>
+              </div>
+
+              {/* Existing Replies */}
+              {selectedQuestion.replies && selectedQuestion.replies.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Previous Replies</span>
+                  <div className="space-y-2">
+                    {selectedQuestion.replies.map((r) => {
+                      const replierName = r.sender
+                        ? `${r.sender.firstName ?? ""} ${r.sender.lastName ?? ""}`.trim() || r.sender.email
+                        : "Mentor";
+                      return (
+                        <div key={r.id} className="p-3 bg-primary/5 border border-primary/10 rounded-md space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-primary">{replierName}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {new Date(r.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="text-foreground leading-relaxed whitespace-pre-line">{r.message || r.reply}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Reply Input Box */}
+              <div className="space-y-2 pt-2 border-t">
                 <label className="text-xs font-semibold text-foreground">Your Reply / Solution</label>
                 <Textarea
                   rows={4}
-                  placeholder="Type your detailed answer or instructions here..."
+                  placeholder="Type your official answer, guidelines, or instructions here..."
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   className="text-xs"
@@ -346,11 +461,12 @@ export function MentorsPage() {
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedQuestion(null)}>
-              Cancel
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setSelectedQuestion(null)}>
+              Close
             </Button>
             <Button
+              size="sm"
               onClick={handleReplySubmit}
               disabled={!replyText.trim() || replyMutation.isPending}
             >

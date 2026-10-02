@@ -93,7 +93,8 @@ export class MentorController {
   static async addReply(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const tenantId = req.tenantId as string;
-      const reply = await MentorService.addReply(tenantId, req.params.id, req.user!.id, req.body.message);
+      const message = req.body.message || req.body.reply;
+      const reply = await MentorService.addReply(tenantId, req.params.id, req.user!.id, message);
       res.status(201).json({ success: true, data: reply });
     } catch (error) { next(error); }
   }

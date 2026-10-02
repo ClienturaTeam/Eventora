@@ -48,7 +48,7 @@ export class SubmissionController {
   static async create(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const tenantId = req.tenantId as string;
-      const sub = await SubmissionService.createSubmission(tenantId, req.body);
+      const sub = await SubmissionService.createSubmission(tenantId, req.body, req.user?.id);
       res.status(201).json({ success: true, data: sub });
     } catch (error) { next(error); }
   }
@@ -56,7 +56,7 @@ export class SubmissionController {
   static async update(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const tenantId = req.tenantId as string;
-      const sub = await SubmissionService.updateSubmission(tenantId, req.params.id, req.body);
+      const sub = await SubmissionService.updateSubmission(tenantId, req.params.id, req.body, req.user?.id);
       res.json({ success: true, data: sub });
     } catch (error) { next(error); }
   }
@@ -70,7 +70,8 @@ export class SubmissionController {
 
   static async finalSubmit(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const sub = await SubmissionService.finalSubmit(req.user!.id, req.params.id);
+      const description = req.body?.description || req.body?.content;
+      const sub = await SubmissionService.finalSubmit(req.user!.id, req.params.id, description);
       res.json({ success: true, data: sub });
     } catch (error) { next(error); }
   }
@@ -78,7 +79,7 @@ export class SubmissionController {
   static async delete(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const tenantId = req.tenantId as string;
-      await SubmissionService.deleteSubmission(tenantId, req.params.id);
+      await SubmissionService.deleteSubmission(tenantId, req.params.id, req.user?.id);
       res.json({ success: true, data: { deleted: true } });
     } catch (error) { next(error); }
   }

@@ -89,7 +89,7 @@ export class AuthService {
       },
       include: { 
         mfa: true,
-        memberships: { include: { role: true } }
+        memberships: { include: { role: true, organization: true } }
       }
     });
     console.log("AuthService.login: User found?", !!user);
