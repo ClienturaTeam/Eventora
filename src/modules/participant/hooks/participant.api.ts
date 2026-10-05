@@ -256,13 +256,15 @@ export const useUpdateParticipantSubmission = () => {
   });
 };
 
-export const useProblemStatements = () => {
+export const useProblemStatements = (eventId?: string | null) => {
   return useQuery({
-    queryKey: ['problem-statements'],
+    queryKey: ['problem-statements', eventId || 'all'],
     queryFn: async () => {
-      const response = await fetchApi('/problem-statements?mode=student');
+      const url = `/problem-statements?mode=student${eventId ? `&eventId=${eventId}` : ''}`;
+      const response = await fetchApi(url);
       return response.data;
     },
+    enabled: eventId !== null,
   });
 };
 

@@ -206,8 +206,9 @@ export function EventDetailsPage() {
                 { k: "Status", v: event.status },
                 { k: "Registration Type", v: event.registrationType || "INDIVIDUAL" },
                 ...(event.registrationType === "TEAM" ? [
-                  { k: "Min Team Size", v: event.minTeamSize || "No minimum" },
-                  { k: "Max Team Size", v: event.maxTeamSize || "No maximum" },
+                  { k: "Team Size", v: `${event.minTeamSize || 2} – ${event.maxTeamSize || 4} Participants` },
+                  { k: "Minimum Participants", v: `${event.minTeamSize || 2} Participants` },
+                  { k: "Maximum Participants", v: `${event.maxTeamSize || 4} Participants` },
                 ] : []),
                 { k: "Registration Starts", v: event.registrationStart ? new Date(event.registrationStart).toLocaleDateString() : "Anytime" },
                 { k: "Registration Ends", v: event.registrationEnd ? new Date(event.registrationEnd).toLocaleDateString() : "Anytime" },

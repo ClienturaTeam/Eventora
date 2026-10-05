@@ -24,7 +24,8 @@ function ManagerProblemStatementsComponent() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingStatement, setEditingStatement] = useState<any>(null);
 
-  const [eventId, setEventId] = useState<string>('');
+  const [filterEventId, setFilterEventId] = useState<string>('ALL');
+  const [eventId, setEventId] = useState<string>('ALL');
   const [code, setCode] = useState('');
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
@@ -35,18 +36,19 @@ function ManagerProblemStatementsComponent() {
   const { data: events = [] } = useEvents();
 
   // Fetch rounds for selected event
-  const { data: eventRounds = [] } = useEventRounds(eventId);
+  const { data: eventRounds = [] } = useEventRounds(eventId === 'ALL' ? '' : eventId);
 
   const { data: response, isLoading } = useQuery({
-    queryKey: ['problem-statements', 'manager'],
+    queryKey: ['problem-statements', 'manager', filterEventId],
     queryFn: async () => {
-      const res = await fetchApi('/problem-statements');
+      const url = `/problem-statements${filterEventId && filterEventId !== 'ALL' ? `?eventId=${filterEventId}` : ''}`;
+      const res = await fetchApi(url);
       return res.data;
     },
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: { eventId?: string; code: string; title: string; category: string; description: string; applicableRoundIds?: string[] }) => {
+    mutationFn: async (data: { eventId?: string | null; code: string; title: string; category: string; description: string; applicableRoundIds?: string[] }) => {
       return fetchApi('/problem-statements', {
         method: 'POST',
         body: JSON.stringify(data),
@@ -95,7 +97,7 @@ function ManagerProblemStatementsComponent() {
   });
 
   const resetForm = () => {
-    setEventId('');
+    setEventId(filterEventId === 'ALL' ? 'ALL' : filterEventId);
     setCode('');
     setTitle('');
     setCategory('');
@@ -104,20 +106,22 @@ function ManagerProblemStatementsComponent() {
   };
 
   const handleCreate = () => {
+    if (!eventId) {
+      toast.error('Associated Event is required. Choose a specific event or All Events.');
+      return;
+    }
     if (!code.trim() || !title.trim() || !description.trim()) {
       toast.error('Code, title, and description are required.');
       return;
     }
     const payload: any = {
+      eventId: eventId === 'ALL' ? null : eventId,
       code: code.trim(),
       title: title.trim(),
       category: category.trim(),
       description: description.trim(),
-      applicableRoundIds: selectedRoundIds,
+      applicableRoundIds: eventId === 'ALL' ? [] : selectedRoundIds,
     };
-    if (eventId) {
-      payload.eventId = eventId;
-    }
     createMutation.mutate(payload);
   };
 
@@ -130,18 +134,18 @@ function ManagerProblemStatementsComponent() {
     updateMutation.mutate({
       id: editingStatement.id,
       data: {
-        eventId: eventId || null,
+        eventId: eventId === 'ALL' ? null : eventId,
         title: title.trim(),
         category: category.trim(),
         description: description.trim(),
-        applicableRoundIds: selectedRoundIds,
+        applicableRoundIds: eventId === 'ALL' ? [] : selectedRoundIds,
       },
     });
   };
 
   const openEdit = (statement: any) => {
     setEditingStatement(statement);
-    setEventId(statement.eventId || statement.event?.id || '');
+    setEventId(statement.eventId || statement.event?.id || 'ALL');
     setCode(statement.code || '');
     setTitle(statement.title || '');
     setCategory(statement.category || '');
@@ -164,16 +168,36 @@ function ManagerProblemStatementsComponent() {
         description="Create, configure applicable rounds, publish, and manage problem statements for events."
         crumbs={[{ label: 'Manager' }, { label: 'Problem Statements' }]}
         headerActions={
-          <Button
-            onClick={() => {
-              resetForm();
-              setIsCreateOpen(true);
-            }}
-            className="gap-1.5 bg-primary"
-          >
-            <Plus className="h-4 w-4" />
-            Create Problem Statement
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-foreground uppercase tracking-wider whitespace-nowrap">
+                EVENT:
+              </span>
+              <Select value={filterEventId} onValueChange={(val) => setFilterEventId(val)}>
+                <SelectTrigger className="w-[200px] text-xs font-semibold bg-background">
+                  <SelectValue placeholder="[ Select Event ▼ ]" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Events</SelectItem>
+                  {events.map((evt) => (
+                    <SelectItem key={evt.id} value={evt.id}>
+                      {evt.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={() => {
+                resetForm();
+                setIsCreateOpen(true);
+              }}
+              className="gap-1.5 bg-primary"
+            >
+              <Plus className="h-4 w-4" />
+              Create Problem Statement
+            </Button>
+          </div>
         }
         columns={[
           {
@@ -286,12 +310,13 @@ function ManagerProblemStatementsComponent() {
 
           <div className="space-y-4 my-2 text-xs">
             <div className="space-y-1.5">
-              <Label htmlFor="psEvent">Associated Event</Label>
+              <Label htmlFor="psEvent">Associated Event *</Label>
               <Select value={eventId} onValueChange={(val) => { setEventId(val); setSelectedRoundIds([]); }}>
                 <SelectTrigger id="psEvent" className="text-xs">
-                  <SelectValue placeholder="Select Event (Optional)..." />
+                  <SelectValue placeholder="[ Select Event ▼ ]" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="ALL">All Events</SelectItem>
                   {events.map((evt) => (
                     <SelectItem key={evt.id} value={evt.id}>
                       {evt.name}
@@ -332,7 +357,7 @@ function ManagerProblemStatementsComponent() {
             </div>
 
             {/* Applicable Rounds Configuration */}
-            {eventId ? (
+            {eventId && eventId !== 'ALL' ? (
               <div className="space-y-2 p-3 bg-muted/30 border rounded-lg">
                 <Label className="text-xs font-semibold flex items-center gap-1 text-foreground">
                   <Layers className="h-4 w-4 text-primary" />
@@ -371,7 +396,7 @@ function ManagerProblemStatementsComponent() {
               </div>
             ) : (
               <div className="p-3 bg-muted/20 border border-dashed rounded-lg text-[11px] text-muted-foreground text-center">
-                Select an Event above to configure applicable rounds.
+                Problem statements assigned to &quot;All Events&quot; apply to all event rounds by default. Select a specific event to configure event-specific rounds.
               </div>
             )}
 
@@ -413,12 +438,13 @@ function ManagerProblemStatementsComponent() {
 
           <div className="space-y-4 my-2 text-xs">
             <div className="space-y-1.5">
-              <Label htmlFor="editPsEvent">Associated Event</Label>
+              <Label htmlFor="editPsEvent">Associated Event *</Label>
               <Select value={eventId} onValueChange={(val) => { setEventId(val); setSelectedRoundIds([]); }}>
                 <SelectTrigger id="editPsEvent" className="text-xs">
-                  <SelectValue placeholder="Select Event..." />
+                  <SelectValue placeholder="[ Select Event ▼ ]" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="ALL">All Events</SelectItem>
                   {events.map((evt) => (
                     <SelectItem key={evt.id} value={evt.id}>
                       {evt.name}
@@ -447,7 +473,7 @@ function ManagerProblemStatementsComponent() {
             </div>
 
             {/* Applicable Rounds Configuration */}
-            {eventId ? (
+            {eventId && eventId !== 'ALL' ? (
               <div className="space-y-2 p-3 bg-muted/30 border rounded-lg">
                 <Label className="text-xs font-semibold flex items-center gap-1 text-foreground">
                   <Layers className="h-4 w-4 text-primary" />
@@ -483,7 +509,7 @@ function ManagerProblemStatementsComponent() {
               </div>
             ) : (
               <div className="p-3 bg-muted/20 border border-dashed rounded-lg text-[11px] text-muted-foreground text-center">
-                Select an Event above to configure applicable rounds.
+                Problem statements assigned to &quot;All Events&quot; apply to all event rounds by default. Select a specific event to configure event-specific rounds.
               </div>
             )}
 

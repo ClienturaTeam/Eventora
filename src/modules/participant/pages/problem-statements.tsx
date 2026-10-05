@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useSearch } from "@tanstack/react-router";
 import {
   useProblemStatements,
   useSelectProblemStatement,
@@ -11,13 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/ds/page-header";
-import { Loader2, FileCode, CheckCircle2, Lock, AlertTriangle, ShieldCheck, Info, HelpCircle } from "lucide-react";
+import { Loader2, FileCode, CheckCircle2, Lock, AlertTriangle, Info, HelpCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 export function ParticipantProblemStatementsPage() {
-  const { data: statements = [], isLoading: loadingStatements } = useProblemStatements();
-  const { data: teams = [], isLoading: loadingTeams } = useMyTeams();
+  const search = useSearch({ strict: false }) as { eventId?: string };
   const { data: registrations = [], isLoading: loadingRegistrations } = useMyRegistrations();
+  const { data: teams = [], isLoading: loadingTeams } = useMyTeams();
   const selectMutation = useSelectProblemStatement();
 
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -26,34 +27,75 @@ export function ParticipantProblemStatementsPage() {
 
   // Filter registrations for approved/confirmed events
   const approvedRegistrations = useMemo(() => {
+    if (!registrations || !Array.isArray(registrations)) return [];
     return registrations.filter((r: any) =>
       ["APPROVED", "REGISTERED", "PAID", "CONFIRMED"].includes(r.status?.toUpperCase())
     );
   }, [registrations]);
 
-  // Active selected event ID (defaults to first approved event)
-  const activeEventId = selectedEventId || approvedRegistrations[0]?.eventId || approvedRegistrations[0]?.event?.id || null;
+  // Aggregate eligible events from approved registrations
+  const eligibleEvents = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; status: string }>();
+    approvedRegistrations.forEach((r: any) => {
+      const evt = r.event;
+      if (evt && evt.id && !map.has(evt.id)) {
+        map.set(evt.id, {
+          id: evt.id,
+          name: evt.name || evt.title || "Event",
+          status: r.status || "APPROVED",
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [approvedRegistrations]);
 
-  // Filter problem statements for active selected event (or return all if no event constraint)
-  const filteredStatements = useMemo(() => {
-    if (!activeEventId) return statements;
-    return statements.filter((s: any) => !s.eventId || s.eventId === activeEventId);
-  }, [statements, activeEventId]);
+  // Determine if user has a team with a locked problem statement
+  const teamWithLockedPS = useMemo(() => {
+    if (!teams || !Array.isArray(teams)) return null;
+    return teams.find((t: any) => t.team?.problemStatementLocked || t.team?.problemStatementId);
+  }, [teams]);
 
-  // Match user's team specifically for the active event (or fallback to first team)
-  const activeTeamMember = useMemo(() => {
-    if (!teams || teams.length === 0) return null;
-    if (activeEventId) {
-      const match = teams.find((t: any) => t.team?.competition?.eventId === activeEventId);
-      if (match) return match;
+  const lockedEventId = teamWithLockedPS?.team?.competition?.eventId || null;
+
+  // Active selected event ID priority:
+  // 1. Explicit user dropdown selection
+  // 2. Search query parameter from navigation
+  // 3. Event with locked problem statement
+  // 4. First eligible approved event
+  const activeEventId = useMemo(() => {
+    if (selectedEventId && eligibleEvents.some((e) => e.id === selectedEventId)) {
+      return selectedEventId;
     }
-    return teams[0];
+    if (search.eventId && eligibleEvents.some((e) => e.id === search.eventId)) {
+      return search.eventId;
+    }
+    if (lockedEventId && eligibleEvents.some((e) => e.id === lockedEventId)) {
+      return lockedEventId;
+    }
+    return eligibleEvents[0]?.id || null;
+  }, [selectedEventId, search.eventId, lockedEventId, eligibleEvents]);
+
+  // Query problem statements for activeEventId
+  const {
+    data: statements = [],
+    isLoading: loadingStatements,
+    isError: isErrorStatements,
+    refetch: refetchStatements,
+  } = useProblemStatements(activeEventId);
+
+  // Match team specifically for activeEventId
+  const activeTeamMember = useMemo(() => {
+    if (!teams || !activeEventId) return null;
+    return teams.find((t: any) => t.team?.competition?.eventId === activeEventId) || null;
   }, [teams, activeEventId]);
 
   const activeTeam = activeTeamMember?.team;
-  const isLocked = activeTeam?.problemStatementLocked;
-  const selectedId = activeTeam?.problemStatementId;
-  const selectedStatement = statements.find((s: any) => s.id === selectedId) || activeTeam?.problemStatement;
+  const isLocked = activeTeam?.problemStatementLocked || false;
+  const selectedId = activeTeam?.problemStatementId || null;
+  const selectedStatement = useMemo(() => {
+    if (!selectedId) return null;
+    return statements.find((s: any) => s.id === selectedId) || activeTeam?.problemStatement || null;
+  }, [statements, selectedId, activeTeam]);
 
   const handleSelect = async () => {
     if (!confirmStatement) return;
@@ -69,10 +111,11 @@ export function ParticipantProblemStatementsPage() {
     }
   };
 
-  if (loadingStatements || loadingTeams || loadingRegistrations) {
+  if (loadingRegistrations || loadingTeams) {
     return (
-      <div className="flex h-[40vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex h-[40vh] flex-col items-center justify-center space-y-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm font-medium text-muted-foreground">Loading events...</p>
       </div>
     );
   }
@@ -85,43 +128,47 @@ export function ParticipantProblemStatementsPage() {
         crumbs={[{ label: "Participant" }, { label: "Problem Statements" }]}
       />
 
-      {/* Approved Registrations Check & Event Selector */}
-      {approvedRegistrations.length === 0 ? (
-        <Card className="border-amber-500/30 bg-amber-500/5">
-          <CardHeader>
-            <CardTitle className="text-sm font-bold text-amber-700 dark:text-amber-400 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" /> Registration Approval Required
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-xs text-muted-foreground space-y-2">
-            <p>
-              Problem statement selection is only available for participants with an <strong>APPROVED</strong> event registration.
+      {eligibleEvents.length === 0 ? (
+        <Card className="border-amber-500/30 bg-amber-500/5 p-6">
+          <div className="flex flex-col items-center justify-center text-center space-y-3 py-6">
+            <AlertTriangle className="h-10 w-10 text-amber-500" />
+            <h3 className="text-base font-bold text-foreground">No approved events available.</h3>
+            <p className="text-xs text-muted-foreground max-w-md">
+              You do not currently have an approved registration for any event. Problem statement selection will open automatically once an organizer approves your event registration.
             </p>
-            <p>
-              Your current registration status is <strong>PENDING</strong> or unverified. Once an organizer approves your registration, released problem statements for your event will appear here automatically.
-            </p>
-          </CardContent>
+          </div>
         </Card>
       ) : (
         <>
-          {/* Event Selector if participant has approved registrations */}
-          {approvedRegistrations.length > 1 && (
-            <div className="flex items-center gap-3 p-4 bg-card rounded-lg border shadow-sm">
-              <label className="text-xs font-semibold text-foreground whitespace-nowrap">Select Event:</label>
-              <Select value={activeEventId || ""} onValueChange={(val) => setSelectedEventId(val)}>
-                <SelectTrigger className="w-[280px] text-xs">
-                  <SelectValue placeholder="Choose event..." />
+          {/* Top Event Selector */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-card rounded-lg border shadow-sm">
+            <div className="flex items-center gap-3">
+              <label className="text-xs font-bold text-foreground uppercase tracking-wider whitespace-nowrap">
+                SELECT EVENT:
+              </label>
+              <Select
+                value={activeEventId || ""}
+                onValueChange={(val) => setSelectedEventId(val)}
+              >
+                <SelectTrigger className="w-[280px] text-xs font-semibold">
+                  <SelectValue placeholder="[ Select an event ▼ ]" />
                 </SelectTrigger>
                 <SelectContent>
-                  {approvedRegistrations.map((reg: any) => (
-                    <SelectItem key={reg.id} value={reg.eventId || reg.event?.id}>
-                      {reg.event?.name || "Event"} ({reg.status})
+                  {eligibleEvents.map((evt) => (
+                    <SelectItem key={evt.id} value={evt.id}>
+                      {evt.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          )}
+
+            {isLocked && (
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 px-3 py-1 text-xs gap-1.5 font-semibold">
+                <Lock className="h-3.5 w-3.5" /> Selection Locked
+              </Badge>
+            )}
+          </div>
 
           {/* Selected Problem Statement Banner */}
           {selectedStatement && (
@@ -132,7 +179,7 @@ export function ParticipantProblemStatementsPage() {
                     <CheckCircle2 className="h-5 w-5" /> SELECTED PROBLEM STATEMENT
                   </div>
                   <Badge variant="outline" className="bg-emerald-600/10 text-emerald-600 border-emerald-600/30 text-xs font-semibold gap-1">
-                    <Lock className="h-3 w-3" /> 🔒 Selection permanently locked
+                    <Lock className="h-3.5 w-3.5" /> 🔒 Selection permanently locked
                   </Badge>
                 </div>
               </CardHeader>
@@ -143,6 +190,10 @@ export function ParticipantProblemStatementsPage() {
                   <span>{selectedStatement.title}</span>
                 </div>
                 <p className="text-muted-foreground leading-relaxed">{selectedStatement.description}</p>
+                <div className="p-2.5 bg-emerald-500/10 rounded-md border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-2">
+                  <Lock className="h-4 w-4 flex-shrink-0" />
+                  <span>Problem statement selection is permanently locked.</span>
+                </div>
 
                 {/* Applicable Rounds Display */}
                 <div className="pt-2 border-t flex flex-wrap items-center gap-2">
@@ -161,105 +212,120 @@ export function ParticipantProblemStatementsPage() {
             </Card>
           )}
 
-          {/* Problem Statements Cards Roster */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-              <FileCode className="h-4 w-4 text-primary" /> Available Problem Statements ({filteredStatements.length})
-            </h3>
+          {/* Available Problem Statements Roster */}
+          {activeEventId && (
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <FileCode className="h-4 w-4 text-primary" /> Available Problem Statements ({statements.length})
+              </h3>
 
-            {filteredStatements.length === 0 ? (
-              <div className="py-12 text-center text-muted-foreground border rounded-lg bg-card">
-                <HelpCircle className="mx-auto h-8 w-8 opacity-40 mb-2" />
-                <p className="text-sm font-medium">No problem statements released for this event yet.</p>
-                <p className="text-xs">Organizers will release problem statements prior to event start.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredStatements.map((statement: any) => {
-                  const isSelectedThis = selectedId === statement.id;
-                  const roundsList = statement.applicableRounds || [];
+              {loadingStatements ? (
+                <div className="py-12 flex flex-col items-center justify-center space-y-2 border rounded-lg bg-card">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  <p className="text-xs text-muted-foreground font-medium">Loading problem statements...</p>
+                </div>
+              ) : isErrorStatements ? (
+                <div className="py-12 flex flex-col items-center justify-center space-y-3 border rounded-lg bg-card text-center px-4">
+                  <AlertTriangle className="h-8 w-8 text-destructive" />
+                  <p className="text-sm font-semibold text-destructive">Unable to load problem statements. Please try again.</p>
+                  <Button size="sm" variant="outline" onClick={() => refetchStatements()} className="text-xs gap-1.5">
+                    <RefreshCw className="h-3.5 w-3.5" /> Retry
+                  </Button>
+                </div>
+              ) : statements.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground border rounded-lg bg-card p-6">
+                  <HelpCircle className="mx-auto h-8 w-8 opacity-40 mb-2" />
+                  <p className="text-sm font-semibold text-foreground">No problem statements have been configured for this event yet.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Organizers will release problem statements prior to event start.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {statements.map((statement: any) => {
+                    const isSelectedThis = selectedId === statement.id;
+                    const roundsList = statement.applicableRounds || [];
 
-                  return (
-                    <Card
-                      key={statement.id}
-                      className={`flex flex-col justify-between transition-all ${
-                        isSelectedThis
-                          ? "border-primary bg-primary/5 shadow-md"
-                          : isLocked
-                          ? "opacity-60 border-border"
-                          : "hover:border-primary/50"
-                      }`}
-                    >
-                      <CardHeader className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Badge variant="secondary" className="font-mono text-xs">
-                            {statement.code}
-                          </Badge>
-                          {statement.category && (
-                            <Badge variant="outline" className="text-[10px]">
-                              {statement.category}
+                    return (
+                      <Card
+                        key={statement.id}
+                        className={`flex flex-col justify-between transition-all ${
+                          isSelectedThis
+                            ? "border-emerald-500 bg-emerald-500/5 shadow-md"
+                            : isLocked
+                            ? "opacity-60 border-border"
+                            : "hover:border-primary/50"
+                        }`}
+                      >
+                        <CardHeader className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Badge variant="secondary" className="font-mono text-xs">
+                              {statement.code}
                             </Badge>
-                          )}
-                        </div>
-                        <CardTitle className="text-base font-bold leading-snug">{statement.title}</CardTitle>
-                        <CardDescription className="text-xs text-muted-foreground line-clamp-3">
-                          {statement.description}
-                        </CardDescription>
-
-                        {/* Applicable Rounds Pills */}
-                        <div className="pt-2 flex flex-wrap gap-1">
-                          {roundsList.length > 0 ? (
-                            roundsList.map((r: any) => (
-                              <Badge key={r.id} variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-500/5 text-blue-600 border-blue-500/20">
-                                Round {r.roundNumber}: {r.name}
+                            {statement.category && (
+                              <Badge variant="outline" className="text-[10px]">
+                                {statement.category}
                               </Badge>
-                            ))
-                          ) : (
-                            <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                              All Rounds
-                            </Badge>
-                          )}
-                        </div>
-                      </CardHeader>
-
-                      <CardFooter className="pt-3 border-t mt-auto flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 text-xs"
-                          onClick={() => setViewDetailStatement(statement)}
-                        >
-                          <Info className="h-3.5 w-3.5 mr-1.5" /> View Details
-                        </Button>
-
-                        {isSelectedThis ? (
-                          <Button disabled size="sm" className="flex-1 bg-emerald-600 text-white gap-1.5 text-xs">
-                            <CheckCircle2 className="h-3.5 w-3.5" /> Selected
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant={isLocked ? "outline" : "default"}
-                            disabled={isLocked || selectMutation.isPending}
-                            className="flex-1 text-xs"
-                            onClick={() => setConfirmStatement(statement)}
-                          >
-                            {isLocked ? (
-                              <>
-                                <Lock className="h-3.5 w-3.5 mr-1" /> Locked
-                              </>
-                            ) : (
-                              "Select"
                             )}
+                          </div>
+                          <CardTitle className="text-base font-bold leading-snug">{statement.title}</CardTitle>
+                          <CardDescription className="text-xs text-muted-foreground line-clamp-3">
+                            {statement.description}
+                          </CardDescription>
+
+                          {/* Applicable Rounds Pills */}
+                          <div className="pt-2 flex flex-wrap gap-1">
+                            {roundsList.length > 0 ? (
+                              roundsList.map((r: any) => (
+                                <Badge key={r.id} variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-500/5 text-blue-600 border-blue-500/20">
+                                  Round {r.roundNumber}: {r.name}
+                                </Badge>
+                              ))
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                                All Rounds
+                              </Badge>
+                            )}
+                          </div>
+                        </CardHeader>
+
+                        <CardFooter className="pt-3 border-t mt-auto flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 text-xs"
+                            onClick={() => setViewDetailStatement(statement)}
+                          >
+                            <Info className="h-3.5 w-3.5 mr-1.5" /> View Details
                           </Button>
-                        )}
-                      </CardFooter>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+
+                          {isSelectedThis ? (
+                            <Button disabled size="sm" className="flex-1 bg-emerald-600 text-white gap-1.5 text-xs font-semibold">
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Selected
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant={isLocked ? "outline" : "default"}
+                              disabled={isLocked || selectMutation.isPending}
+                              className="flex-1 text-xs"
+                              onClick={() => setConfirmStatement(statement)}
+                            >
+                              {isLocked ? (
+                                <>
+                                  <Lock className="h-3.5 w-3.5 mr-1" /> Locked
+                                </>
+                              ) : (
+                                "Select"
+                              )}
+                            </Button>
+                          )}
+                        </CardFooter>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -320,7 +386,7 @@ export function ParticipantProblemStatementsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation Modal */}
+      {/* Selection Confirmation Modal */}
       <Dialog open={!!confirmStatement} onOpenChange={(open) => !open && setConfirmStatement(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

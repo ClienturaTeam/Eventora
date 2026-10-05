@@ -579,11 +579,24 @@ export class ParticipantService {
       throw { status: 400, code: "BAD_REQUEST", message: "Registration is closed." };
     }
 
+    const minSize = event.minTeamSize ?? 1;
     const maxSize = event.maxTeamSize ?? 4;
     const teamSize = (data.members?.length || 0) + 1; // including the logged-in team leader
 
+    if (teamSize < minSize) {
+      throw {
+        status: 400,
+        code: "BAD_REQUEST",
+        message: `At least ${minSize} participant${minSize > 1 ? 's are' : ' is'} required for this event.`
+      };
+    }
+
     if (teamSize > maxSize) {
-      throw { status: 400, code: "BAD_REQUEST", message: `Team cannot have more than ${maxSize} participants for this event.` };
+      throw {
+        status: 400,
+        code: "BAD_REQUEST",
+        message: `This event allows a maximum of ${maxSize} participant${maxSize > 1 ? 's' : ''} per team.`
+      };
     }
 
     let competitionId = data.competitionId;

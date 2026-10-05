@@ -1,7 +1,7 @@
 import { prisma } from "../utils/prisma";
 
 export class ProblemStatementService {
-  static async getAll(organizationId?: string, isStudent: boolean = false, eventId?: string) {
+  static async getAll(organizationId?: string, isStudent: boolean = false, eventId?: string, userId?: string) {
     const where: any = {};
     if (organizationId) {
       where.organizationId = organizationId;
@@ -9,11 +9,25 @@ export class ProblemStatementService {
     if (isStudent) {
       where.isReleased = true;
     }
-    if (eventId) {
+    if (eventId && eventId !== "ALL" && eventId !== "ALL_EVENTS") {
       where.OR = [
         { eventId: eventId },
         { eventId: null }
       ];
+    }
+
+    // Security check: if student mode with specific eventId & userId, verify participant registration eligibility
+    if (isStudent && eventId && eventId !== "ALL" && eventId !== "ALL_EVENTS" && userId) {
+      const isRegistered = await prisma.registration.findFirst({
+        where: {
+          userId,
+          eventId,
+          status: { in: ['APPROVED', 'REGISTERED', 'PAID', 'CONFIRMED'] }
+        }
+      });
+      if (!isRegistered) {
+        return [];
+      }
     }
 
     return prisma.problemStatement.findMany({
@@ -44,7 +58,8 @@ export class ProblemStatementService {
 
   static async create(data: {
     organizationId: string;
-    eventId?: string;
+    eventId?: string | null;
+    eventScope?: string;
     code: string;
     title: string;
     description: string;
@@ -52,8 +67,13 @@ export class ProblemStatementService {
     isReleased?: boolean;
     applicableRoundIds?: string[];
   }) {
-    if (data.eventId) {
-      const event = await prisma.event.findUnique({ where: { id: data.eventId } });
+    let finalEventId: string | null = null;
+    if (data.eventId && data.eventId !== "ALL" && data.eventId !== "ALL_EVENTS") {
+      finalEventId = data.eventId;
+    }
+
+    if (finalEventId) {
+      const event = await prisma.event.findUnique({ where: { id: finalEventId } });
       if (!event) {
         throw { status: 400, code: "INVALID_EVENT", message: "Specified Event does not exist." };
       }
@@ -63,19 +83,19 @@ export class ProblemStatementService {
     }
 
     if (data.applicableRoundIds && data.applicableRoundIds.length > 0) {
-      if (!data.eventId) {
-        throw { status: 400, code: "EVENT_REQUIRED", message: "An Event must be selected to assign applicable rounds." };
+      if (!finalEventId) {
+        throw { status: 400, code: "EVENT_REQUIRED", message: "Applicable rounds can only be configured when a specific event is selected." };
       }
       const rounds = await prisma.eventRound.findMany({
         where: { id: { in: data.applicableRoundIds } }
       });
 
       for (const r of rounds) {
-        if (r.eventId !== data.eventId) {
+        if (r.eventId !== finalEventId) {
           throw {
             status: 400,
             code: "INVALID_ROUND_ASSIGNMENT",
-            message: `Round '${r.name}' (${r.id}) does not belong to Event '${data.eventId}'. Cross-event round assignment is rejected.`
+            message: `Round '${r.name}' (${r.id}) does not belong to Event '${finalEventId}'. Cross-event round assignment is rejected.`
           };
         }
       }
@@ -84,7 +104,7 @@ export class ProblemStatementService {
     return prisma.problemStatement.create({
       data: {
         organizationId: data.organizationId,
-        eventId: data.eventId || null,
+        eventId: finalEventId,
         code: data.code,
         title: data.title,
         description: data.description,
@@ -104,7 +124,7 @@ export class ProblemStatementService {
   static async update(
     id: string,
     data: {
-      eventId?: string;
+      eventId?: string | null;
       title?: string;
       description?: string;
       category?: string;
@@ -113,10 +133,36 @@ export class ProblemStatementService {
     }
   ) {
     const existing = await this.getById(id);
-    const targetEventId = data.eventId !== undefined ? data.eventId : existing.eventId;
+    let targetEventId = existing.eventId;
 
-    if (data.eventId) {
-      const event = await prisma.event.findUnique({ where: { id: data.eventId } });
+    if (data.eventId !== undefined) {
+      targetEventId = (data.eventId && data.eventId !== "ALL" && data.eventId !== "ALL_EVENTS") ? data.eventId : null;
+
+      if (targetEventId !== existing.eventId) {
+        const lockedTeamsCount = await prisma.team.count({
+          where: {
+            problemStatementId: id,
+            problemStatementLocked: true
+          }
+        });
+        const submissionsCount = await prisma.submission.count({
+          where: {
+            problemStatementId: id
+          }
+        });
+
+        if (lockedTeamsCount > 0 || submissionsCount > 0) {
+          throw {
+            status: 400,
+            code: "CANNOT_CHANGE_EVENT",
+            message: `Cannot change event assignment for problem statement '${existing.code}' because ${lockedTeamsCount > 0 ? `${lockedTeamsCount} team(s) have already locked` : `${submissionsCount} submission(s) exist for`} this problem statement.`
+          };
+        }
+      }
+    }
+
+    if (targetEventId) {
+      const event = await prisma.event.findUnique({ where: { id: targetEventId } });
       if (!event) {
         throw { status: 400, code: "INVALID_EVENT", message: "Specified Event does not exist." };
       }
@@ -127,7 +173,7 @@ export class ProblemStatementService {
 
     if (data.applicableRoundIds && data.applicableRoundIds.length > 0) {
       if (!targetEventId) {
-        throw { status: 400, code: "EVENT_REQUIRED", message: "An Event must be selected to assign applicable rounds." };
+        throw { status: 400, code: "EVENT_REQUIRED", message: "Applicable rounds can only be configured when a specific event is selected." };
       }
 
       const rounds = await prisma.eventRound.findMany({
@@ -148,12 +194,12 @@ export class ProblemStatementService {
     return prisma.problemStatement.update({
       where: { id },
       data: {
-        ...(data.eventId !== undefined ? { eventId: data.eventId || null } : {}),
+        ...(data.eventId !== undefined ? { eventId: targetEventId } : {}),
         ...(data.title ? { title: data.title } : {}),
         ...(data.description ? { description: data.description } : {}),
         ...(data.category !== undefined ? { category: data.category } : {}),
         ...(data.isReleased !== undefined ? { isReleased: data.isReleased } : {}),
-        ...(data.applicableRoundIds ? {
+        ...(data.applicableRoundIds !== undefined ? {
           applicableRounds: {
             set: data.applicableRoundIds.map((rId) => ({ id: rId }))
           }
@@ -231,46 +277,51 @@ export class ProblemStatementService {
       });
     }
 
-    if (!member) {
-      // Find any unlocked team for this user
-      member = await prisma.teamMember.findFirst({
-        where: {
-          userId,
-          team: {
-            problemStatementLocked: false,
-            problemStatementId: null
+    if (!member || !member.team) {
+      if (ps.eventId) {
+        const registration = await prisma.registration.findFirst({
+          where: {
+            userId,
+            eventId: ps.eventId,
+            status: { in: ['APPROVED', 'PAID'] }
           }
-        },
-        orderBy: { createdAt: "desc" },
-        include: {
-          team: {
+        });
+        if (registration) {
+          let comp = await prisma.competition.findFirst({ where: { eventId: ps.eventId } });
+          if (!comp) {
+            comp = await prisma.competition.create({
+              data: { eventId: ps.eventId, name: "Main Track", description: "Default competition track" }
+            });
+          }
+          const userObj = await prisma.user.findUnique({ where: { id: userId } });
+          const newTeam = await prisma.team.create({
+            data: {
+              competitionId: comp.id,
+              name: `${userObj?.firstName || 'Participant'}'s Team`,
+              size: 1,
+              members: {
+                create: [
+                  {
+                    userId,
+                    name: `${userObj?.firstName || ''} ${userObj?.lastName || ''}`.trim() || 'Lead',
+                    email: userObj?.email || '',
+                    isLead: true
+                  }
+                ]
+              }
+            },
             include: {
               competition: { include: { event: true } },
               problemStatement: true
             }
-          }
+          });
+          member = { team: newTeam } as any;
         }
-      });
-    }
-
-    if (!member) {
-      // Fallback to any team the user belongs to so that specific error messages can be returned
-      member = await prisma.teamMember.findFirst({
-        where: { userId },
-        orderBy: { createdAt: "desc" },
-        include: {
-          team: {
-            include: {
-              competition: { include: { event: true } },
-              problemStatement: true
-            }
-          }
-        }
-      });
+      }
     }
 
     if (!member || !member.team) {
-      throw { status: 404, code: "NOT_FOUND", message: "No team associated with this user for this event." };
+      throw { status: 404, code: "NOT_FOUND", message: "No team or approved registration associated with this user for this event." };
     }
 
     const team = member.team;

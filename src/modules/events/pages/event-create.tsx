@@ -405,23 +405,41 @@ export function CreateEventPage() {
               </div>
               
               {registrationType === "TEAM" && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="maxTeamSize">Team Size / Maximum Team Participants</Label>
-                  <Select value={maxTeamSize || "4"} onValueChange={(val) => setMaxTeamSize(val)}>
-                    <SelectTrigger id="maxTeamSize">
-                      <SelectValue placeholder="Select max team size" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="2">2 Participants</SelectItem>
-                      <SelectItem value="3">3 Participants</SelectItem>
-                      <SelectItem value="4">4 Participants</SelectItem>
-                      <SelectItem value="5">5 Participants</SelectItem>
-                      <SelectItem value="6">6 Participants</SelectItem>
-                      <SelectItem value="7">7 Participants</SelectItem>
-                      <SelectItem value="8">8 Participants</SelectItem>
-                      <SelectItem value="10">10 Participants</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="minTeamSize">Minimum Team Participants</Label>
+                    <Select value={minTeamSize || "2"} onValueChange={(val) => setMinTeamSize(val)}>
+                      <SelectTrigger id="minTeamSize">
+                        <SelectValue placeholder="Select min team size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 Participant</SelectItem>
+                        <SelectItem value="2">2 Participants</SelectItem>
+                        <SelectItem value="3">3 Participants</SelectItem>
+                        <SelectItem value="4">4 Participants</SelectItem>
+                        <SelectItem value="5">5 Participants</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="maxTeamSize">Maximum Team Participants</Label>
+                    <Select value={maxTeamSize || "4"} onValueChange={(val) => setMaxTeamSize(val)}>
+                      <SelectTrigger id="maxTeamSize">
+                        <SelectValue placeholder="Select max team size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="2">2 Participants</SelectItem>
+                        <SelectItem value="3">3 Participants</SelectItem>
+                        <SelectItem value="4">4 Participants</SelectItem>
+                        <SelectItem value="5">5 Participants</SelectItem>
+                        <SelectItem value="6">6 Participants</SelectItem>
+                        <SelectItem value="7">7 Participants</SelectItem>
+                        <SelectItem value="8">8 Participants</SelectItem>
+                        <SelectItem value="10">10 Participants</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               )}
             </div>

@@ -14,7 +14,7 @@ export const roundSchema = z.object({
   submissionType: z.string().optional().default("FILE"),
 });
 
-export const createEventSchema = z.object({
+const baseEventSchema = z.object({
   name: z.string().min(3),
   description: z.string().optional(),
   rules: z.string().optional().nullable(),
@@ -22,8 +22,8 @@ export const createEventSchema = z.object({
   endTime: z.string(),
   status: z.nativeEnum(EventStatus).optional(),
   registrationType: z.enum(["INDIVIDUAL", "TEAM"]).optional(),
-  minTeamSize: z.number().int().min(1).optional().nullable(),
-  maxTeamSize: z.number().int().min(1).optional().nullable(),
+  minTeamSize: z.number().int().min(1, "Minimum team size must be at least 1").optional().nullable(),
+  maxTeamSize: z.number().int().min(1, "Maximum team size must be at least 1").optional().nullable(),
   registrationStart: z.string().optional().nullable(),
   registrationEnd: z.string().optional().nullable(),
   registrationConfig: z.record(z.any()).optional().nullable(),
@@ -34,7 +34,22 @@ export const createEventSchema = z.object({
   rounds: z.array(roundSchema).optional(),
 });
 
-export const updateEventSchema = createEventSchema.partial();
+const validateTeamLimits = (data: any) => {
+  if (data.minTeamSize != null && data.minTeamSize < 1) return false;
+  if (data.maxTeamSize != null && data.maxTeamSize < 1) return false;
+  if (data.minTeamSize != null && data.maxTeamSize != null && data.maxTeamSize < data.minTeamSize) return false;
+  return true;
+};
+
+export const createEventSchema = baseEventSchema.refine(validateTeamLimits, {
+  message: "Maximum team participants must be greater than or equal to minimum team participants, and both must be at least 1",
+  path: ["maxTeamSize"]
+});
+
+export const updateEventSchema = baseEventSchema.partial().refine(validateTeamLimits, {
+  message: "Maximum team participants must be greater than or equal to minimum team participants, and both must be at least 1",
+  path: ["maxTeamSize"]
+});
 
 export const addEventTeamMemberSchema = z.object({
   userId: z.string().uuid(),
@@ -44,4 +59,3 @@ export const addEventTeamMemberSchema = z.object({
 export const updateEventTeamMemberSchema = z.object({
   responsibility: z.string().min(1).max(100),
 });
-

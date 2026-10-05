@@ -100,9 +100,10 @@ export class SubmissionService {
           include: { role: true }
         });
         if (membership && membership.status === "ACTIVE") {
-          isOrgStaff = true;
           const roleName = membership?.role?.name?.toLowerCase() || "";
-          const isJudgeOnly = roleName.includes("judge") && !roleName.includes("admin") && !roleName.includes("manager");
+          const isStaffRole = roleName.includes("admin") || roleName.includes("manager") || roleName.includes("coordinator") || roleName.includes("sudo");
+          isOrgStaff = isStaffRole;
+          const isJudgeOnly = roleName.includes("judge") && !isStaffRole;
           if (isJudgeOnly && !isJudge) {
             throw { status: 403, code: "FORBIDDEN", message: "You are not assigned to view this submission." };
           }

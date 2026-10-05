@@ -112,24 +112,38 @@ export class EventService {
       rounds: mergedRounds,
     });
 
-    if (eventData.maxTeamSize !== undefined && eventData.maxTeamSize !== null) {
-      const newMax = Number(eventData.maxTeamSize);
-      const existingTeams = await prisma.team.findMany({
-        where: { competition: { eventId: id } },
-        include: { members: true }
-      });
-      let maxExistingSize = 0;
+    // Validate min/max team sizes if registrationType is TEAM or team sizes provided
+    const targetMin = eventData.minTeamSize !== undefined && eventData.minTeamSize !== null ? Number(eventData.minTeamSize) : (existingEvent.minTeamSize ?? 1);
+    const targetMax = eventData.maxTeamSize !== undefined && eventData.maxTeamSize !== null ? Number(eventData.maxTeamSize) : (existingEvent.maxTeamSize ?? 4);
+
+    if (targetMin < 1 || targetMax < 1) {
+      throw { status: 400, code: "VALIDATION_ERROR", message: "Minimum and maximum team participants must be at least 1." };
+    }
+    if (targetMax < targetMin) {
+      throw { status: 400, code: "VALIDATION_ERROR", message: "Maximum team participants must be greater than or equal to minimum team participants." };
+    }
+
+    const existingTeams = await prisma.team.findMany({
+      where: { competition: { eventId: id } },
+      include: { members: true }
+    });
+
+    if (existingTeams.length > 0) {
       for (const t of existingTeams) {
-        if (t.members.length > maxExistingSize) {
-          maxExistingSize = t.members.length;
+        if (t.members.length > targetMax) {
+          throw {
+            status: 400,
+            code: "TEAM_SIZE_REDUCTION_INVALID",
+            message: `Cannot reduce maximum team size to ${targetMax} because an existing registered team '${t.name}' contains ${t.members.length} participants.`
+          };
         }
-      }
-      if (maxExistingSize > newMax) {
-        throw {
-          status: 400,
-          code: "TEAM_SIZE_REDUCTION_INVALID",
-          message: `Cannot reduce the team size to ${newMax} because existing registered teams contain up to ${maxExistingSize} participants.`
-        };
+        if (t.members.length < targetMin) {
+          throw {
+            status: 400,
+            code: "TEAM_SIZE_INCREASE_INVALID",
+            message: `Cannot increase minimum team size to ${targetMin} because an existing registered team '${t.name}' contains only ${t.members.length} participants.`
+          };
+        }
       }
     }
 

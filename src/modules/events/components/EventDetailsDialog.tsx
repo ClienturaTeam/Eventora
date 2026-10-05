@@ -168,11 +168,11 @@ export function EventDetailsDialog({
           <div className="flex items-start gap-3">
             <Users className="h-5 w-5 text-primary mt-0.5" />
             <div>
-              <p className="text-xs font-medium text-muted-foreground">Registration Type</p>
+              <p className="text-xs font-medium text-muted-foreground">Team Size</p>
               <p className="text-sm font-semibold">
                 {event.registrationType === "TEAM"
-                  ? `Team (${event.minTeamSize || 1}-${event.maxTeamSize || 4} members)`
-                  : "Individual"}
+                  ? `${event.minTeamSize || 2} – ${event.maxTeamSize || 4} Participants`
+                  : "Individual Registration"}
               </p>
             </div>
           </div>

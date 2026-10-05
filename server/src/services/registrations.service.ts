@@ -99,6 +99,23 @@ export class RegistrationService {
         throw { status: 400, code: "REGISTRATION_UNAVAILABLE", message: `Registration is unavailable for ${event.status.toLowerCase()} events.` };
       }
 
+      const minSize = event.minTeamSize ?? 1;
+      const maxSize = event.maxTeamSize ?? 4;
+      if (totalMembers < minSize) {
+        throw {
+          status: 400,
+          code: "VALIDATION_ERROR",
+          message: `At least ${minSize} participant${minSize > 1 ? 's are' : ' is'} required for this event.`
+        };
+      }
+      if (totalMembers > maxSize) {
+        throw {
+          status: 400,
+          code: "VALIDATION_ERROR",
+          message: `This event allows a maximum of ${maxSize} participant${maxSize > 1 ? 's' : ''} per team.`
+        };
+      }
+
       eventId = event.id;
 
       if (!competitionId) {

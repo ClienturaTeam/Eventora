@@ -40,6 +40,7 @@ export function ManagerEventDialog({ open, onOpenChange, event }: EventDialogPro
   const [endTime, setEndTime] = useState("");
   const [status, setStatus] = useState("DRAFT");
   const [facultyCoordinatorId, setFacultyCoordinatorId] = useState<string>("none");
+  const [minTeamSize, setMinTeamSize] = useState<number>(2);
   const [maxTeamSize, setMaxTeamSize] = useState<number>(4);
   const [rounds, setRounds] = useState<RoundItem[]>([]);
 
@@ -69,6 +70,7 @@ export function ManagerEventDialog({ open, onOpenChange, event }: EventDialogPro
       setStartTime(event.startTime ? event.startTime.slice(0, 16) : "");
       setEndTime(event.endTime ? event.endTime.slice(0, 16) : "");
       setStatus(event.status);
+      setMinTeamSize(event.minTeamSize ?? 2);
       setMaxTeamSize(event.maxTeamSize ?? 4);
       const fc = event.teamMembers?.find((tm: any) => tm.responsibility === "Faculty Coordinator");
       setFacultyCoordinatorId(fc ? fc.userId : "none");
@@ -95,6 +97,7 @@ export function ManagerEventDialog({ open, onOpenChange, event }: EventDialogPro
       setStartTime("");
       setEndTime("");
       setStatus("DRAFT");
+      setMinTeamSize(2);
       setMaxTeamSize(4);
       setFacultyCoordinatorId("none");
       setRounds([
@@ -242,12 +245,22 @@ export function ManagerEventDialog({ open, onOpenChange, event }: EventDialogPro
         }
       }
 
+      if (Number(minTeamSize) < 1) {
+        toast.error("Minimum team participants must be at least 1.");
+        return;
+      }
+      if (Number(maxTeamSize) < Number(minTeamSize)) {
+        toast.error("Maximum team participants must be greater than or equal to minimum team participants.");
+        return;
+      }
+
       const payload = {
         name,
         ...(description ? { description } : {}),
         startTime: new Date(startTime).toISOString(),
         endTime: new Date(endTime).toISOString(),
         status,
+        minTeamSize: Number(minTeamSize),
         maxTeamSize: Number(maxTeamSize),
         registrationType: "TEAM",
         ...(facultyCoordinatorId !== "none" ? { facultyCoordinatorId } : {}),
@@ -332,21 +345,37 @@ export function ManagerEventDialog({ open, onOpenChange, event }: EventDialogPro
                 </Select>
               </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="ev-team-size">Team Size / Maximum Team Participants</Label>
-                <Select value={String(maxTeamSize)} onValueChange={(val) => setMaxTeamSize(Number(val))}>
-                  <SelectTrigger id="ev-team-size"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="2">2 Participants</SelectItem>
-                    <SelectItem value="3">3 Participants</SelectItem>
-                    <SelectItem value="4">4 Participants</SelectItem>
-                    <SelectItem value="5">5 Participants</SelectItem>
-                    <SelectItem value="6">6 Participants</SelectItem>
-                    <SelectItem value="7">7 Participants</SelectItem>
-                    <SelectItem value="8">8 Participants</SelectItem>
-                    <SelectItem value="10">10 Participants</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="ev-min-team-size">Minimum Team Participants</Label>
+                  <Select value={String(minTeamSize)} onValueChange={(val) => setMinTeamSize(Number(val))}>
+                    <SelectTrigger id="ev-min-team-size"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 Participant</SelectItem>
+                      <SelectItem value="2">2 Participants</SelectItem>
+                      <SelectItem value="3">3 Participants</SelectItem>
+                      <SelectItem value="4">4 Participants</SelectItem>
+                      <SelectItem value="5">5 Participants</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="ev-max-team-size">Maximum Team Participants</Label>
+                  <Select value={String(maxTeamSize)} onValueChange={(val) => setMaxTeamSize(Number(val))}>
+                    <SelectTrigger id="ev-max-team-size"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2">2 Participants</SelectItem>
+                      <SelectItem value="3">3 Participants</SelectItem>
+                      <SelectItem value="4">4 Participants</SelectItem>
+                      <SelectItem value="5">5 Participants</SelectItem>
+                      <SelectItem value="6">6 Participants</SelectItem>
+                      <SelectItem value="7">7 Participants</SelectItem>
+                      <SelectItem value="8">8 Participants</SelectItem>
+                      <SelectItem value="10">10 Participants</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
