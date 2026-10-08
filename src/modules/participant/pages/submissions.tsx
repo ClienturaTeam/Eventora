@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { getApiBaseUrl } from "@/lib/api-client";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -142,7 +143,7 @@ export function ParticipantSubmissionsPage() {
     if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://") || fileUrl.startsWith("blob:") || fileUrl.startsWith("data:")) {
       return fileUrl;
     }
-    const apiBase = import.meta.env['VITE_API_URL'] || "http://localhost:3000/api/v1";
+    const apiBase = getApiBaseUrl();
     const backendOrigin = apiBase.replace(/\/api\/v1\/?$/, "");
     const normalizedPath = fileUrl.startsWith("/") ? fileUrl : `/${fileUrl}`;
     return `${backendOrigin}${normalizedPath}`;

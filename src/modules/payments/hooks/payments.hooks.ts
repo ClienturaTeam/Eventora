@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchApi } from "@/lib/api-client";
+import { fetchApi, getApiBaseUrl } from "@/lib/api-client";
 
 export const useSubscriptionPlans = () => {
   return useQuery({
@@ -112,7 +112,7 @@ export const useRefundPayment = () => {
 
 export const exportPaymentsCSV = async () => {
   const token = localStorage.getItem("ascent_token");
-  const response = await fetch(`${import.meta.env['VITE_API_URL'] || "http://localhost:3000/api/v1"}/payments/export?format=csv`, {
+  const response = await fetch(`${getApiBaseUrl()}/payments/export?format=csv`, {
     headers: {
       Authorization: `Bearer ${token}`,
       "x-organization-id": localStorage.getItem("ascent_active_org") || "",

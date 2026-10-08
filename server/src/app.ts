@@ -6,14 +6,28 @@ import rateLimit from "express-rate-limit";
 export const app = express();
 
 // Security middlewares
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false }));
 const allowedOrigins = [
   process.env.FRONTEND_URL || "http://localhost:8081",
   "http://localhost:8080",
   "http://localhost:8082",
   "http://localhost:8083"
 ];
-app.use(cors({ origin: allowedOrigins, credentials: true }));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps/curl) or local/LAN network requests in development
+      if (!origin || process.env.NODE_ENV !== "production") {
+        return callback(null, true);
+      }
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        return callback(null, true);
+      }
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  })
+);
 
 // Rate limiting
 const limiter = rateLimit({

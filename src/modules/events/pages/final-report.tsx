@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getApiBaseUrl } from "@/lib/api-client";
 import { useParams, Link } from "@tanstack/react-router";
 import { useEvent, useExecutionSummary } from "../services/events.api";
 import {
@@ -161,7 +162,7 @@ export function FinalReportPage({ eventId }: { eventId?: string }) {
     try {
       const token = localStorage.getItem('ascent_token');
       const activeOrgId = localStorage.getItem('ascent_active_org');
-      const baseUrl = import.meta.env['VITE_API_URL'] || 'http://localhost:3000/api/v1';
+      const baseUrl = getApiBaseUrl();
       
       const res = await fetch(`${baseUrl}/events/${id}/final-report/pdf`, {
         headers: {

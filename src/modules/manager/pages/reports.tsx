@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { getApiBaseUrl } from "@/lib/api-client";
 import { Link } from "@tanstack/react-router";
 import {
   useManagerReports,
@@ -159,7 +160,7 @@ export function ManagerReportsPage() {
     setExportingCategory(category);
     try {
       const token = localStorage.getItem("ascent_token");
-      const baseUrl = import.meta.env["VITE_API_URL"] || "http://localhost:3000/api/v1";
+      const baseUrl = getApiBaseUrl();
       const response = await fetch(`${baseUrl}/reports/${category}/export?format=csv`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -191,7 +192,7 @@ export function ManagerReportsPage() {
     try {
       toast.loading(`Generating official PDF dossier for ${eventName}...`, { id: `pdf-${eventId}` });
       const token = localStorage.getItem("ascent_token");
-      const baseUrl = import.meta.env["VITE_API_URL"] || "http://localhost:3000/api/v1";
+      const baseUrl = getApiBaseUrl();
       const activeOrgId = localStorage.getItem("ascent_active_org") || "";
 
       const response = await fetch(`${baseUrl}/events/${eventId}/final-report/pdf`, {
