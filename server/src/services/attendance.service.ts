@@ -97,7 +97,7 @@ export class AttendanceService {
         throw { status: 400, code: "DUPLICATE", message: "Already checked in." };
       }
 
-      return await AttendanceRepository.checkIn(tenantId, decoded.sessionId, userId, AttendanceMethod.QR_CODE, AttendanceStatus.PRESENT);
+      return await AttendanceRepository.checkIn(tenantId, decoded.sessionId, userId, AttendanceMethod.QR, AttendanceStatus.PRESENT);
     } catch (err: any) {
       if (err.name === "TokenExpiredError") {
         throw { status: 400, code: "EXPIRED", message: "QR code has expired." };

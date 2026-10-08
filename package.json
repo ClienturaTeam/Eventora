@@ -15,7 +15,9 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
-    "sync:events-complete-permission": "tsx prisma/scripts/sync-events-complete-permission.ts"
+    "sync:events-complete-permission": "tsx prisma/scripts/sync-events-complete-permission.ts",
+    "test:smoke": "tsx scripts/smoke-test.ts",
+    "test:stress": "tsx scripts/stress-test-multi-event.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

@@ -52,9 +52,9 @@ export function PageHeader({
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:flex lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <h1 className="text-display text-2xl font-semibold">{title}</h1>
+          <h1 className="text-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{title}</h1>
           {description ? (
-            <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">{description}</p>
+            <p className="mt-1.5 max-w-3xl text-sm text-muted-foreground/90 leading-relaxed">{description}</p>
           ) : null}
           {meta ? <div className="mt-3 flex flex-wrap items-center gap-2">{meta}</div> : null}
         </div>
