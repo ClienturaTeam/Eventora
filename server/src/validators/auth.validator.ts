@@ -5,7 +5,13 @@ export const registerSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters long"),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
-  mobileNumber: z.string().optional(),
+  mobileNumber: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || /^\d{10}$/.test(val.trim()),
+      "Mobile number must contain exactly 10 digits"
+    ),
   role: z.string().optional(),
 });
 

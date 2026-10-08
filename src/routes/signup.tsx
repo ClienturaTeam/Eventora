@@ -38,8 +38,8 @@ const signupSchema = z
       .string()
       .optional()
       .refine(
-        (val) => !val || /^[0-9+\s-]{10,15}$/.test(val),
-        "Please enter a valid mobile number (10-15 digits)"
+        (val) => !val || /^\d{10}$/.test(val.trim()),
+        "Phone number must contain exactly 10 digits"
       ),
     password: z.string().min(8, "Password must be at least 8 characters long"),
     confirmPassword: z.string().min(8, "Password confirmation is required"),
@@ -177,10 +177,11 @@ function SignupPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="mobileNumber">Mobile Number (Optional)</Label>
+              <Label htmlFor="mobileNumber">Mobile Number (10 Digits, Optional)</Label>
               <Input
                 id="mobileNumber"
                 type="tel"
+                maxLength={10}
                 placeholder="9876543210"
                 {...register("mobileNumber")}
                 disabled={isLoading}

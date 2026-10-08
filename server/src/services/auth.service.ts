@@ -12,6 +12,10 @@ export class AuthService {
       throw { status: 400, code: "USER_EXISTS", message: "Email is already registered" };
     }
 
+    if (data.mobileNumber && !/^\d{10}$/.test(data.mobileNumber.trim())) {
+      throw { status: 400, code: "INVALID_MOBILE_NUMBER", message: "Mobile number must contain exactly 10 digits" };
+    }
+
     const passwordHash = await bcrypt.hash(data.password, 10);
     
     // Find default organization and Participant role

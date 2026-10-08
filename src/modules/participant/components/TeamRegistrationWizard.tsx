@@ -135,6 +135,11 @@ export function TeamRegistrationWizard({
         return false;
       }
 
+      if (m.contactNumber && !/^\d{10}$/.test(m.contactNumber.trim())) {
+        toast.error(`Phone number for ${memberIndexStr} must contain exactly 10 digits.`);
+        return false;
+      }
+
       const lowerEmail = m.email.trim().toLowerCase();
       if (lowerEmail === leaderEmail.toLowerCase()) {
         toast.error(`${memberIndexStr} cannot use the Team Leader's email.`);
@@ -410,16 +415,18 @@ export function TeamRegistrationWizard({
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[11px]">Phone Number</Label>
+                          <Label className="text-[11px]">Phone Number (10 digits)</Label>
                           <Input
+                            type="tel"
+                            maxLength={10}
                             value={member.contactNumber}
                             onChange={(e) => {
-                              const val = e.target.value;
+                              const val = e.target.value.replace(/\D/g, "").slice(0, 10);
                               setAdditionalMembers((prev) =>
                                 prev.map((item, i) => (i === idx ? { ...item, contactNumber: val } : item))
                               );
                             }}
-                            placeholder="+91 9876543210"
+                            placeholder="9876543210"
                             className="h-8 text-xs"
                           />
                         </div>
