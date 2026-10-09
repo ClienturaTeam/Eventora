@@ -41,10 +41,14 @@ export function WinnerSelectionPage() {
     feedbacks: [],
   });
 
-  const handleConfirmSingle = async (teamId: string, teamName: string) => {
-    const allocation = allocations[teamId];
-    if (!allocation || !allocation.position) {
-      toast.error(`Please select a position for ${teamName} before confirming.`);
+  const handleConfirmSingle = async (
+    teamId: string,
+    teamName: string,
+    fallbackAlloc?: { position: string; prizeAmount: number }
+  ) => {
+    const allocation = allocations[teamId] || fallbackAlloc;
+    if (!allocation || !allocation.position || allocation.position === "NONE") {
+      toast.error(`Please select a valid position for ${teamName} before confirming.`);
       return;
     }
 
@@ -65,24 +69,25 @@ export function WinnerSelectionPage() {
   };
 
   const handleConfirmAll = async () => {
-    const assignedTeams = Object.keys(allocations).filter((tid) => {
-      const a = allocations[tid];
-      return a && a.position && a.position !== "NONE";
-    });
-
-    if (assignedTeams.length === 0) {
-      toast.error("Please allocate at least one podium position before confirming.");
+    if (!finalists || finalists.length === 0) {
+      toast.error("No finalists available to confirm.");
       return;
     }
 
     let successCount = 0;
-    for (const teamId of assignedTeams) {
-      const alloc = allocations[teamId];
-      if (!alloc) continue;
+    for (let idx = 0; idx < finalists.length; idx++) {
+      const finalist = finalists[idx];
+      const alloc = allocations[finalist.teamId] || {
+        position: finalist.existingWinner?.position || (idx === 0 ? "FIRST_PRIZE" : idx === 1 ? "SECOND_PRIZE" : "FINALIST"),
+        prizeAmount: finalist.existingWinner?.prize?.value ?? (idx === 0 ? 50000 : idx === 1 ? 25000 : 0),
+      };
+
+      if (!alloc || !alloc.position || alloc.position === "NONE") continue;
+
       try {
         await publishResult.mutateAsync({
           competitionId: activeCompId,
-          teamId,
+          teamId: finalist.teamId,
           resultType: alloc.position,
           prizeAmount: alloc.prizeAmount || 0,
           currency: "INR",
@@ -97,6 +102,8 @@ export function WinnerSelectionPage() {
       toast.success(`Confirmed and published results for ${successCount} finalists!`);
       refetchFinalists();
       navigate({ to: "/winners" });
+    } else {
+      toast.error("Please allocate at least one podium position before confirming.");
     }
   };
 
@@ -298,7 +305,7 @@ export function WinnerSelectionPage() {
                         <Button
                           size="sm"
                           className="h-8 bg-primary hover:bg-primary/90 text-xs font-medium"
-                          onClick={() => handleConfirmSingle(finalist.teamId, finalist.teamName)}
+                          onClick={() => handleConfirmSingle(finalist.teamId, finalist.teamName, currentAlloc)}
                           disabled={publishResult.isPending}
                         >
                           Assign Position

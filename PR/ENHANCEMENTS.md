@@ -6,7 +6,7 @@ This document outlines the complete list of system enhancements, architectural u
 
 ## 📁 Table of Contents
 
-1. [Role-Based Access Control (RBAC) & Security Enhancements](#1--role-based-access-control-rbac--security-enhancements)
+1. [Role-Based Access Control (RBAC) & Security Enhancements](#1--role-based-access-control-rbac--security-enhancements) 
 2. [AI & Intelligent Automation Enhancements](#2--ai--intelligent-automation-enhancements)
 3. [Real-Time Collaboration & Notification Engine](#3--real-time-collaboration--notification-engine)
 4. [Live Judging, Evaluation & Scoring Matrix](#4--live-judging-evaluation--scoring-matrix)

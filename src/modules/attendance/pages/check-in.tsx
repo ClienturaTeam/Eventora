@@ -39,8 +39,8 @@ export function AttendeeCheckInPage() {
         crumbs={[{ label: "Event Operations" }, { label: "Attendance" }, { label: "Check-in" }]}
       />
 
-      <div className="max-w-md mx-auto mt-12">
-        <SectionCard title="Attendance Status" className="text-center p-8">
+      <div className="max-w-md mx-auto mt-6 sm:mt-12 px-1">
+        <SectionCard title="Attendance Status" className="text-center p-4 sm:p-8">
           {status === "loading" && (
             <div className="flex flex-col items-center gap-4 py-8">
               <Loader2 className="h-12 w-12 animate-spin text-primary" />

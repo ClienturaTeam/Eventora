@@ -201,9 +201,9 @@ function ReportsPage() {
           title="Report Data Preview & Export"
           description="Select a report type to preview live datasets and download CSV exports."
           actions={
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               <Select value={selectedReport} onValueChange={setSelectedReport}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue placeholder="Select report type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -212,7 +212,7 @@ function ReportsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button onClick={handleExport} disabled={isExporting || data.length === 0}>
+              <Button onClick={handleExport} disabled={isExporting || data.length === 0} className="w-full sm:w-auto">
                 {isExporting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
                 Export CSV
               </Button>
@@ -228,8 +228,8 @@ function ReportsPage() {
               description="There is no data available for this report type."
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
+            <div className="overflow-x-auto scrollbar-thin">
+              <table className="w-full min-w-[500px] text-sm text-left">
                 <thead className="bg-muted/50 border-b border-border">
                   <tr>
                     <th className="px-5 py-3 font-medium text-muted-foreground">ID / Name</th>

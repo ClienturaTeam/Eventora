@@ -69,13 +69,13 @@ export function LandingPage() {
     <div className="min-h-screen bg-[#030712] font-sans text-slate-300 selection:bg-blue-500/30 overflow-x-hidden">
       {/* Header */}
       <header
-        className={`fixed inset-x-0 top-0 z-50 flex items-center justify-between px-6 py-4 transition-all duration-300 md:px-12 ${
+        className={`fixed inset-x-0 top-0 z-50 flex items-center justify-between px-4 py-3 sm:px-6 md:px-12 transition-all duration-300 ${
           isScrolled
             ? "bg-[#030712]/90 shadow-2xl shadow-blue-950/20 backdrop-blur-xl border-b border-slate-800/80"
             : "bg-transparent border-b border-transparent"
         }`}
       >
-        <ClienturaLogo size="lg" variant="dark" />
+        <ClienturaLogo size="md" variant="dark" />
 
         <nav className="hidden items-center gap-8 md:flex">
           <a href="#features" className="text-sm font-medium text-slate-300 transition-colors hover:text-blue-400">
@@ -92,21 +92,21 @@ export function LandingPage() {
           </a>
         </nav>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           {isAuthenticated ? (
-            <Button asChild className="rounded-full bg-blue-600 px-6 font-semibold text-white shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-500 hover:shadow-blue-500/40">
+            <Button asChild size="sm" className="rounded-full bg-blue-600 px-4 sm:px-6 font-semibold text-xs sm:text-sm text-white shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-500 hover:shadow-blue-500/40">
               <Link to={dashboardUrl}>
-                Go to Dashboard
-                <ArrowRight className="ml-2 h-4 w-4" />
+                Dashboard
+                <ArrowRight className="ml-1.5 h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Link>
             </Button>
           ) : (
             <>
-              <Button asChild variant="ghost" className="hidden font-medium text-slate-300 hover:text-white hover:bg-white/10 md:inline-flex">
+              <Button asChild variant="ghost" size="sm" className="font-medium text-xs sm:text-sm text-slate-300 hover:text-white hover:bg-white/10 px-2.5 sm:px-4">
                 <Link to="/login">Sign In</Link>
               </Button>
-              <Button asChild className="rounded-full bg-blue-600 px-6 font-semibold text-white shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-500 hover:shadow-blue-500/40">
-                <Link to="/signup">Participant Register</Link>
+              <Button asChild size="sm" className="rounded-full bg-blue-600 px-3.5 sm:px-6 font-semibold text-xs sm:text-sm text-white shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-500 hover:shadow-blue-500/40">
+                <Link to="/signup">Register</Link>
               </Button>
             </>
           )}
@@ -114,44 +114,44 @@ export function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden pt-32 pb-24 lg:pt-44 lg:pb-32">
+      <section className="relative overflow-hidden pt-24 pb-16 sm:pt-32 sm:pb-24 lg:pt-44 lg:pb-32">
         {/* Subtle Ambient Background Effects */}
         <div className="absolute top-1/4 -left-32 h-[600px] w-[600px] rounded-full bg-blue-600/10 blur-[150px] pointer-events-none" />
         <div className="absolute top-1/3 -right-32 h-[600px] w-[600px] rounded-full bg-purple-600/10 blur-[150px] pointer-events-none" />
 
-        <div className="container relative mx-auto px-6 md:px-12 lg:grid lg:grid-cols-12 lg:gap-12 lg:items-center">
+        <div className="container relative mx-auto px-4 sm:px-6 md:px-12 lg:grid lg:grid-cols-12 lg:gap-12 lg:items-center">
           {/* Hero Content Left */}
-          <div className="lg:col-span-6 text-center lg:text-left space-y-8">
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-1.5 text-xs font-semibold text-blue-400 backdrop-blur-md">
+          <div className="lg:col-span-6 text-center lg:text-left space-y-6 sm:space-y-8">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-3.5 py-1 sm:px-4 sm:py-1.5 text-xs font-semibold text-blue-400 backdrop-blur-md">
               <Sparkles className="h-3.5 w-3.5 text-amber-400 animate-spin-slow" />
               <span>Eventora 2.0 · Powered by Clientura Platform</span>
             </div>
 
-            <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl leading-[1.15]">
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.15]">
               Manage Every Event. <br />
               <span className="bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">
                 From Proposal to Impact.
               </span>
             </h1>
 
-            <p className="text-lg text-slate-400 sm:text-xl max-w-xl mx-auto lg:mx-0 font-normal leading-relaxed">
+            <p className="text-base sm:text-lg lg:text-xl text-slate-400 max-w-xl mx-auto lg:mx-0 font-normal leading-relaxed">
               Plan, approve, organize, execute, and report your events and hackathons from one centralized, enterprise-grade platform.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-2">
               {isAuthenticated ? (
-                <Button asChild size="lg" className="h-14 rounded-full bg-blue-600 px-8 text-base font-semibold text-white shadow-xl shadow-blue-600/30 hover:bg-blue-500 hover:shadow-blue-500/50">
+                <Button asChild size="lg" className="h-12 sm:h-14 w-full sm:w-auto rounded-full bg-blue-600 px-8 text-sm sm:text-base font-semibold text-white shadow-xl shadow-blue-600/30 hover:bg-blue-500 hover:shadow-blue-500/50">
                   <Link to={dashboardUrl}>
                     Go to Dashboard
-                    <ArrowRight className="ml-2 h-5 w-5" />
+                    <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
                   </Link>
                 </Button>
               ) : (
                 <>
-                  <Button asChild size="lg" className="h-14 rounded-full bg-blue-600 px-8 text-base font-semibold text-white shadow-xl shadow-blue-600/30 hover:bg-blue-500 hover:shadow-blue-500/50">
-                    <Link to="/signup">Participant Register</Link>
+                  <Button asChild size="lg" className="h-12 sm:h-14 w-full sm:w-auto rounded-full bg-blue-600 px-8 text-sm sm:text-base font-semibold text-white shadow-xl shadow-blue-600/30 hover:bg-blue-500 hover:shadow-blue-500/50">
+                    <Link to="/signup">Get Started Free</Link>
                   </Button>
-                  <Button asChild size="lg" variant="outline" className="h-14 rounded-full border-slate-700/80 bg-slate-900/60 px-8 text-base font-semibold text-white backdrop-blur-md hover:bg-slate-800 hover:text-white">
+                  <Button asChild size="lg" variant="outline" className="h-12 sm:h-14 w-full sm:w-auto rounded-full border-slate-700/80 bg-slate-900/60 px-8 text-sm sm:text-base font-semibold text-white backdrop-blur-md hover:bg-slate-800 hover:text-white">
                     <Link to="/login">Sign In</Link>
                   </Button>
                 </>
@@ -159,14 +159,14 @@ export function LandingPage() {
             </div>
 
             {/* Metrics Bar */}
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-slate-800/80 text-left">
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-6 border-t border-slate-800/80 text-center sm:text-left">
               <div>
-                <p className="text-2xl font-bold text-white">100+</p>
-                <p className="text-xs text-slate-400">Events Managed</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">100+</p>
+                <p className="text-[11px] sm:text-xs text-slate-400">Events Managed</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">15,000+</p>
-                <p className="text-xs text-slate-400">Active Participants</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">15,000+</p>
+                <p className="text-[11px] sm:text-xs text-slate-400">Active Attendees</p>
               </div>
               <div>
                 <p className="text-2xl font-bold text-white">100%</p>

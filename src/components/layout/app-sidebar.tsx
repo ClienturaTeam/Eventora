@@ -5,7 +5,7 @@ import {
   HeartHandshake, LayoutDashboard,
   Sparkles, Trophy, Users, UsersRound,
   ClipboardList, Compass, Wallet, Award, Medal,
-  FilePlus2, Shield, FileCode, UserCheck
+  FilePlus2, Shield, FileCode, UserCheck, X
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
@@ -13,6 +13,8 @@ import {
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth";
 import { ClienturaLogo } from "@/components/ds/clientura-logo";
 
@@ -146,9 +148,10 @@ const participantSections = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const { user } = useAuth();
-  const collapsed = state === "collapsed";
+  const collapsed = !isMobile && state === "collapsed";
+  const showLabels = isMobile || !collapsed;
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const isActive = (url: string) => {
@@ -252,16 +255,33 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-      <SidebarHeader className="border-b border-sidebar-border px-3 py-3.5">
-        <Link to={basePath} className="flex min-w-0 items-center gap-2">
-          <ClienturaLogo size="md" showText={!collapsed} />
-        </Link>
+      <SidebarHeader className="border-b border-sidebar-border px-3.5 py-3">
+        <div className="flex items-center justify-between">
+          <Link
+            to={basePath}
+            onClick={() => { if (isMobile) setOpenMobile(false); }}
+            className="flex min-w-0 items-center gap-2"
+          >
+            <ClienturaLogo size="md" showText={showLabels} />
+          </Link>
+          {isMobile ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+              onClick={() => setOpenMobile(false)}
+              aria-label="Close menu"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          ) : null}
+        </div>
       </SidebarHeader>
 
       <SidebarContent className="scrollbar-thin">
         {sections.map((section) => (
           <SidebarGroup key={section.label}>
-            {!collapsed ? (
+            {showLabels ? (
               <SidebarGroupLabel className="text-[11px] uppercase tracking-wide">
                 {section.label}
               </SidebarGroupLabel>
@@ -271,9 +291,13 @@ export function AppSidebar() {
                 {section.items.map((item) => (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                      <Link to={item.url as any} className="flex items-center gap-2.5">
+                      <Link
+                        to={item.url as any}
+                        onClick={() => { if (isMobile) setOpenMobile(false); }}
+                        className="flex items-center gap-2.5"
+                      >
                         <item.icon className="h-4 w-4 shrink-0" />
-                        {!collapsed ? (
+                        {showLabels ? (
                           <span className="min-w-0 flex-1 truncate">{item.title}</span>
                         ) : null}
                       </Link>
@@ -286,7 +310,23 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
 
-      {!collapsed && roleName !== "Participant" && roleName !== "Manager" && roleName !== "Judge" ? (
+      {isMobile ? (
+        <SidebarFooter className="border-t border-sidebar-border p-3.5 space-y-2 bg-sidebar-accent/30">
+          <div className="flex items-center gap-2.5">
+            <Avatar className="h-8 w-8 border border-border/60">
+              <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+                {user ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase() : "U"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold text-foreground">
+                {user ? `${user.firstName} ${user.lastName}` : "User"}
+              </p>
+              <p className="truncate text-[10px] text-muted-foreground">{roleName}</p>
+            </div>
+          </div>
+        </SidebarFooter>
+      ) : !collapsed && roleName !== "Participant" && roleName !== "Manager" && roleName !== "Judge" ? (
         <SidebarFooter className="border-t border-sidebar-border p-3">
           <div className="rounded-lg border border-sidebar-border bg-sidebar-accent/60 p-3">
             <p className="text-xs font-medium">Enterprise trial</p>

@@ -27,7 +27,7 @@ export function StatCard({
 }: StatCardProps) {
   if (loading) {
     return (
-      <div className="card-surface p-5">
+      <div className="card-surface p-4 sm:p-5">
         <Skeleton className="h-4 w-24" />
         <Skeleton className="mt-4 h-8 w-32" />
         <Skeleton className="mt-4 h-3 w-full" />
@@ -42,14 +42,14 @@ export function StatCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
-      className="card-surface card-hover group relative overflow-hidden p-5 border border-border/80 shadow-xs"
+      className="card-surface card-hover group relative overflow-hidden p-4 sm:p-5 border border-border/80 shadow-xs"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
             {label}
           </p>
-          <p className="text-display mt-2 text-2xl font-bold tracking-tight tabular-nums text-foreground">{value}</p>
+          <p className="text-display mt-1.5 text-xl sm:text-2xl font-bold tracking-tight tabular-nums text-foreground">{value}</p>
         </div>
         {Icon ? (
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary shadow-xs transition-colors group-hover:bg-primary/15">

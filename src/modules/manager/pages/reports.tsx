@@ -841,21 +841,22 @@ export function ManagerReportsPage() {
               "No AI content available for this report."}
           </div>
 
-          <DialogFooter className="mt-4 flex sm:justify-between items-center">
-            <span className="text-xs text-muted-foreground font-mono">
+          <DialogFooter className="mt-4 flex flex-col-reverse sm:flex-row sm:justify-between sm:items-center gap-3">
+            <span className="text-xs text-muted-foreground font-mono text-center sm:text-left">
               Status: {selectedReportForPreview?.status || "AI_GENERATED"}
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
               <Button
                 variant="outline"
                 size="sm"
+                className="flex-1 sm:flex-none"
                 onClick={() => setSelectedReportForPreview(null)}
               >
                 Close
               </Button>
               <Button
                 size="sm"
-                className="gap-1.5"
+                className="gap-1.5 flex-1 sm:flex-none"
                 disabled={downloadingPdfId === selectedReportForPreview?.eventId}
                 onClick={() => {
                   if (selectedReportForPreview?.eventId) {

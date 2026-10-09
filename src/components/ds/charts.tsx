@@ -50,9 +50,11 @@ function ChartFrame({ children, height }: { children: React.ReactElement; height
   const hydrated = useHydrated();
   if (!hydrated) return <ChartSkeleton height={height} />;
   return (
-    <ResponsiveContainer width="100%" height={height}>
-      {children}
-    </ResponsiveContainer>
+    <div className="w-full min-w-0 overflow-hidden">
+      <ResponsiveContainer width="100%" height={height}>
+        {children}
+      </ResponsiveContainer>
+    </div>
   );
 }
 

@@ -97,7 +97,7 @@ export function QRScannerPage() {
     };
   }, [cameraMode, selectedSessionId]);
 
-  const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:8081";
+  const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:8080";
   const qrUrl = qrToken ? `${origin}/attendance/check-in?token=${qrToken}` : "";
 
   return (
@@ -158,32 +158,32 @@ export function QRScannerPage() {
         </SectionCard>
 
         <div className="flex flex-col gap-6">
-          <SectionCard title="QR Code Display" className="flex-1 flex flex-col items-center justify-center p-12 text-center border-dashed">
+          <SectionCard title="QR Code Display" className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 text-center border-dashed">
             {cameraMode ? (
               <div className="w-full max-w-md mx-auto">
-                <div id="reader"></div>
+                <div id="reader" className="overflow-hidden rounded-xl"></div>
                 <Button variant="ghost" className="mt-4" onClick={() => setCameraMode(false)}>Cancel Scanner</Button>
               </div>
             ) : qrToken ? (
               <>
-                <div className="bg-white p-6 rounded-2xl mb-6 shadow-sm">
-                  <QRCodeSVG value={qrUrl} size={256} />
+                <div className="bg-white p-4 sm:p-6 rounded-2xl mb-6 shadow-sm max-w-[260px] mx-auto">
+                  <QRCodeSVG value={qrUrl} size={200} className="w-full h-auto" />
                 </div>
-                <h3 className="text-xl font-medium mb-2">Display QR for Attendees</h3>
-                <p className="text-muted-foreground max-w-md mb-2">
+                <h3 className="text-lg sm:text-xl font-medium mb-2">Display QR for Attendees</h3>
+                <p className="text-muted-foreground max-w-md mb-2 text-xs sm:text-sm">
                   Attendees can scan this code with their mobile device to check in.
                 </p>
-                <p className="text-sm font-semibold text-primary">
+                <p className="text-xs sm:text-sm font-semibold text-primary">
                   Expires at {expiresAt?.toLocaleTimeString()}
                 </p>
               </>
             ) : (
               <>
-                <div className="bg-muted p-6 rounded-2xl mb-6">
-                  <QrCode className="w-32 h-32 opacity-20" />
+                <div className="bg-muted p-5 sm:p-6 rounded-2xl mb-6">
+                  <QrCode className="w-24 h-24 sm:w-32 sm:h-32 opacity-20" />
                 </div>
-                <h3 className="text-xl font-medium mb-2">Display QR for Attendees</h3>
-                <p className="text-muted-foreground max-w-md">
+                <h3 className="text-lg sm:text-xl font-medium mb-2">Display QR for Attendees</h3>
+                <p className="text-muted-foreground max-w-md text-xs sm:text-sm">
                   Select an event and session from the left panel to generate a unique QR code.
                   Attendees can scan this code with their mobile device to check in.
                 </p>
@@ -191,7 +191,7 @@ export function QRScannerPage() {
             )}
           </SectionCard>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="rounded-lg border border-border bg-surface p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="bg-primary/10 text-primary p-2 rounded-md">

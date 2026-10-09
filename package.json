@@ -17,7 +17,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "sync:events-complete-permission": "tsx prisma/scripts/sync-events-complete-permission.ts",
     "test:smoke": "tsx scripts/smoke-test.ts",
-    "test:stress": "tsx scripts/stress-test-multi-event.ts"
+    "test:stress": "tsx scripts/stress-test-multi-event.ts",
+    "test:routes": "tsx scripts/test-routing.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
