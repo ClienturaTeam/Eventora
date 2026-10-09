@@ -220,8 +220,8 @@ function PrivilegedAccountsPage() {
         </div>
       </div>
 
-      <div className="bg-card border rounded shadow-sm overflow-hidden">
-        <table className="w-full text-left text-sm">
+      <div className="bg-card border rounded shadow-sm overflow-x-auto scrollbar-thin">
+        <table className="w-full min-w-[500px] text-left text-sm">
           <thead className="bg-muted/50 text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Name</th>

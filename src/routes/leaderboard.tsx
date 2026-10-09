@@ -230,11 +230,11 @@ function LiveLeaderboardPage() {
           description="Scores dynamically update as judges submit criterion evaluations"
         >
           {/* Track Filter */}
-          <div className="flex items-center justify-between gap-4 pb-4 border-b border-border">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <span className="text-xs font-semibold text-muted-foreground uppercase">Filter Track:</span>
               <Select value={selectedTrack} onValueChange={setSelectedTrack}>
-                <SelectTrigger className="w-[200px] h-8 text-xs">
+                <SelectTrigger className="w-full sm:w-[200px] h-8 text-xs">
                   <SelectValue placeholder="All Competition Tracks" />
                 </SelectTrigger>
                 <SelectContent>
@@ -259,11 +259,11 @@ function LiveLeaderboardPage() {
               return (
                 <div
                   key={team.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4 px-2 hover:bg-muted/40 transition-colors rounded-lg"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 py-4 px-2 hover:bg-muted/40 transition-colors rounded-lg"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                     {/* Rank Badge */}
-                    <div className="w-24 text-center shrink-0">
+                    <div className="w-16 sm:w-24 text-center shrink-0">
                       {getRankBadge(team.rank)}
                       {rankChanged && (
                         <span
@@ -277,30 +277,30 @@ function LiveLeaderboardPage() {
                     </div>
 
                     {/* Team Details */}
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-base text-foreground">{team.name}</span>
-                        <Badge variant="outline" className="text-[10px] font-normal">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                        <span className="font-bold text-sm sm:text-base text-foreground truncate">{team.name}</span>
+                        <Badge variant="outline" className="text-[10px] font-normal shrink-0">
                           {team.track}
                         </Badge>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
                         {team.membersCount} Members · {team.judgeEvaluations} of {team.totalJudges} Judge Scores Submitted
                       </p>
                     </div>
                   </div>
 
                   {/* Score & Progress */}
-                  <div className="flex items-center gap-6 justify-between sm:justify-end">
+                  <div className="flex items-center gap-4 sm:gap-6 justify-between sm:justify-end border-t border-border/40 pt-2.5 sm:border-0 sm:pt-0">
                     <div className="text-right">
                       <div className="flex items-baseline justify-end gap-1">
-                        <span className="text-2xl font-extrabold font-mono text-primary">{team.score}</span>
+                        <span className="text-xl sm:text-2xl font-extrabold font-mono text-primary">{team.score}</span>
                         <span className="text-xs text-muted-foreground font-medium">/ 100</span>
                       </div>
                       <span className="text-[10px] text-muted-foreground block">{team.lastScoreUpdate}</span>
                     </div>
 
-                    <div className="w-24 bg-muted rounded-full h-2 overflow-hidden shrink-0">
+                    <div className="w-20 sm:w-24 bg-muted rounded-full h-2 overflow-hidden shrink-0">
                       <div
                         className="bg-primary h-full transition-all duration-500"
                         style={{ width: `${team.score}%` }}

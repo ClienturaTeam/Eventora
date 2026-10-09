@@ -59,7 +59,7 @@ export function DetailsPageTemplate({
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-6">
           <Tabs defaultValue="overview">
-            <TabsList className="w-full justify-start overflow-x-auto scrollbar-thin">
+            <TabsList className="w-full justify-start overflow-x-auto scrollbar-none flex-nowrap">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               {customTabs?.map((tab) => (
                 <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>

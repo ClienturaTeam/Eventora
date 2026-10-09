@@ -477,8 +477,8 @@ export function ManagerDashboard() {
                 </CardDescription>
               </div>
 
-              <div className="flex items-center gap-2">
-                <div className="relative w-40 sm:w-48">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-48">
                   <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                   <input
                     type="text"
@@ -488,7 +488,7 @@ export function ManagerDashboard() {
                     className="h-8 w-full rounded-md border border-border bg-background/50 pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                   />
                 </div>
-                <Button size="sm" variant="ghost" asChild className="h-8 text-xs text-primary">
+                <Button size="sm" variant="ghost" asChild className="h-8 text-xs text-primary shrink-0">
                   <Link to="/manager/events">View All</Link>
                 </Button>
               </div>

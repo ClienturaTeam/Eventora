@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -231,7 +231,7 @@ function LoginPage() {
         />
 
         {/* The Card Board */}
-        <div className="relative rounded-3xl bg-slate-900/75 backdrop-blur-2xl border border-white/12 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85),0_0_40px_-10px_rgba(59,130,246,0.18)] p-6 sm:p-8 transition-all duration-300">
+        <div className="relative rounded-3xl bg-slate-900/75 backdrop-blur-2xl border border-white/12 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85),0_0_40px_-10px_rgba(59,130,246,0.18)] p-5 sm:p-8 transition-all duration-300">
           {/* Subtle Top Border Glow Line */}
           <div className="absolute inset-x-8 top-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent pointer-events-none" />
 
@@ -473,8 +473,21 @@ function LoginPage() {
             </form>
           )}
 
+          {/* Switch to Sign Up */}
+          <div className="mt-5 pt-4 border-t border-slate-800/80 text-center">
+            <p className="text-xs text-slate-400">
+              Don't have an account?{" "}
+              <Link
+                to="/signup"
+                className="font-semibold text-blue-400 hover:text-blue-300 transition-colors hover:underline"
+              >
+                Create an Account
+              </Link>
+            </p>
+          </div>
+
           {/* Trust and Compliance Footer */}
-          <div className="mt-6 pt-4 border-t border-slate-800/80 flex flex-col items-center gap-2 text-center">
+          <div className="mt-4 pt-4 border-t border-slate-800/80 flex flex-col items-center gap-2 text-center">
             <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
               <Shield className="w-3.5 h-3.5 text-blue-400/80" />
               <span>TLS 1.3 256-Bit Encryption • SOC-2 Type II Certified</span>

@@ -173,10 +173,14 @@ export function WinnersDashboard() {
   };
 
   // Handle single team allocation confirm
-  const handleConfirmSingleResult = async (teamId: string, teamName: string) => {
-    const allocation = allocations[teamId];
-    if (!allocation || !allocation.position) {
-      toast.error(`Please select a position for ${teamName} before confirming.`);
+  const handleConfirmSingleResult = async (
+    teamId: string,
+    teamName: string,
+    fallbackAlloc?: { position: string; prizeAmount: number }
+  ) => {
+    const allocation = allocations[teamId] || fallbackAlloc;
+    if (!allocation || !allocation.position || allocation.position === "NONE") {
+      toast.error(`Please select a valid position for ${teamName} before confirming.`);
       return;
     }
 
@@ -719,7 +723,7 @@ export function WinnersDashboard() {
                             <Button
                               size="sm"
                               className="h-8 bg-primary hover:bg-primary/90 text-xs font-medium"
-                              onClick={() => handleConfirmSingleResult(finalist.teamId, finalist.teamName)}
+                              onClick={() => handleConfirmSingleResult(finalist.teamId, finalist.teamName, currentAlloc)}
                               disabled={publishResult.isPending}
                             >
                               Confirm Results & Announce

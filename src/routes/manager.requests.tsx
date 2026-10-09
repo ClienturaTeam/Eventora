@@ -45,14 +45,14 @@ function ManagerRequestsPage() {
   });
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-3.5 sm:p-6 max-w-6xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Faculty Coordinator Requests</h1>
-        <p className="text-muted-foreground mt-1">Review and manage signup requests for Faculty Coordinator accounts.</p>
+        <h1 className="text-xl sm:text-2xl font-bold">Faculty Coordinator Requests</h1>
+        <p className="text-muted-foreground mt-1 text-xs sm:text-sm">Review and manage signup requests for Faculty Coordinator accounts.</p>
       </div>
 
-      <div className="bg-card border rounded-lg shadow-sm overflow-hidden">
-        <table className="w-full text-left text-sm">
+      <div className="bg-card border rounded-lg shadow-sm overflow-x-auto scrollbar-thin">
+        <table className="w-full min-w-[620px] text-left text-sm">
           <thead className="bg-muted/50 text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Name</th>

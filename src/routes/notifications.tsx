@@ -62,7 +62,7 @@ export function NotificationsPage() {
           {notifications.map((n) => (
             <li
               key={n.id}
-              className={`grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 px-5 py-4 ${!n.isRead ? 'bg-muted/50' : ''}`}
+              className={`grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 px-3.5 py-3.5 sm:px-5 sm:py-4 ${!n.isRead ? 'bg-muted/50' : ''}`}
             >
               <div className="min-w-0">
                 <p className={`truncate text-sm ${!n.isRead ? 'font-semibold' : 'font-medium'}`}>{n.title}</p>

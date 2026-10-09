@@ -358,22 +358,23 @@ export function ListPageTemplate<T extends { id: string }>({
         </div>
       ) : null}
 
-      <div className="card-surface p-4">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 lg:flex lg:flex-wrap">
+      <div className="card-surface p-3.5 sm:p-4">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between lg:flex-wrap">
           <SearchInput
             value={query}
             onChange={setQuery}
             placeholder={`Search ${title.toLowerCase()}…`}
-            className="min-w-0 lg:w-80"
+            className="w-full sm:w-auto min-w-0 lg:w-80"
           />
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2 w-full sm:w-auto">
             <Button
               variant="outline"
               onClick={() => setShowFilters((prev) => !prev)}
               aria-expanded={showFilters}
+              className="flex-1 sm:flex-none justify-center"
             >
               <ListFilter className="h-4 w-4" />
-              <span className="hidden sm:inline">Filters</span>
+              <span>Filters</span>
               {activeFilters > 0 ? (
                 <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
                   {activeFilters}
@@ -381,7 +382,7 @@ export function ListPageTemplate<T extends { id: string }>({
               ) : null}
             </Button>
             <Select value={sortMode} onValueChange={setSortMode}>
-              <SelectTrigger className="w-[160px]" aria-label="Sort records">
+              <SelectTrigger className="flex-1 sm:w-[160px]" aria-label="Sort records">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

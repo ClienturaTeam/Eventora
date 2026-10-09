@@ -18,8 +18,8 @@ interface RouteTestResult {
 const results: RouteTestResult[] = [];
 
 // Front-end and Back-end base URLs
-const FRONTEND_BASE = "http://localhost:8081";
-const BACKEND_BASE = "http://localhost:3000/api/v1";
+const FRONTEND_BASE = process.env.FRONTEND_URL || "http://localhost:8080";
+const BACKEND_BASE = process.env.API_URL || "http://localhost:3000/api/v1";
 
 async function testRoute(
   suite: string,
