@@ -5,7 +5,7 @@
     "controller": true,
     "service": true,
     "repo": false,
-    "endpoints": 4
+    "endpoints": 5
   },
   {
     "module": "organizations",
@@ -21,7 +21,7 @@
     "controller": true,
     "service": true,
     "repo": true,
-    "endpoints": 6
+    "endpoints": 8
   },
   {
     "module": "roles",
@@ -29,7 +29,7 @@
     "controller": true,
     "service": true,
     "repo": true,
-    "endpoints": 5
+    "endpoints": 6
   },
   {
     "module": "permissions",
@@ -45,7 +45,7 @@
     "controller": true,
     "service": true,
     "repo": true,
-    "endpoints": 5
+    "endpoints": 23
   },
   {
     "module": "competitions",
@@ -53,7 +53,7 @@
     "controller": true,
     "service": true,
     "repo": true,
-    "endpoints": 5
+    "endpoints": 6
   },
   {
     "module": "registrations",
@@ -61,7 +61,7 @@
     "controller": true,
     "service": true,
     "repo": true,
-    "endpoints": 5
+    "endpoints": 6
   },
   {
     "module": "teams",
@@ -69,7 +69,7 @@
     "controller": true,
     "service": true,
     "repo": true,
-    "endpoints": 5
+    "endpoints": 8
   },
   {
     "module": "submissions",
@@ -77,7 +77,7 @@
     "controller": true,
     "service": true,
     "repo": true,
-    "endpoints": 5
+    "endpoints": 9
   },
   {
     "module": "evaluations",
@@ -93,7 +93,7 @@
     "controller": true,
     "service": true,
     "repo": true,
-    "endpoints": 3
+    "endpoints": 4
   },
   {
     "module": "mentors",
@@ -101,7 +101,7 @@
     "controller": true,
     "service": true,
     "repo": true,
-    "endpoints": 7
+    "endpoints": 13
   },
   {
     "module": "volunteers",
@@ -125,7 +125,7 @@
     "controller": true,
     "service": true,
     "repo": true,
-    "endpoints": 9
+    "endpoints": 10
   },
   {
     "module": "communications",
@@ -133,7 +133,7 @@
     "controller": true,
     "service": true,
     "repo": true,
-    "endpoints": 7
+    "endpoints": 8
   },
   {
     "module": "notifications",
@@ -141,7 +141,7 @@
     "controller": true,
     "service": true,
     "repo": true,
-    "endpoints": 4
+    "endpoints": 5
   },
   {
     "module": "winners",
@@ -149,7 +149,7 @@
     "controller": true,
     "service": true,
     "repo": true,
-    "endpoints": 6
+    "endpoints": 8
   },
   {
     "module": "badges",
@@ -189,7 +189,7 @@
     "controller": true,
     "service": true,
     "repo": true,
-    "endpoints": 9
+    "endpoints": 10
   },
   {
     "module": "sponsors",

@@ -13,14 +13,10 @@ async function run() {
 
   console.log("Logged in");
 
-  const userOrgId = loginData.data?.user?.organizationId || "org-uuid"; // We'll try to extract it from login, or hardcode the first org id if we know it. Let's just fetch /users? oh wait /users requires tenant too!
-  // Wait, let's just fetch organizations first. Oh wait, /organizations doesn't require tenant if it's the list.
-  // Actually I know the organization ID is in the JWT or user object.
-  const tenantId = loginData.data?.user?.organizationId || "org-123";
-
+  const orgId = loginData.data?.user?.organizationId || loginData.data?.user?.memberships?.[0]?.organizationId;
   const headers = { 
     Authorization: `Bearer ${token}`,
-    "x-organization-id": loginData.data?.user?.organizationId 
+    "x-organization-id": orgId 
   };
 
   const eventsRes = await fetch(`${API_URL}/events`, { headers });

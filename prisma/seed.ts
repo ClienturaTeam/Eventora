@@ -109,7 +109,7 @@ async function main() {
   }
 
   // 3. Users
-  const passwordHash = await bcrypt.hash('Password123!', 10);
+  const passwordHash = await bcrypt.hash('password123', 10);
 
   const sudoAdmin = await prisma.user.create({
     data: { email: 'sudo@ascent.com', firstName: 'Sudo', lastName: 'Admin', passwordHash, status: UserStatus.ACTIVE },

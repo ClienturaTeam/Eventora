@@ -17,17 +17,23 @@ async function run() {
   }
   console.log("Logged in successfully. Token acquired.");
 
+  const orgId = loginData.data?.user?.organizationId || loginData.data?.user?.memberships?.[0]?.organizationId;
+  const authHeaders = { 
+    Authorization: `Bearer ${token}`,
+    "x-organization-id": orgId 
+  };
+
   // Get first user
   console.log("2. Fetching users...");
   const usersRes = await fetch(`${API_URL}/users`, {
-    headers: { Authorization: `Bearer ${token}` }
+    headers: authHeaders
   });
   const usersData = await usersRes.json();
   const someUser = usersData.data[0];
 
   console.log("3. Fetching events...");
   const eventsRes = await fetch(`${API_URL}/events`, {
-    headers: { Authorization: `Bearer ${token}` }
+    headers: authHeaders
   });
   const eventsData = await eventsRes.json();
   const someEvent = eventsData.data[0];

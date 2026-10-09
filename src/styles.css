@@ -232,12 +232,11 @@
 
 @utility card-hover {
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
-}
-
-@utility card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 24px -10px oklch(0 0 0 / 0.08);
-  border-color: color-mix(in oklab, var(--color-primary) 40%, var(--color-border));
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px -10px oklch(0 0 0 / 0.08);
+    border-color: color-mix(in oklab, var(--color-primary) 40%, var(--color-border));
+  }
 }
 
 @utility glass-panel {
